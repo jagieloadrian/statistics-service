@@ -1,0 +1,8 @@
+Epidemic RPI Pico2w
+1. dodać sendera do kodu
+2. konfiguracja do sendera
+3. przemyśleć jak często to wysyłać
+
+Statistics-Service
+1. dodać doscker compose dla redisa (local i na domowy serwer)
+2.
