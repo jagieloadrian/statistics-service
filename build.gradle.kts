@@ -15,21 +15,36 @@ application {
 }
 
 dependencies {
+    //Headers
     implementation("io.ktor:ktor-server-default-headers")
+    //Core
     implementation("io.ktor:ktor-server-core")
+    implementation("io.ktor:ktor-server-netty")
+    implementation("io.ktor:ktor-serialization-kotlinx-json")
+    implementation("io.ktor:ktor-server-content-negotiation")
+    implementation("io.ktor:ktor-server-di")
+    implementation("io.ktor:ktor-server-config-yaml")
+    implementation("io.ktor:ktor-server-request-validation")
+
+    //CACHE
     implementation("com.ucasoft.ktor:ktor-simple-cache:0.55.3")
     implementation("com.ucasoft.ktor:ktor-simple-redis-cache:0.55.3")
-    implementation("io.ktor:ktor-server-request-validation")
-    implementation("io.ktor:ktor-server-call-logging")
-    implementation("io.ktor:ktor-server-call-id")
+
+    //METRICS
     implementation("dev.hayden:khealth:3.0.2")
     implementation("io.ktor:ktor-server-metrics")
-    implementation("io.ktor:ktor-server-content-negotiation")
-    implementation("io.ktor:ktor-serialization-kotlinx-json")
-    implementation("io.ktor:ktor-server-di")
-    implementation("io.ktor:ktor-server-netty")
+    implementation("io.ktor:ktor-server-call-logging")
+    implementation("io.ktor:ktor-server-call-id")
     implementation("ch.qos.logback:logback-classic:$logback_version")
-    implementation("io.ktor:ktor-server-config-yaml")
+
+
+    //TEST
     testImplementation("io.ktor:ktor-server-test-host")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version")
+
+    //Redis
+    implementation("io.lettuce:lettuce-core:7.2.1.RELEASE")
+
+    //COROUTINES
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
 }

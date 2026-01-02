@@ -1,4 +1,4 @@
-package com.anjo
+package com.anjo.service
 
 fun interface GreetingService {
     fun sayHello(): String
