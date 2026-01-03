@@ -4,6 +4,7 @@ ktor:
       - com.anjo.ApplicationKt.module
   deployment:
     port: 8080
+    environment: test
   redis:
     port: ${REDIS_PORT:6379}
     host: localhost

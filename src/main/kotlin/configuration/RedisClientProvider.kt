@@ -9,8 +9,8 @@ import java.time.Duration
 class RedisClientProvider(private val configuration: RedisConfig) {
     val client: RedisClient = run {
         val builder = RedisURI.builder()
-            .withPort(configuration.port)
             .withHost(configuration.host)
+            .withPort(configuration.port)
             .withTimeout(Duration.ofSeconds(configuration.timeout))
             .withClientName(configuration.clientName)
         if (configuration.password.isEmpty() || configuration.password.isBlank()) {

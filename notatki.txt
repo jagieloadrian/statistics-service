@@ -1,10 +1,5 @@
-Epidemic RPI Pico2w
-1. dodać sendera do kodu
-2. konfiguracja do sendera
-3. przemyśleć jak często to wysyłać
 
 Statistics-Service
-2. stworzyć kontrakt dla epidemi rpi pico2w (wrzucone w tym serwisie, wrzucić do oryginalnego projektu podobny z odnośnikiem do tego projektu)
 3. implementacja routingu i logiki
     3.3. dodatkowe implementacje (cache, monitoring i inne)
     3.2 testy

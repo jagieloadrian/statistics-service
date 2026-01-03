@@ -1,28 +1,49 @@
 package com.anjo.di
 
-import com.anjo.configuration.RedisClientProvider
-import com.anjo.model.RedisConfig
-import com.anjo.reposiotry.StatsRepositoryRedisImpl
-import com.anjo.service.GreetingService
+import com.ucasoft.ktor.simpleCache.SimpleCache
+import com.ucasoft.ktor.simpleRedisCache.redisCache
+import dev.hayden.KHealth
+import io.ktor.http.HttpHeaders
+import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
-import io.ktor.server.plugins.di.DependencyKey
-import io.ktor.server.plugins.di.dependencies
+import io.ktor.server.application.install
+import io.ktor.server.plugins.callid.CallId
+import io.ktor.server.plugins.callid.callIdMdc
+import io.ktor.server.plugins.calllogging.CallLogging
+import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.server.plugins.cors.routing.CORS
+import io.ktor.server.plugins.defaultheaders.DefaultHeaders
+import kotlin.time.Duration.Companion.seconds
 
 fun Application.configureFrameworks() {
-    val appEnv = environment
-    dependencies {
-        provide { GreetingService { "Hello, World!" } }
-        provide<RedisConfig> {
-            return@provide RedisConfig(
-                host = appEnv.config.property("redis.host").getString(),
-                port = appEnv.config.property("redis.port").getString().toInt(),
-                password = appEnv.config.property("redis.password").getString(),
-                timeout = appEnv.config.property("redis.timeout").getString().toLong(),
-                clientName = appEnv.config.property("redis.clientName").getString(),
-                ssl = appEnv.config.property("redis.ssl").getString().toBoolean(),
-            )
+    install(DefaultHeaders) {
+        header("X-Engine", "Ktor")
+    }
+    install(CORS) {
+        anyHost()
+        allowHeader(HttpHeaders.ContentType)
+    }
+    install(SimpleCache) {
+        redisCache {
+            invalidateAt = 10.seconds
+            host = "localhost"
+            port = 6379
         }
-        provide { RedisClientProvider(get(DependencyKey<RedisConfig>())) }
-        provide { StatsRepositoryRedisImpl(get(DependencyKey<RedisClientProvider>())) }
+    }
+    install(CallId) {
+        header(HttpHeaders.XRequestId)
+        verify { callId: String ->
+            callId.isNotEmpty()
+        }
+    }
+    install(KHealth) {
+        readyCheckPath = "/ready"
+        healthCheckPath = "/health"
+    }
+    install(CallLogging) {
+        callIdMdc("call-id")
+    }
+    install(ContentNegotiation) {
+        json()
     }
 }

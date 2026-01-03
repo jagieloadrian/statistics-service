@@ -1,5 +1,8 @@
+import io.ktor.plugin.OpenApiPreview
+
 val kotlin_version: String by project
 val logback_version: String by project
+val ktor_version: String by project
 
 plugins {
     kotlin("jvm") version "2.2.21"
@@ -36,15 +39,44 @@ dependencies {
     implementation("io.ktor:ktor-server-call-logging")
     implementation("io.ktor:ktor-server-call-id")
     implementation("ch.qos.logback:logback-classic:$logback_version")
-
-
-    //TEST
-    testImplementation("io.ktor:ktor-server-test-host")
-    testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version")
+    implementation("io.ktor:ktor-server-cors")
+    implementation("io.ktor:ktor-server-host-common")
+    implementation("io.ktor:ktor-server-status-pages")
 
     //Redis
     implementation("io.lettuce:lettuce-core:7.2.1.RELEASE")
 
     //COROUTINES
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.10.2")
+    runtimeOnly("org.jetbrains.kotlinx:kotlinx-coroutines-reactive:1.10.2")
+
+
+    //SZWAGIER
+    implementation("io.ktor:ktor-server-swagger:${ktor_version}")
+
+    //TESTS
+    testImplementation("io.kotest:kotest-assertions-core-jvm:6.0.7")
+    testImplementation("io.mockk:mockk-jvm:1.14.7")
+    testImplementation("io.ktor:ktor-server-test-host")
+    testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version")
+    testImplementation("org.junit.platform:junit-platform-launcher:1.14.1")
+
+    //TEST CONTAINERS
+    testImplementation("org.testcontainers:testcontainers:1.20.3")
+    testImplementation("org.testcontainers:junit-jupiter:1.20.3")
+    testImplementation("com.redis:testcontainers-redis:2.2.4")
+}
+
+tasks.withType<Test> {
+    useJUnitPlatform()
+}
+
+ktor {
+    @OptIn(OpenApiPreview::class)
+    openApi {
+        title = "StatisticsService"
+        version = "1.0"
+        description = "This is a small project to store and calculate statistics from diff sources"
+        target = project.layout.projectDirectory.dir("openapi").file("document.yaml")
+    }
 }

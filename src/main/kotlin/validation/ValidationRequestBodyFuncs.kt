@@ -8,40 +8,57 @@ fun isEpidemicValid(epidemicDto: EpidemicDto): Pair<Boolean, List<String>> {
     var result = true
     val (deviceId, runId, generation, timestamp) = epidemicDto.meta
     val (populationSize, infectionProb, infectionTtlMin, infectionTtlMax) = epidemicDto.params
-    val (susceptible, infected, recovered)= epidemicDto.state
+    val susceptible = epidemicDto.state.susceptible
 
-    if(deviceId.isEmpty() || deviceId.isBlank()) {
+    if (deviceId.isEmpty() || deviceId.isBlank()) {
         result = false
         reasons.add("Device Id or device must not be blank")
     }
 
-    validField(isGreaterThanZero(runId), "RunId $MUST_BE_GREATHER_THAN_ZERO",
-        reasons) { res -> result = res }
-    validField(isGreaterThanZero(generation), "Generation $MUST_BE_GREATHER_THAN_ZERO",
-        reasons) { res -> result = res }
-    validField(isGreaterThanZero(timestamp), "Timestamp $MUST_BE_GREATHER_THAN_ZERO",
-        reasons) { res -> result = res }
-    validField(isGreaterThanZero(populationSize), "PopulationSize $MUST_BE_GREATHER_THAN_ZERO",
-        reasons) { res -> result = res }
-    validField(isGreaterThanZero(infectionProb), "InfectionProbability $MUST_BE_GREATHER_THAN_ZERO",
-        reasons) { res -> result = res }
-    validField(isGreaterThanZero(infectionTtlMin), "InfectionTtlMin $MUST_BE_GREATHER_THAN_ZERO",
-        reasons) { res -> result = res }
-    validField(isGreaterThanZero(infectionTtlMax), "InfectionTtlMax $MUST_BE_GREATHER_THAN_ZERO",
-        reasons) { res -> result = res }
-    validField(isGreaterThanZero(susceptible), "Susceptible $MUST_BE_GREATHER_THAN_ZERO",
-        reasons) { res -> result = res }
-    validField(isGreaterThanZero(infected), "Infected $MUST_BE_GREATHER_THAN_ZERO",
-        reasons) { res -> result = res }
-    validField(isGreaterThanZero(recovered), "Recovered $MUST_BE_GREATHER_THAN_ZERO",
-        reasons) { res -> result = res }
+    validField(
+        isGreaterThanZero(runId), "RunId $MUST_BE_GREATHER_THAN_ZERO",
+        reasons
+    ) { res -> result = res }
+    validField(
+        isGreaterThanZero(generation), "Generation $MUST_BE_GREATHER_THAN_ZERO",
+        reasons
+    ) { res -> result = res }
+    validField(
+        isGreaterThanZero(timestamp), "Timestamp $MUST_BE_GREATHER_THAN_ZERO",
+        reasons
+    ) { res -> result = res }
+    validField(
+        isGreaterThanZero(populationSize), "PopulationSize $MUST_BE_GREATHER_THAN_ZERO",
+        reasons
+    ) { res -> result = res }
+    validField(
+        isGreaterThanZero(infectionProb), "InfectionProbability $MUST_BE_GREATHER_THAN_ZERO",
+        reasons
+    ) { res -> result = res }
+    validField(
+        isGreaterThanZero(infectionTtlMin), "InfectionTtlMin $MUST_BE_GREATHER_THAN_ZERO",
+        reasons
+    ) { res -> result = res }
+    validField(
+        isGreaterThanZero(infectionTtlMax), "InfectionTtlMax $MUST_BE_GREATHER_THAN_ZERO",
+        reasons
+    ) { res -> result = res }
+    validField(
+        isGreaterThanZero(susceptible), "Susceptible $MUST_BE_GREATHER_THAN_ZERO",
+        reasons
+    ) { res -> result = res }
 
     return Pair(result, reasons)
 }
 
-private fun validField(isValid:Boolean, reason: String, mutableList: MutableList<String>, validatorFunc:(Boolean) -> Unit) {
+private fun validField(
+    isValid: Boolean,
+    reason: String,
+    mutableList: MutableList<String>,
+    validatorFunc: (Boolean) -> Unit
+) {
     if (!isValid) {
-      mutableList.add(reason)
+        mutableList.add(reason)
     }
     validatorFunc(isValid)
 }

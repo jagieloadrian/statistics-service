@@ -1,10 +1,8 @@
 package com.anjo
 
-import com.anjo.cache.configureHTTP
-import com.anjo.configuration.configureMonitoring
+import com.anjo.di.configureDI
 import com.anjo.di.configureFrameworks
-import com.anjo.di.configureSerialization
-import com.anjo.routing.configureStatsCollectorRouting
+import com.anjo.routing.configureRouting
 import io.ktor.server.application.Application
 
 fun main(args: Array<String>) {
@@ -12,9 +10,7 @@ fun main(args: Array<String>) {
 }
 
 fun Application.module() {
-    configureHTTP()
-    configureMonitoring()
-    configureSerialization()
     configureFrameworks()
-    configureStatsCollectorRouting()
+    configureDI()
+    configureRouting()
 }
