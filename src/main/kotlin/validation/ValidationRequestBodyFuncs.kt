@@ -2,8 +2,14 @@ package com.anjo.validation
 
 import com.anjo.model.EpidemicDto
 import com.anjo.validation.ValidatorMessages.MUST_BE_GREATHER_THAN_ZERO
+import io.github.oshai.kotlinlogging.KotlinLogging
 
+
+private val logger = KotlinLogging.logger {}
 fun isEpidemicValid(epidemicDto: EpidemicDto): Pair<Boolean, List<String>> {
+
+    logger.info { "Checking epidemic validation" }
+
     val reasons = mutableListOf<String>()
     var result = true
     val (deviceId, runId, generation, timestamp) = epidemicDto.meta
@@ -47,6 +53,12 @@ fun isEpidemicValid(epidemicDto: EpidemicDto): Pair<Boolean, List<String>> {
         isGreaterThanZero(susceptible), "Susceptible $MUST_BE_GREATHER_THAN_ZERO",
         reasons
     ) { res -> result = res }
+
+    if (reasons.isEmpty()) {
+        logger.info { "No reasons found" }
+    } else {
+        logger.info { "Found ${reasons.size} reasons" }
+    }
 
     return Pair(result, reasons)
 }

@@ -2,7 +2,7 @@ package com.anjo.di
 
 import com.anjo.configuration.RedisClientProvider
 import com.anjo.model.RedisConfig
-import com.anjo.reposiotry.StatsRepositoryRedisImpl
+import com.anjo.repository.StatsRepositoryRedisImpl
 import com.anjo.service.GreetingService
 import com.anjo.service.StatsCollectorService
 import io.ktor.server.application.Application

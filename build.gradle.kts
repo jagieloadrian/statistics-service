@@ -28,6 +28,7 @@ dependencies {
     implementation("io.ktor:ktor-server-di")
     implementation("io.ktor:ktor-server-config-yaml")
     implementation("io.ktor:ktor-server-request-validation")
+    implementation("io.github.oshai:kotlin-logging-jvm:7.0.14")
 
     //CACHE
     implementation("com.ucasoft.ktor:ktor-simple-cache:0.55.3")
@@ -60,6 +61,7 @@ dependencies {
     testImplementation("io.ktor:ktor-server-test-host")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version")
     testImplementation("org.junit.platform:junit-platform-launcher:1.14.1")
+    testImplementation("io.ktor:ktor-client-content-negotiation:${ktor_version}")
 
     //TEST CONTAINERS
     testImplementation("org.testcontainers:testcontainers:1.20.3")

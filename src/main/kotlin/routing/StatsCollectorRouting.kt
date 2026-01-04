@@ -9,7 +9,9 @@ import io.ktor.server.application.Application
 import io.ktor.server.application.install
 import io.ktor.server.plugins.requestvalidation.RequestValidation
 import io.ktor.server.plugins.requestvalidation.ValidationResult
+import io.ktor.server.request.httpMethod
 import io.ktor.server.request.receive
+import io.ktor.server.request.uri
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Routing
 import io.ktor.server.routing.post
@@ -18,6 +20,7 @@ import io.ktor.server.routing.route
 fun Routing.collectStatisticRoutes(statsCollectorService: StatsCollectorService) {
     route("$API_BASE_PATH/stats") {
         post("/epidemic") {
+            call.application.environment.log.info("${call.request.httpMethod.value} ${call.request.uri}")
             val payload = call.receive<EpidemicDto>()
             statsCollectorService.savedStats(payload)
             call.respond(HttpStatusCode.OK)

@@ -1,4 +1,4 @@
-package com.anjo.reposiotry
+package com.anjo.repository
 
 import kotlinx.coroutines.flow.Flow
 
