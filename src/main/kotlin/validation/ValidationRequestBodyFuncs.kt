@@ -13,8 +13,10 @@ fun isEpidemicValid(epidemicDto: EpidemicDto): Pair<Boolean, List<String>> {
     val reasons = mutableListOf<String>()
     var result = true
     val (deviceId, runId, generation, timestamp) = epidemicDto.meta
-    val (populationSize, infectionProb, infectionTtlMin, infectionTtlMax) = epidemicDto.params
+    val population = epidemicDto.state.population
     val susceptible = epidemicDto.state.susceptible
+    val mobilityMul = epidemicDto.state.mobilityMultiplier
+    val detailedData = epidemicDto.state.detailedDataByType
 
     if (deviceId.isEmpty() || deviceId.isBlank()) {
         result = false
@@ -34,19 +36,15 @@ fun isEpidemicValid(epidemicDto: EpidemicDto): Pair<Boolean, List<String>> {
         reasons
     ) { res -> result = res }
     validField(
-        isGreaterThanZero(populationSize), "PopulationSize $MUST_BE_GREATHER_THAN_ZERO",
+        isGreaterThanZero(population), "PopulationSize $MUST_BE_GREATHER_THAN_ZERO",
         reasons
     ) { res -> result = res }
     validField(
-        isGreaterThanZero(infectionProb), "InfectionProbability $MUST_BE_GREATHER_THAN_ZERO",
+        isGreaterThanZero(mobilityMul), "Mobility multiplier $MUST_BE_GREATHER_THAN_ZERO",
         reasons
     ) { res -> result = res }
     validField(
-        isGreaterThanZero(infectionTtlMin), "InfectionTtlMin $MUST_BE_GREATHER_THAN_ZERO",
-        reasons
-    ) { res -> result = res }
-    validField(
-        isGreaterThanZero(infectionTtlMax), "InfectionTtlMax $MUST_BE_GREATHER_THAN_ZERO",
+        detailedData.isNotEmpty(), "Detailed Data by Type cannot be empty",
         reasons
     ) { res -> result = res }
     validField(

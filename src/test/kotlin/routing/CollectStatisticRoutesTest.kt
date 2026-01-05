@@ -1,9 +1,10 @@
 package com.anjo.routing
 
+import com.anjo.model.DetailedData
 import com.anjo.model.EpidemicDto
 import com.anjo.model.EpidemicMetaDto
-import com.anjo.model.EpidemicParamsDto
 import com.anjo.model.EpidemicStateDto
+import com.anjo.model.HumanType
 import com.redis.testcontainers.RedisContainer
 import io.kotest.matchers.collections.shouldNotBeEmpty
 import io.kotest.matchers.shouldBe
@@ -58,16 +59,16 @@ class CollectStatisticRoutesTest {
                 timestamp = 0L,
                 generation = 0
             ),
-            EpidemicParamsDto(
-                populationSize = 0,
-                infectionProb = 0.0,
-                infectionTtlMin = 2,
-                infectionTtlMax = 5
-            ),
             state = EpidemicStateDto(
                 susceptible = 0,
                 infected = 0,
-                recovered = 0
+                recovered = 0,
+                population = 0,
+                mobilityMultiplier = 0.0,
+                dead = 0,
+                exposed = 0,
+                lockdown = false,
+                detailedDataByType = mapOf(),
             )
         )
 
@@ -104,16 +105,24 @@ class CollectStatisticRoutesTest {
                 timestamp = 1234L,
                 generation = 1
             ),
-            EpidemicParamsDto(
-                populationSize = 100,
-                infectionProb = 0.3,
-                infectionTtlMin = 2,
-                infectionTtlMax = 5
-            ),
             state = EpidemicStateDto(
                 susceptible = 25,
                 infected = 25,
-                recovered = 50
+                recovered = 50,
+                population = 100,
+                mobilityMultiplier = 0.3,
+                dead = 0,
+                exposed = 0,
+                lockdown = false,
+                detailedDataByType = mapOf(
+                    HumanType.CHILD to DetailedData(
+                        susceptible = 1,
+                        infected = 1,
+                        recovered = 1,
+                        dead = 1,
+                        exposed = 1
+                    )
+                )
             )
         )
 

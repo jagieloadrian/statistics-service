@@ -3,7 +3,6 @@ package com.anjo.di
 import com.anjo.configuration.RedisClientProvider
 import com.anjo.model.RedisConfig
 import com.anjo.repository.StatsRepositoryRedisImpl
-import com.anjo.service.GreetingService
 import com.anjo.service.StatsCollectorService
 import io.ktor.server.application.Application
 import io.ktor.server.plugins.di.DependencyKey
@@ -12,7 +11,6 @@ import io.ktor.server.plugins.di.dependencies
 fun Application.configureDI() {
     val appEnv = environment
     dependencies {
-        provide { GreetingService { "Hello, World!" } }
         provide<RedisConfig> {
             return@provide RedisConfig(
                 host = appEnv.config.property("ktor.redis.host").getString(),

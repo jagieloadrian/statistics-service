@@ -9,7 +9,8 @@ import io.ktor.server.response.respond
 
 fun Application.validatorExceptionHandler() {
     install(StatusPages) {
-    exception<RequestValidationException> { call, cause ->
-        call.respond(HttpStatusCode.BadRequest, cause.reasons)
+        exception<RequestValidationException> { call, cause ->
+            call.respond(HttpStatusCode.BadRequest, cause.reasons)
+        }
     }
-}}
+}

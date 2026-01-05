@@ -14,21 +14,45 @@ Example body:
 ```json
 {
   "meta": {
-    "deviceId": "esp32-01",
-    "runId": 12,
-    "generation": 37,
-    "timestamp": 1700001234
-  },
-  "params": {
-    "populationSize": 214,
-    "infectionProb": 0.32,
-    "infectionTtlMin": 2,
-    "infectionTtlMax": 5
+    "deviceId": "RPI_Pico_2w_1",
+    "runId": 5,
+    "timestamp": 1767617610,
+    "generation": 32
   },
   "state": {
-    "susceptible": 102,
-    "infected": 67,
-    "recovered": 45
+    "infected": 2,
+    "infectedPct": 0.76,
+    "recovered": 44,
+    "deadPct": 1.52,
+    "susceptible": 45,
+    "lockdown": false,
+    "byType": {
+      "0": {
+        "infected": 0,
+        "exposed": 0,
+        "dead": 0,
+        "recovered": 8,
+        "susceptible": 18
+      },
+      "1": {
+        "infected": 2,
+        "exposed": 0,
+        "dead": 1,
+        "recovered": 16,
+        "susceptible": 13
+      },
+      "2": {
+        "infected": 0,
+        "exposed": 1,
+        "dead": 3,
+        "recovered": 20,
+        "susceptible": 14
+      }
+    },
+    "population": 263,
+    "exposed": 1,
+    "dead": 4,
+    "mobilityMul": 1.0
   }
 }
 ```

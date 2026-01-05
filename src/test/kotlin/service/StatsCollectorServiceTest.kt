@@ -1,9 +1,10 @@
 package com.anjo.service
 
+import com.anjo.model.DetailedData
 import com.anjo.model.EpidemicDto
 import com.anjo.model.EpidemicMetaDto
-import com.anjo.model.EpidemicParamsDto
 import com.anjo.model.EpidemicStateDto
+import com.anjo.model.HumanType
 import com.anjo.repository.StatsRepository
 import io.kotest.matchers.maps.shouldContainAll
 import io.kotest.matchers.shouldBe
@@ -37,11 +38,20 @@ class StatsCollectorServiceTest {
             "generation" to "1",
             "runId" to "1",
             "timestamp" to "1234",
-            "populationSize" to "100",
-            "infectionProbability" to "0.3",
             "susceptible" to "25",
             "infected" to "25",
             "recovered" to "50",
+            "population" to "100",
+            "mobilityMul" to "0.3",
+            "dead" to "0",
+            "exposed" to "0",
+            "lockdown" to "false",
+            "byType:CHILD:infected" to "1",
+            "byType:CHILD:susceptible" to "1",
+            "byType:CHILD:exposed" to "1",
+            "byType:CHILD:recovered" to "1",
+            "byType:CHILD:dead" to "1",
+
         )
 
         coEvery { statsRepository.saveStats(any(), capture(fetchedStats)) } returns true
@@ -51,6 +61,7 @@ class StatsCollectorServiceTest {
         statsCollectorService.savedStats(epidemicDto)
 
         //then
+        println(fetchedStats.captured)
         fetchedKeys.captured shouldBe expectedKey
         fetchedStats.captured shouldContainAll expectedStats
         coVerify(exactly = 1) { statsRepository.saveStats(any(), any()) }
@@ -79,16 +90,24 @@ class StatsCollectorServiceTest {
             timestamp = 1234L,
             generation = 1
         ),
-        EpidemicParamsDto(
-            populationSize = 100,
-            infectionProb = 0.3,
-            infectionTtlMin = 2,
-            infectionTtlMax = 5
-        ),
         state = EpidemicStateDto(
             susceptible = 25,
             infected = 25,
-            recovered = 50
+            recovered = 50,
+            population = 100,
+            mobilityMultiplier = 0.3,
+            dead = 0,
+            exposed = 0,
+            lockdown = false,
+            detailedDataByType = mapOf(
+                HumanType.CHILD to DetailedData(
+                    susceptible = 1,
+                    infected = 1,
+                    recovered = 1,
+                    dead = 1,
+                    exposed = 1
+                )
+            )
         )
     )
 }

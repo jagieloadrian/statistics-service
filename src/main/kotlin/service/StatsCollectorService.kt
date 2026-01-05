@@ -23,15 +23,26 @@ class StatsCollectorService(private val repository: StatsRepository) {
     }
 
     private fun prepareBody(epidemicDto: EpidemicDto): Map<String, String> {
-       return mapOf(
+       val base =  mutableMapOf(
            "generation" to epidemicDto.meta.generation.toString(),
            "runId" to epidemicDto.meta.runId.toString(),
            "timestamp" to epidemicDto.meta.timestamp.toString(),
-           "populationSize" to epidemicDto.params.populationSize.toString(),
-           "infectionProbability" to epidemicDto.params.infectionProb.toString(),
+           "population" to epidemicDto.state.population.toString(),
            "susceptible" to epidemicDto.state.susceptible.toString(),
            "infected" to epidemicDto.state.infected.toString(),
            "recovered" to epidemicDto.state.recovered.toString(),
+           "dead" to epidemicDto.state.dead.toString(),
+           "exposed" to epidemicDto.state.exposed.toString(),
+           "lockdown" to epidemicDto.state.lockdown.toString(),
+           "mobilityMul" to epidemicDto.state.mobilityMultiplier.toString(),
        )
+        epidemicDto.state.detailedDataByType.forEach { (type, data) ->
+            base["byType:$type:infected"] = data.infected.toString()
+            base["byType:$type:susceptible"] = data.susceptible.toString()
+            base["byType:$type:exposed"] = data.exposed.toString()
+            base["byType:$type:recovered"] = data.recovered.toString()
+            base["byType:$type:dead"] = data.dead.toString()
+        }
+        return base
     }
 }
