@@ -16,7 +16,7 @@ Example body:
   "meta": {
     "deviceId": "RPI_Pico_2w_1",
     "runId": 5,
-    "timestamp": 1767617610,
+    "timestamp": "2026-01-05T15:38:14", //ISO-8601 UTC
     "generation": 32
   },
   "state": {
@@ -56,3 +56,6 @@ Example body:
   }
 }
 ```
+
+field `byType` means state of maturity of person:
+0 - Child, 1 - Mature, 2 - Senior

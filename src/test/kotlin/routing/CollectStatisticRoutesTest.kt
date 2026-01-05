@@ -20,6 +20,8 @@ import io.ktor.server.config.ApplicationConfig
 import io.ktor.server.config.MapApplicationConfig
 import io.ktor.server.config.mergeWith
 import io.ktor.server.testing.testApplication
+import kotlinx.datetime.Clock
+import kotlinx.datetime.Instant
 import org.junit.jupiter.api.Test
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
@@ -56,7 +58,7 @@ class CollectStatisticRoutesTest {
             EpidemicMetaDto(
                 deviceId = "",
                 runId = 0,
-                timestamp = 0L,
+                timestamp = Clock.System.now(),
                 generation = 0
             ),
             state = EpidemicStateDto(
@@ -102,7 +104,7 @@ class CollectStatisticRoutesTest {
             EpidemicMetaDto(
                 deviceId = "testId",
                 runId = 1,
-                timestamp = 1234L,
+                timestamp = Clock.System.now(),
                 generation = 1
             ),
             state = EpidemicStateDto(

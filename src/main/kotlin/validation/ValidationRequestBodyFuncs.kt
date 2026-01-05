@@ -12,7 +12,9 @@ fun isEpidemicValid(epidemicDto: EpidemicDto): Pair<Boolean, List<String>> {
 
     val reasons = mutableListOf<String>()
     var result = true
-    val (deviceId, runId, generation, timestamp) = epidemicDto.meta
+    val deviceId = epidemicDto.meta.deviceId
+    val runId = epidemicDto.meta.runId
+    val generation = epidemicDto.meta.generation
     val population = epidemicDto.state.population
     val susceptible = epidemicDto.state.susceptible
     val mobilityMul = epidemicDto.state.mobilityMultiplier
@@ -29,10 +31,6 @@ fun isEpidemicValid(epidemicDto: EpidemicDto): Pair<Boolean, List<String>> {
     ) { res -> result = res }
     validField(
         isGreaterThanZero(generation), "Generation $MUST_BE_GREATHER_THAN_ZERO",
-        reasons
-    ) { res -> result = res }
-    validField(
-        isGreaterThanZero(timestamp), "Timestamp $MUST_BE_GREATHER_THAN_ZERO",
         reasons
     ) { res -> result = res }
     validField(

@@ -3,6 +3,8 @@
 package com.anjo.model
 
 import com.anjo.serializer.HumanTypeSerializer
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.serializers.LocalDateTimeIso8601Serializer
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonNames
@@ -43,4 +45,10 @@ enum class HumanType(val numberType: Int) {
 }
 
 @Serializable
-data class EpidemicMetaDto(val deviceId:String, val runId:Int, val generation:Int, val timestamp: Long)
+data class EpidemicMetaDto(
+    val deviceId: String,
+    val runId: Int,
+    val generation: Int,
+    @Serializable(with = LocalDateTimeIso8601Serializer::class)
+    val timestamp: LocalDateTime
+)
