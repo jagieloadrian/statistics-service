@@ -1,7 +1,7 @@
 package com.anjo.service
 
-import com.anjo.model.EpidemicDto
-import com.anjo.model.TemperatureDto
+import com.anjo.model.dto.EpidemicDto
+import com.anjo.model.dto.TemperatureDto
 import com.anjo.repository.StatsRepository
 import com.anjo.utils.ApplicationConstants.EPIDEMIC_KEYS
 import com.anjo.utils.ApplicationConstants.TEMPERATURE_KEYS
@@ -48,6 +48,7 @@ class StatsCollectorService(private val repository: StatsRepository) {
 
     private fun prepareEpidemicBody(epidemicDto: EpidemicDto): Map<String, String> {
        val base =  mutableMapOf(
+           "deviceId" to epidemicDto.meta.deviceId,
            "generation" to epidemicDto.meta.generation.toString(),
            "runId" to epidemicDto.meta.runId.toString(),
            "timestamp" to epidemicDto.meta.timestamp.toString(),

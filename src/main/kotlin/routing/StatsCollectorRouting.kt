@@ -1,7 +1,7 @@
 package com.anjo.routing
 
-import com.anjo.model.EpidemicDto
-import com.anjo.model.TemperatureDto
+import com.anjo.model.dto.EpidemicDto
+import com.anjo.model.dto.TemperatureDto
 import com.anjo.service.StatsCollectorService
 import com.anjo.utils.ApplicationConstants.API_BASE_PATH
 import com.anjo.validation.isEpidemicValid
@@ -20,7 +20,7 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.route
 
 fun Routing.collectStatisticRoutes(statsCollectorService: StatsCollectorService) {
-    route("$API_BASE_PATH/stats") {
+    route("$API_BASE_PATH/stats/collect") {
         post("/epidemic") {
             call.application.environment.log.info("${call.request.httpMethod.value} ${call.request.uri}")
             val payload = call.receive<EpidemicDto>()

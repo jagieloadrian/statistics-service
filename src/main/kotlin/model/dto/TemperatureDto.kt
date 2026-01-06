@@ -1,4 +1,4 @@
-package com.anjo.model
+package com.anjo.model.dto
 
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.serializers.LocalDateTimeIso8601Serializer
@@ -10,6 +10,6 @@ data class TemperatureDto(
     val deviceId: String,
     @Serializable(with = LocalDateTimeIso8601Serializer::class)
     val timestamp: LocalDateTime,
-    val temperature: Float,
-    val humidity: Float?
+    val temperature: Double,
+    val humidity: Double?
 )

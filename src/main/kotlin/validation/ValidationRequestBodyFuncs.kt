@@ -1,7 +1,7 @@
 package com.anjo.validation
 
-import com.anjo.model.EpidemicDto
-import com.anjo.model.TemperatureDto
+import com.anjo.model.dto.EpidemicDto
+import com.anjo.model.dto.TemperatureDto
 import com.anjo.validation.ValidatorMessages.MUST_BE_GREATHER_THAN_ZERO
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.datetime.Clock

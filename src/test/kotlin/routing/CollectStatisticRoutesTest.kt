@@ -1,11 +1,11 @@
 package com.anjo.routing
 
-import com.anjo.model.DetailedData
-import com.anjo.model.EpidemicDto
-import com.anjo.model.EpidemicMetaDto
-import com.anjo.model.EpidemicStateDto
-import com.anjo.model.HumanType
-import com.anjo.model.TemperatureDto
+import com.anjo.model.dto.DetailedData
+import com.anjo.model.dto.EpidemicDto
+import com.anjo.model.dto.EpidemicMetaDto
+import com.anjo.model.dto.EpidemicStateDto
+import com.anjo.model.dto.HumanType
+import com.anjo.model.dto.TemperatureDto
 import com.redis.testcontainers.RedisContainer
 import io.kotest.matchers.collections.shouldNotBeEmpty
 import io.kotest.matchers.shouldBe
@@ -40,8 +40,8 @@ class CollectStatisticRoutesTest {
                 .withReuse(true)
     }
 
-    private val epidemicApiPath = "api/v1/stats/epidemic"
-    private val temperatureApiPath = "api/v1/stats/temperature"
+    private val epidemicApiPath = "api/v1/stats/collect/epidemic"
+    private val temperatureApiPath = "api/v1/stats/collect/temperature"
     private val instant = Instant.fromEpochSeconds(1767694524)
 
     @Test
@@ -161,7 +161,7 @@ class CollectStatisticRoutesTest {
             status = "",
             deviceId = "",
             timestamp = instant.toLocalDateTime(TimeZone.UTC),
-            temperature = -0.1F,
+            temperature = -0.1,
             humidity = null
         )
 
@@ -195,8 +195,8 @@ class CollectStatisticRoutesTest {
             status = "up",
             deviceId = "test_id_2",
             timestamp = Clock.System.now().toLocalDateTime(TimeZone.UTC),
-            temperature = 15.0F,
-            humidity = 10.0F
+            temperature = 15.0,
+            humidity = 10.0
         )
         //when and then
         client.post(temperatureApiPath) {

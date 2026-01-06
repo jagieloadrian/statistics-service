@@ -1,11 +1,11 @@
 package com.anjo.service
 
-import com.anjo.model.DetailedData
-import com.anjo.model.EpidemicDto
-import com.anjo.model.EpidemicMetaDto
-import com.anjo.model.EpidemicStateDto
-import com.anjo.model.HumanType
-import com.anjo.model.TemperatureDto
+import com.anjo.model.dto.DetailedData
+import com.anjo.model.dto.EpidemicDto
+import com.anjo.model.dto.EpidemicMetaDto
+import com.anjo.model.dto.EpidemicStateDto
+import com.anjo.model.dto.HumanType
+import com.anjo.model.dto.TemperatureDto
 import com.anjo.repository.StatsRepository
 import io.kotest.matchers.maps.shouldContainAll
 import io.kotest.matchers.shouldBe
@@ -164,7 +164,7 @@ class StatsCollectorServiceTest {
         status = "up",
         deviceId = "testId",
         timestamp = instant.toLocalDateTime(TimeZone.UTC),
-        temperature = 15.0F,
-        humidity = 15.0F
+        temperature = 15.0,
+        humidity = 15.0
     )
 }

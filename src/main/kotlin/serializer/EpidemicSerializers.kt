@@ -1,22 +1,14 @@
 package com.anjo.serializer
 
-import com.anjo.model.DetailedData
-import com.anjo.model.HumanType
-import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.format
-import kotlinx.datetime.format.DateTimeFormat
-import kotlinx.datetime.format.DateTimeFormatBuilder
-import kotlinx.datetime.format.FormatStringsInDatetimeFormats
+import com.anjo.model.dto.DetailedData
+import com.anjo.model.dto.HumanType
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
-import kotlinx.serialization.descriptors.PrimitiveKind
-import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.serializer
-import java.time.format.DateTimeFormatter
 
 object HumanTypeSerializer : KSerializer<Map<HumanType, DetailedData>> {
     private val stringSerializer = String.serializer()

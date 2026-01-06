@@ -4,6 +4,7 @@ import com.anjo.configuration.RedisClientProvider
 import com.anjo.model.RedisConfig
 import com.anjo.repository.StatsRepositoryRedisImpl
 import com.anjo.service.StatsCollectorService
+import com.anjo.service.StatsExposerService
 import io.ktor.server.application.Application
 import io.ktor.server.plugins.di.DependencyKey
 import io.ktor.server.plugins.di.dependencies
@@ -24,5 +25,6 @@ fun Application.configureDI() {
         provide { RedisClientProvider(get(DependencyKey<RedisConfig>())) }
         provide { StatsRepositoryRedisImpl(get(DependencyKey<RedisClientProvider>())) }
         provide { StatsCollectorService(get(DependencyKey<StatsRepositoryRedisImpl>())) }
+        provide { StatsExposerService(get(DependencyKey<StatsRepositoryRedisImpl>())) }
     }
 }

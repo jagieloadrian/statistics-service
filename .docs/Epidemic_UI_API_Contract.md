@@ -18,7 +18,7 @@ The goal is to enable:
 3. Backend:  
    - aggregates data  
    - computes metrics  
-   - exposes REST / WebSocket endpoints  
+   - exposes REST / WebSocket endpoints (optional)
 
 ---
 
@@ -31,7 +31,7 @@ A single complete epidemic simulation (experiment)
 A single generation (tick)
 
 ### Curve
-Epidemic progression over time (I / R / S)
+Epidemic progression over time (I / R / S / D / E)
 
 ---
 
@@ -55,7 +55,6 @@ Used in the UI to:
     "startedAt": 1700001200,
     "endedAt": 1700001350,
     "populationSize": 214,
-    "infectionProb": 0.32,
     "duration": 53,
     "peakInfected": 89
   }
@@ -79,7 +78,6 @@ Used in the UI to:
   "meta": {
     "deviceId": "esp32-01",
     "populationSize": 214,
-    "infectionProb": 0.32,
     "startedAt": 1700001200,
     "endedAt": 1700001350
   },
@@ -114,7 +112,6 @@ Used in the UI to:
   "duration": 53,
   "peakInfected": 89,
   "timeToPeak": 14,
-  "attackRate": 0.82,
   "finalRecovered": 176,
   "finalDead": 5
 }
@@ -184,7 +181,6 @@ data class EpidemicPointByType(
 data class RunMeta(
     val deviceId: String,
     val populationSize: Int,
-    val infectionProb: Double,
     val startedAt: Long,
     val endedAt: Long?
 )

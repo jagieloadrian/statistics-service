@@ -1,6 +1,6 @@
 @file:OptIn(ExperimentalSerializationApi::class)
 
-package com.anjo.model
+package com.anjo.model.dto
 
 import com.anjo.serializer.HumanTypeSerializer
 import kotlinx.datetime.LocalDateTime
