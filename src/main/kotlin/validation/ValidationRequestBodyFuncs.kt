@@ -1,8 +1,16 @@
 package com.anjo.validation
 
 import com.anjo.model.EpidemicDto
+import com.anjo.model.TemperatureDto
 import com.anjo.validation.ValidatorMessages.MUST_BE_GREATHER_THAN_ZERO
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.datetime.Clock
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Duration
+import kotlin.time.DurationUnit.DAYS
+import kotlin.time.ExperimentalTime
+import kotlin.time.toDuration
 
 
 private val logger = KotlinLogging.logger {}
@@ -55,6 +63,34 @@ fun isEpidemicValid(epidemicDto: EpidemicDto): Pair<Boolean, List<String>> {
     } else {
         logger.info { "Found ${reasons.size} reasons" }
     }
+
+    return Pair(result, reasons)
+}
+
+@OptIn(ExperimentalTime::class)
+fun isTemperatureDtoValid(dto: TemperatureDto): Pair<Boolean, List<String>> {
+    val yesterday = Clock.System.now()
+        .minus(Duration
+            .convert(1.0, DAYS, DAYS)
+            .toDuration(DAYS))
+        .toLocalDateTime(TimeZone.UTC)
+    logger.info { "Checking temperature validation" }
+    val reasons = mutableListOf<String>()
+    var result = true
+
+    val (status, deviceId, timestamp, temperature) = dto
+
+    validField(status.isNotEmpty() || status.isNotBlank(), "Status cannot be empty or null", reasons)
+    { res -> result = res }
+
+    validField(deviceId.isNotEmpty() || deviceId.isNotBlank(), "Device name cannot be empty or null", reasons)
+    { res -> result = res }
+
+    validField(timestamp <= yesterday, "Timestamp cannot be older than yesterday", reasons)
+    { res -> result = res }
+
+    validField(isGreaterThanZero(temperature), "Temperature $MUST_BE_GREATHER_THAN_ZERO", reasons)
+    { res -> result = res }
 
     return Pair(result, reasons)
 }

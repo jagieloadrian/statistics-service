@@ -1,28 +1,52 @@
 package com.anjo.service
 
 import com.anjo.model.EpidemicDto
+import com.anjo.model.TemperatureDto
 import com.anjo.repository.StatsRepository
 import com.anjo.utils.ApplicationConstants.EPIDEMIC_KEYS
+import com.anjo.utils.ApplicationConstants.TEMPERATURE_KEYS
 import com.anjo.utils.ApplicationConstants.getEpidemicKey
+import com.anjo.utils.ApplicationConstants.getTemperatureKey
 import io.github.oshai.kotlinlogging.KotlinLogging
 
 class StatsCollectorService(private val repository: StatsRepository) {
     private val logger = KotlinLogging.logger {}
 
-    suspend fun savedStats(epidemicDto: EpidemicDto) {
+    suspend fun saveEpidemicStats(epidemicDto: EpidemicDto) {
         val key = getEpidemicKey(epidemicDto.meta.deviceId, epidemicDto.meta.runId.toString())
         logger.info { "Starting saving stats for key: $key" }
-        val body = prepareBody(epidemicDto)
+        val body = prepareEpidemicBody(epidemicDto)
+        saveStatistics(EPIDEMIC_KEYS, key, body)
+    }
+
+    suspend fun saveTemperatureStats(temperatureDto: TemperatureDto) {
+        val key = getTemperatureKey(temperatureDto.deviceId)
+        logger.info { "Starting saving stats for key: $key" }
+        val body = prepareTemperatureBody(temperatureDto)
+        saveStatistics(TEMPERATURE_KEYS, key, body)
+    }
+
+    private suspend fun saveStatistics(keys:String, key: String, body: Map<String, String>) {
         if (repository.saveStats(key, body)) {
             logger.info { "Successfully saved stats for key: $key" }
-            repository.addKeyStats(EPIDEMIC_KEYS, key)
+            repository.addKeyStats(keys, key)
             logger.info { "Successfully saved key stats" }
         } else {
             logger.error { "Failed to save stats for key: $key" }
         }
     }
 
-    private fun prepareBody(epidemicDto: EpidemicDto): Map<String, String> {
+    private fun prepareTemperatureBody(temperatureDto: TemperatureDto): Map<String, String> {
+       return mapOf(
+           "status" to temperatureDto.status,
+           "deviceId" to temperatureDto.deviceId,
+           "timestamp" to temperatureDto.timestamp.toString(),
+           "temperature" to temperatureDto.temperature.toString(),
+           "humidity" to temperatureDto.humidity.toString(),
+       )
+    }
+
+    private fun prepareEpidemicBody(epidemicDto: EpidemicDto): Map<String, String> {
        val base =  mutableMapOf(
            "generation" to epidemicDto.meta.generation.toString(),
            "runId" to epidemicDto.meta.runId.toString(),
