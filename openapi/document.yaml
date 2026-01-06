@@ -1,0 +1,107 @@
+{
+    "openapi": "3.1.1",
+    "info": {
+        "title": "StatisticsService",
+        "version": "1.0",
+        "description": "This is a small project to store and calculate statistics from diff sources"
+    },
+    "paths": {
+        "/api/v1/stats/epidemic": {
+            "post": {
+                "requestBody": {
+                    "description": "",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/EpidemicDto"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": ""
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "EpidemicDto": {
+                "type": "object",
+                "properties": {
+                    "meta": {
+                        "type": "object",
+                        "properties": {
+                            "deviceId": {
+                                "type": "string"
+                            },
+                            "runId": {
+                                "type": "integer"
+                            },
+                            "generation": {
+                                "type": "integer"
+                            },
+                            "timestamp": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "state": {
+                        "type": "object",
+                        "properties": {
+                            "susceptible": {
+                                "type": "integer"
+                            },
+                            "infected": {
+                                "type": "integer"
+                            },
+                            "recovered": {
+                                "type": "integer"
+                            },
+                            "population": {
+                                "type": "integer"
+                            },
+                            "mobilityMultiplier": {
+                                "type": "number"
+                            },
+                            "dead": {
+                                "type": "integer"
+                            },
+                            "exposed": {
+                                "type": "integer"
+                            },
+                            "lockdown": {
+                                "type": "boolean"
+                            },
+                            "detailedDataByType": {
+                                "type": "object",
+                                "additionalProperties": {
+                                    "type": "object",
+                                    "properties": {
+                                        "susceptible": {
+                                            "type": "integer"
+                                        },
+                                        "infected": {
+                                            "type": "integer"
+                                        },
+                                        "recovered": {
+                                            "type": "integer"
+                                        },
+                                        "dead": {
+                                            "type": "integer"
+                                        },
+                                        "exposed": {
+                                            "type": "integer"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
