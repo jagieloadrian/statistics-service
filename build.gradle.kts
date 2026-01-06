@@ -8,6 +8,7 @@ plugins {
     kotlin("jvm") version "2.2.21"
     kotlin("plugin.serialization") version "2.2.21"
     id("io.ktor.plugin") version "3.3.2"
+    jacoco
 }
 
 group = "com.anjo"
@@ -69,8 +70,20 @@ dependencies {
     testImplementation("com.redis:testcontainers-redis:2.2.4")
 }
 
+jacoco {
+    toolVersion = "0.8.14"
+}
+
+tasks.jacocoTestReport {
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+    }
+}
+
 tasks.withType<Test> {
     useJUnitPlatform()
+    finalizedBy(tasks.jacocoTestReport)
 }
 
 ktor {
