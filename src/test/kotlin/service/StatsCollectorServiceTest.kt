@@ -1,12 +1,13 @@
 package com.anjo.service
 
-import com.anjo.model.dto.DetailedData
-import com.anjo.model.dto.EpidemicDto
-import com.anjo.model.dto.EpidemicMetaDto
-import com.anjo.model.dto.EpidemicStateDto
-import com.anjo.model.dto.HumanType
-import com.anjo.model.dto.TemperatureDto
-import com.anjo.repository.StatsRepository
+import com.anjo.statisticservice.model.dto.DetailedData
+import com.anjo.statisticservice.model.dto.EpidemicDto
+import com.anjo.statisticservice.model.dto.EpidemicMetaDto
+import com.anjo.statisticservice.model.dto.EpidemicStateDto
+import com.anjo.statisticservice.model.dto.HumanType
+import com.anjo.statisticservice.model.dto.TemperatureDto
+import com.anjo.statisticservice.repository.StatsRepository
+import com.anjo.statisticservice.service.StatsCollectorService
 import io.kotest.matchers.maps.shouldContainAll
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
@@ -132,39 +133,41 @@ class StatsCollectorServiceTest {
         coVerify(exactly = 0) { statsRepository.addKeyStats(any(), any()) }
     }
 
-    private fun getEpidemicInputDto(): EpidemicDto = EpidemicDto(
-        EpidemicMetaDto(
-            deviceId = "testId",
-            runId = 1,
-            timestamp = instant.toLocalDateTime(TimeZone.UTC),
-            generation = 1
-        ),
-        state = EpidemicStateDto(
-            susceptible = 25,
-            infected = 25,
-            recovered = 50,
-            population = 100,
-            mobilityMultiplier = 0.3,
-            dead = 0,
-            exposed = 0,
-            lockdown = false,
-            detailedDataByType = mapOf(
-                HumanType.CHILD to DetailedData(
-                    susceptible = 1,
-                    infected = 1,
-                    recovered = 1,
-                    dead = 1,
-                    exposed = 1
+    private fun getEpidemicInputDto(): EpidemicDto =
+        EpidemicDto(
+            EpidemicMetaDto(
+                deviceId = "testId",
+                runId = 1,
+                timestamp = instant.toLocalDateTime(TimeZone.UTC),
+                generation = 1
+            ),
+            state = EpidemicStateDto(
+                susceptible = 25,
+                infected = 25,
+                recovered = 50,
+                population = 100,
+                mobilityMultiplier = 0.3,
+                dead = 0,
+                exposed = 0,
+                lockdown = false,
+                detailedDataByType = mapOf(
+                    HumanType.CHILD to DetailedData(
+                        susceptible = 1,
+                        infected = 1,
+                        recovered = 1,
+                        dead = 1,
+                        exposed = 1
+                    )
                 )
             )
         )
-    )
 
-    private fun getTemperatureInputDto() : TemperatureDto = TemperatureDto(
-        status = "up",
-        deviceId = "testId",
-        timestamp = instant.toLocalDateTime(TimeZone.UTC),
-        temperature = 15.0,
-        humidity = 15.0
-    )
+    private fun getTemperatureInputDto() : TemperatureDto =
+        TemperatureDto(
+            status = "up",
+            deviceId = "testId",
+            timestamp = instant.toLocalDateTime(TimeZone.UTC),
+            temperature = 15.0,
+            humidity = 15.0
+        )
 }

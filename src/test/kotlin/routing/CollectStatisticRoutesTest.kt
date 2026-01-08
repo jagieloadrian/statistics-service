@@ -1,11 +1,11 @@
 package com.anjo.routing
 
-import com.anjo.model.dto.DetailedData
-import com.anjo.model.dto.EpidemicDto
-import com.anjo.model.dto.EpidemicMetaDto
-import com.anjo.model.dto.EpidemicStateDto
-import com.anjo.model.dto.HumanType
-import com.anjo.model.dto.TemperatureDto
+import com.anjo.statisticservice.model.dto.DetailedData
+import com.anjo.statisticservice.model.dto.EpidemicDto
+import com.anjo.statisticservice.model.dto.EpidemicMetaDto
+import com.anjo.statisticservice.model.dto.EpidemicStateDto
+import com.anjo.statisticservice.model.dto.HumanType
+import com.anjo.statisticservice.model.dto.TemperatureDto
 import com.redis.testcontainers.RedisContainer
 import io.kotest.matchers.collections.shouldNotBeEmpty
 import io.kotest.matchers.shouldBe
