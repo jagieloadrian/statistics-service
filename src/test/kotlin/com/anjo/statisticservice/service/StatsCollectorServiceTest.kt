@@ -165,7 +165,7 @@ class StatsCollectorServiceTest {
         TemperatureDto(
             status = "up",
             deviceId = "testId",
-            timestamp = instant.toLocalDateTime(TimeZone.Companion.UTC),
+            timestamp = instant.toLocalDateTime(TimeZone.UTC),
             temperature = 15.0,
             humidity = 15.0
         )
