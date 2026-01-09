@@ -1,4 +1,4 @@
-package com.anjo
+package com.anjo.statisticservice
 
 import com.redis.testcontainers.RedisContainer
 import io.ktor.client.request.get

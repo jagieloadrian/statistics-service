@@ -37,7 +37,7 @@ class StatsRepositoryRedisImpl(clientProvider: RedisClientProvider) :
         val instant = value[TIMESTAMP_KEY]?.let {
             LocalDateTime.parse(it).toInstant(UtcOffset.ZERO)
         }?.toString() ?: Clock.System.now().toString()
-        val xAddArgs = XAddArgs().id("$instant-0")
+        val xAddArgs = XAddArgs.Builder.minId("$instant-0")
         val response = commands.xadd(key = key, args = xAddArgs, body = value)
         return !response.isNullOrEmpty()
     }

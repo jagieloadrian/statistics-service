@@ -1,4 +1,4 @@
-package com.anjo.service
+package com.anjo.statisticservice.service
 
 import com.anjo.statisticservice.model.dto.DetailedData
 import com.anjo.statisticservice.model.dto.EpidemicDto
@@ -7,7 +7,6 @@ import com.anjo.statisticservice.model.dto.EpidemicStateDto
 import com.anjo.statisticservice.model.dto.HumanType
 import com.anjo.statisticservice.model.dto.TemperatureDto
 import com.anjo.statisticservice.repository.StatsRepository
-import com.anjo.statisticservice.service.StatsCollectorService
 import io.kotest.matchers.maps.shouldContainAll
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
@@ -58,7 +57,7 @@ class StatsCollectorServiceTest {
             "byType:CHILD:exposed" to "1",
             "byType:CHILD:recovered" to "1",
             "byType:CHILD:dead" to "1",
-            )
+        )
 
         coEvery { statsRepository.saveStats(any(), capture(fetchedStats)) } returns true
         coEvery { statsRepository.addKeyStats(any(), capture(fetchedKeys)) } returns true
@@ -166,7 +165,7 @@ class StatsCollectorServiceTest {
         TemperatureDto(
             status = "up",
             deviceId = "testId",
-            timestamp = instant.toLocalDateTime(TimeZone.UTC),
+            timestamp = instant.toLocalDateTime(TimeZone.Companion.UTC),
             temperature = 15.0,
             humidity = 15.0
         )

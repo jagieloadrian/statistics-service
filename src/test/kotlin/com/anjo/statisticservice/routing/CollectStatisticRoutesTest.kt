@@ -1,4 +1,4 @@
-package com.anjo.routing
+package com.anjo.statisticservice.routing
 
 import com.anjo.statisticservice.model.dto.DetailedData
 import com.anjo.statisticservice.model.dto.EpidemicDto
@@ -143,38 +143,39 @@ class CollectStatisticRoutesTest {
     }
 
     @Test
-    fun `given wrongly request body when call {api v1 stats temperature} then return list of errors`() = testApplication {
-        //given
-        val redisContainerProps = MapApplicationConfig(
-            "ktor.redis.host" to redis.host,
-            "ktor.redis.port" to redis.redisPort.toString(),
-        )
-        environment {
-            config = ApplicationConfig("application-test.yaml").mergeWith(redisContainerProps)
-        }
-        val client = createClient {
-            install(ContentNegotiation) {
-                json()
+    fun `given wrongly request body when call {api v1 stats temperature} then return list of errors`() =
+        testApplication {
+            //given
+            val redisContainerProps = MapApplicationConfig(
+                "ktor.redis.host" to redis.host,
+                "ktor.redis.port" to redis.redisPort.toString(),
+            )
+            environment {
+                config = ApplicationConfig("application-test.yaml").mergeWith(redisContainerProps)
+            }
+            val client = createClient {
+                install(ContentNegotiation) {
+                    json()
+                }
+            }
+            val requestBody = TemperatureDto(
+                status = "",
+                deviceId = "",
+                timestamp = instant.toLocalDateTime(TimeZone.UTC),
+                temperature = -0.1,
+                humidity = null
+            )
+
+            //when and then
+            client.post(temperatureApiPath) {
+                setBody(requestBody)
+                contentType(ContentType.Application.Json)
+            }.apply {
+                status shouldBe HttpStatusCode.BadRequest
+                val response = body<List<String>>()
+                response.shouldNotBeEmpty()
             }
         }
-        val requestBody = TemperatureDto(
-            status = "",
-            deviceId = "",
-            timestamp = instant.toLocalDateTime(TimeZone.UTC),
-            temperature = -0.1,
-            humidity = null
-        )
-
-        //when and then
-        client.post(temperatureApiPath) {
-            setBody(requestBody)
-            contentType(ContentType.Application.Json)
-        }.apply {
-            status shouldBe HttpStatusCode.BadRequest
-            val response = body<List<String>>()
-            response.shouldNotBeEmpty()
-        }
-    }
 
     @Test
     fun `given request body when call {api v1 stats temperature} then return ok`() = testApplication {

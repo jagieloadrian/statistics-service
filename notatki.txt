@@ -2,7 +2,7 @@ Statistics-Service
 2. podbić wersje ktor do 3.4 (spr czy nie ma jakiegoś early access)
 3. implementacja routingu i logiki
     3.3. dodatkowe implementacje (cache, monitoring i inne)
-    3.2 testy
+    3.2 testy (sprawdzić runid xaddargs i zobaczyć agentos
 4. wystawienie endpointu dla KMP
     4.1 testy integracyjne
 
