@@ -97,7 +97,7 @@ data class RunTemperatureSummary(
 
 ### 1️⃣ List devices with temperature data
 
-**GET `/api/temperature/devices`**
+**GET `/api/v1/temperature/devices`**
 
 Used by the UI to:
 - list available sensors
@@ -118,7 +118,7 @@ Used by the UI to:
 
 ### 2️⃣ Temperature time-series for a device
 
-**GET `/api/temperature/devices/{deviceId}`**
+**GET `/api/v1/temperature/devices/{deviceId}`**
 
 Query parameters:
 - `from` – ISO8601 timestamp
@@ -127,7 +127,7 @@ Query parameters:
 
 **Example**
 ```http
-GET /api/temperature/esp32-01?from=2024-11-10T08:00:00Z&to=2024-11-10T12:00:00Z
+GET /api/v1/temperature/esp32-01?from=2024-11-10T08:00:00Z&to=2024-11-10T12:00:00Z
 ```
 
 **Response**
@@ -153,7 +153,7 @@ GET /api/temperature/esp32-01?from=2024-11-10T08:00:00Z&to=2024-11-10T12:00:00Z
 
 ### 3️⃣ Temperature summary 
 
-**GET `/api/temperature/devices/{deviceId}/summary`**
+**GET `/api/v1/temperature/devices/{deviceId}/summary`**
 
 Backend behavior:
 - uses `startedAt` and `endedAt` of the collected data
@@ -180,7 +180,7 @@ Used in the UI to:
 
 ## 🔴 Live Temperature (Optional)
 
-**WebSocket `/api/temperature/{deviceId}/live`**
+**WebSocket `/api/v1/temperature/{deviceId}/live`**
 
 Each new measurement is sent as:
 

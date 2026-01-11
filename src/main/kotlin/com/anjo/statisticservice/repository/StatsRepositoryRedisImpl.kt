@@ -3,22 +3,16 @@
 package com.anjo.statisticservice.repository
 
 import com.anjo.statisticservice.configuration.RedisClientProvider
-import com.anjo.statisticservice.utils.DbKeyConstants.TIMESTAMP_KEY
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.lettuce.core.ExperimentalLettuceCoroutinesApi
 import io.lettuce.core.Range
-import io.lettuce.core.XAddArgs
 import io.lettuce.core.api.coroutines
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
-import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.UtcOffset
-import kotlinx.datetime.toInstant
 
 class StatsRepositoryRedisImpl(clientProvider: RedisClientProvider) :
     StatsRepository {
@@ -34,11 +28,7 @@ class StatsRepositoryRedisImpl(clientProvider: RedisClientProvider) :
         key: String,
         value: Map<String, String>
     ): Boolean {
-        val instant = value[TIMESTAMP_KEY]?.let {
-            LocalDateTime.parse(it).toInstant(UtcOffset.ZERO)
-        }?.toString() ?: Clock.System.now().toString()
-        val xAddArgs = XAddArgs.Builder.minId("$instant-0")
-        val response = commands.xadd(key = key, args = xAddArgs, body = value)
+        val response = commands.xadd(key, value)
         return !response.isNullOrEmpty()
     }
 

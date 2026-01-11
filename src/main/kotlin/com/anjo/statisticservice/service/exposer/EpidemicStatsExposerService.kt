@@ -37,7 +37,6 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapConcat
 import kotlinx.coroutines.flow.fold
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.toList
 import kotlinx.datetime.Clock
 import kotlinx.datetime.LocalDateTime
@@ -75,8 +74,9 @@ class EpidemicStatsExposerService(private val repository: StatsRepository) {
 
     suspend fun getEpidemicRun(deviceId: String, runId: String): EpidemicRun {
         val data = getData(deviceId, runId)
+            .toList()
         val population = data
-            .mapNotNull { value ->
+            .map { value ->
                 (value[POPULATION_KEY] ?: ZERO).toInt()
             }
             .toList()
@@ -109,13 +109,14 @@ class EpidemicStatsExposerService(private val repository: StatsRepository) {
 
     suspend fun getEpidemicRunSummary(runId: String, deviceId: String): EpidemicSummary {
         val data = getData(deviceId, runId)
-        val (peakInfected, peakTime) = data.toList()
-            .mapIndexed { index, map ->
-                index to map[INFECTED_KEY]?.toInt()
+        val (peakTime, peakInfected) = data.toList()
+            .map { map ->
+                map[GENERATION_KEY]?.toInt() to map[INFECTED_KEY]?.toInt()
             }
-            .map { it.second }
+            .sortedByDescending { it.second }
+            .first()
 
-        val (totalRecovered, totaDead) = data.map { value -> unparseByTypeKeys(value) }
+        val (totalRecovered, totalDead) = data.map { value -> unparseByTypeKeys(value) }
             .map { it.values.map { (_, _, _, recovered, dead) -> recovered to dead } }
             .flatMapConcat { it.asFlow() }
             .fold(0 to 0) { (lAcc, rAcc), (left, right) ->
@@ -133,14 +134,16 @@ class EpidemicStatsExposerService(private val repository: StatsRepository) {
             peakInfected = peakInfected ?: 0,
             timeToPeak = peakTime ?: 0,
             finalRecovered = totalRecovered,
-            finalDead = totaDead
+            finalDead = totalDead
         )
 
     }
 
     private fun getData(deviceId: String, runId: String): Flow<Map<String, String>> {
         val key = getEpidemicKey(deviceId, runId)
+        log.info { "Getting epidemic key: $key" }
         val data = repository.getStats(key)
+        log.info { "Getting epidemic data: $data" }
         return data
     }
 

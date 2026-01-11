@@ -19,7 +19,7 @@ class StatsExposerFacade(private val epidemicStatsExposer: EpidemicStatsExposerS
     suspend fun getEpidemicRun(runId: String, deviceId: String): EpidemicRun {
         validateStringField(runId, "Run id")
         validateStringField(deviceId, "Device id")
-        return epidemicStatsExposer.getEpidemicRun(runId, deviceId)
+        return epidemicStatsExposer.getEpidemicRun(deviceId, runId)
     }
 
     suspend fun getEpidemicRunSummary(runId: String, deviceId: String): EpidemicSummary {

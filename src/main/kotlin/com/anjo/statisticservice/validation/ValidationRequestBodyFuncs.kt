@@ -28,7 +28,7 @@ fun isEpidemicValid(epidemicDto: EpidemicDto): Pair<Boolean, List<String>> {
     val mobilityMul = epidemicDto.state.mobilityMultiplier
     val detailedData = epidemicDto.state.detailedDataByType
 
-    if (deviceId.isEmpty() || deviceId.isBlank()) {
+    if (deviceId.trim().isEmpty() || deviceId.isBlank()) {
         result = false
         reasons.add("Device Id or device must not be blank")
     }
@@ -80,10 +80,10 @@ fun isTemperatureDtoValid(dto: TemperatureDto): Pair<Boolean, List<String>> {
 
     val (status, deviceId, timestamp, temperature) = dto
 
-    validField(status.isNotEmpty() || status.isNotBlank(), "Status cannot be empty or null", reasons)
+    validField(status.trim().isNotEmpty() || status.isNotBlank(), "Status cannot be empty or null", reasons)
     { res -> result = res }
 
-    validField(deviceId.isNotEmpty() || deviceId.isNotBlank(), "Device name cannot be empty or null", reasons)
+    validField(deviceId.trim().isNotEmpty() || deviceId.isNotBlank(), "Device name cannot be empty or null", reasons)
     { res -> result = res }
 
     validField(timestamp <= yesterday, "Timestamp cannot be older than yesterday", reasons)
@@ -107,7 +107,7 @@ private fun validField(
     validatorFunc(isValid)
 }
 
-inline fun <reified T> isGreaterThanZero(value: T): Boolean where T : Number, T : Comparable<T> {
+private inline fun <reified T> isGreaterThanZero(value: T): Boolean where T : Number, T : Comparable<T> {
     return when (T::class) {
         Int::class -> (value as Int) > 0
         Long::class -> (value as Long) > 0

@@ -120,7 +120,7 @@ class EpidemicStatsExposerServiceTest {
         summary.duration shouldBe 5
         // due to implementation details peakInfected/timeToPeak are taken from first and second infected items
         summary.peakInfected shouldBe 100
-        summary.timeToPeak shouldBe 50
+        summary.timeToPeak shouldBe 3
         // no BY_TYPE entries -> recovered/dead sums are 0
         summary.finalRecovered shouldBe 0
         summary.finalDead shouldBe 0

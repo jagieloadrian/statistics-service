@@ -7,7 +7,7 @@ Here's the source code: (input link to the specific module of repo)
 
 ## How it will work? 
 
-Microcontroller will send data every 30-60 second to the path `/v1/api/stats/collect/epidemic`
+Microcontroller will send data every 30-60 second to the path `/api/v1/stats/collect/epidemic`
 with data which this server could work.
 
 Example body:

@@ -55,7 +55,7 @@ class StatsExposerFacadeTest {
     fun `getEpidemicRun delegates and validates inputs`() = runTest {
         //given
         val run = mockk<EpidemicRun>()
-        coEvery { epidemicStats.getEpidemicRun("run1", "dev1") } returns run
+        coEvery { epidemicStats.getEpidemicRun("dev1", "run1") } returns run
 
         //when
         val result = facade.getEpidemicRun("run1", "dev1")
