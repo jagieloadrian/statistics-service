@@ -2,6 +2,7 @@
 
 package com.anjo.statisticservice.service.exposer
 
+import com.anjo.statisticservice.exception.EmptyDataException
 import com.anjo.statisticservice.model.dto.HumanType
 import com.anjo.statisticservice.model.responsedto.EpidemicPoint
 import com.anjo.statisticservice.model.responsedto.EpidemicPointByType
@@ -80,7 +81,7 @@ class EpidemicStatsExposerService(private val repository: StatsRepository) {
                 (value[POPULATION_KEY] ?: ZERO).toInt()
             }
             .toList()
-            .max()
+            .maxOrNull() ?: throw EmptyDataException("Data not found for device: $deviceId and run: $runId")
 
         val timestamps = data.toList().getStartedAndEndedDates()
         val meta = RunMeta(
@@ -114,7 +115,7 @@ class EpidemicStatsExposerService(private val repository: StatsRepository) {
                 map[GENERATION_KEY]?.toInt() to map[INFECTED_KEY]?.toInt()
             }
             .sortedByDescending { it.second }
-            .first()
+            .firstOrNull() ?: throw EmptyDataException("Data not found for device: $deviceId and run: $runId")
 
         val (totalRecovered, totalDead) = data.map { value -> unparseByTypeKeys(value) }
             .map { it.values.map { (_, _, _, recovered, dead) -> recovered to dead } }

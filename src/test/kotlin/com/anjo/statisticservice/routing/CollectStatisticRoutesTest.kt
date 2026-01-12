@@ -6,7 +6,7 @@ import com.anjo.statisticservice.model.dto.EpidemicMetaDto
 import com.anjo.statisticservice.model.dto.EpidemicStateDto
 import com.anjo.statisticservice.model.dto.HumanType
 import com.anjo.statisticservice.model.dto.TemperatureDto
-import com.redis.testcontainers.RedisContainer
+import com.anjo.statisticservice.testutils.RedisContainerSetup
 import io.kotest.matchers.collections.shouldNotBeEmpty
 import io.kotest.matchers.shouldBe
 import io.ktor.client.call.body
@@ -18,7 +18,6 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.config.ApplicationConfig
-import io.ktor.server.config.MapApplicationConfig
 import io.ktor.server.config.mergeWith
 import io.ktor.server.testing.testApplication
 import kotlinx.datetime.Clock
@@ -26,19 +25,10 @@ import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import org.junit.jupiter.api.Test
-import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 
 @Testcontainers
-class CollectStatisticRoutesTest {
-
-    companion object {
-        @Container
-        @JvmStatic
-        val redis: RedisContainer =
-            RedisContainer(RedisContainer.DEFAULT_IMAGE_NAME.withTag(RedisContainer.DEFAULT_TAG))
-                .withReuse(true)
-    }
+class CollectStatisticRoutesTest : RedisContainerSetup(){
 
     private val epidemicApiPath = "api/v1/stats/collect/epidemic"
     private val temperatureApiPath = "api/v1/stats/collect/temperature"
@@ -47,10 +37,7 @@ class CollectStatisticRoutesTest {
     @Test
     fun `given wrongly request body when call {api v1 stats epidemic} then return list of errors`() = testApplication {
         //given
-        val redisContainerProps = MapApplicationConfig(
-            "ktor.redis.host" to redis.host,
-            "ktor.redis.port" to redis.redisPort.toString(),
-        )
+        val redisContainerProps = getRedisConfig()
         environment {
             config = ApplicationConfig("application-test.yaml").mergeWith(redisContainerProps)
         }
@@ -93,10 +80,7 @@ class CollectStatisticRoutesTest {
     @Test
     fun `given request body when call {api v1 stats epidemic} then return ok`() = testApplication {
         //given
-        val redisContainerProps = MapApplicationConfig(
-            "ktor.redis.host" to redis.host,
-            "ktor.redis.port" to redis.redisPort.toString(),
-        )
+        val redisContainerProps = getRedisConfig()
         environment {
             config = ApplicationConfig("application-test.yaml").mergeWith(redisContainerProps)
         }
@@ -146,10 +130,7 @@ class CollectStatisticRoutesTest {
     fun `given wrongly request body when call {api v1 stats temperature} then return list of errors`() =
         testApplication {
             //given
-            val redisContainerProps = MapApplicationConfig(
-                "ktor.redis.host" to redis.host,
-                "ktor.redis.port" to redis.redisPort.toString(),
-            )
+            val redisContainerProps = getRedisConfig()
             environment {
                 config = ApplicationConfig("application-test.yaml").mergeWith(redisContainerProps)
             }
@@ -180,10 +161,7 @@ class CollectStatisticRoutesTest {
     @Test
     fun `given request body when call {api v1 stats temperature} then return ok`() = testApplication {
         //given
-        val redisContainerProps = MapApplicationConfig(
-            "ktor.redis.host" to redis.host,
-            "ktor.redis.port" to redis.redisPort.toString(),
-        )
+        val redisContainerProps = getRedisConfig()
         environment {
             config = ApplicationConfig("application-test.yaml").mergeWith(redisContainerProps)
         }
@@ -207,5 +185,4 @@ class CollectStatisticRoutesTest {
             status shouldBe HttpStatusCode.OK
         }
     }
-
 }
