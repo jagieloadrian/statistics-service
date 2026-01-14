@@ -18,7 +18,7 @@ The goal is to enable:
 3. Backend:  
    - aggregates data  
    - computes metrics  
-   - exposes REST / WebSocket endpoints  
+   - exposes REST / WebSocket endpoints (optional)
 
 ---
 
@@ -31,7 +31,7 @@ A single complete epidemic simulation (experiment)
 A single generation (tick)
 
 ### Curve
-Epidemic progression over time (I / R / S)
+Epidemic progression over time (I / R / S / D / E)
 
 ---
 
@@ -39,7 +39,7 @@ Epidemic progression over time (I / R / S)
 
 ### 1️⃣ List of runs
 
-**GET `/api/runs`**
+**GET `/api/v1/stats/expose/epidemic/runs`**
 
 Used in the UI to:  
 - list epidemics  
@@ -55,7 +55,6 @@ Used in the UI to:
     "startedAt": 1700001200,
     "endedAt": 1700001350,
     "populationSize": 214,
-    "infectionProb": 0.32,
     "duration": 53,
     "peakInfected": 89
   }
@@ -66,7 +65,7 @@ Used in the UI to:
 
 ### 2️⃣ Details of a single run (timeline)
 
-**GET `/api/runs/{runId}`**
+**GET `/api/v1/stats/expose/epidemic/device/{deviceId}/run/{runId}`**
 
 Used in the UI to:  
 - render I / R / S charts  
@@ -79,13 +78,12 @@ Used in the UI to:
   "meta": {
     "deviceId": "esp32-01",
     "populationSize": 214,
-    "infectionProb": 0.32,
     "startedAt": 1700001200,
     "endedAt": 1700001350
   },
   "timeline": [
     {
-      "gen": 0,
+      "generation": 0,
       "infected": 46,
       "recovered": 0,
       "susceptible": 168,
@@ -107,14 +105,13 @@ Used in the UI to:
 
 ### 3️⃣ Run summary (optional)
 
-**GET `/api/runs/{runId}/summary`**
+**GET `/api/v1/stats/expose/epidemic/device/{deviceId}/run/{runId}/summary`**
 
 ```json
 {
   "duration": 53,
   "peakInfected": 89,
   "timeToPeak": 14,
-  "attackRate": 0.82,
   "finalRecovered": 176,
   "finalDead": 5
 }
@@ -160,7 +157,7 @@ The same models can be used in:
 ```kotlin
 @Serializable
 data class EpidemicPoint(
-    val gen: Int,
+    val generation: Int,
     val infected: Int,
     val recovered: Int,
     val susceptible: Int,
@@ -184,9 +181,8 @@ data class EpidemicPointByType(
 data class RunMeta(
     val deviceId: String,
     val populationSize: Int,
-    val infectionProb: Double,
-    val startedAt: Long,
-    val endedAt: Long?
+    val startedAt: LocalDateTime,
+    val endedAt: LocalDateTime?
 )
 
 @Serializable

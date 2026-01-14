@@ -63,6 +63,7 @@ dependencies {
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version")
     testImplementation("org.junit.platform:junit-platform-launcher:1.14.1")
     testImplementation("io.ktor:ktor-client-content-negotiation:${ktor_version}")
+    testImplementation("redis.clients:jedis:7.2.0")
 
     //TEST CONTAINERS
     testImplementation("org.testcontainers:testcontainers:1.20.3")

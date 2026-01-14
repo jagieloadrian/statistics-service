@@ -1,0 +1,188 @@
+package com.anjo.statisticservice.routing
+
+import com.anjo.statisticservice.model.dto.DetailedData
+import com.anjo.statisticservice.model.dto.EpidemicDto
+import com.anjo.statisticservice.model.dto.EpidemicMetaDto
+import com.anjo.statisticservice.model.dto.EpidemicStateDto
+import com.anjo.statisticservice.model.dto.HumanType
+import com.anjo.statisticservice.model.dto.TemperatureDto
+import com.anjo.statisticservice.testutils.RedisContainerSetup
+import io.kotest.matchers.collections.shouldNotBeEmpty
+import io.kotest.matchers.shouldBe
+import io.ktor.client.call.body
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.http.ContentType
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.contentType
+import io.ktor.serialization.kotlinx.json.json
+import io.ktor.server.config.ApplicationConfig
+import io.ktor.server.config.mergeWith
+import io.ktor.server.testing.testApplication
+import kotlinx.datetime.Clock
+import kotlinx.datetime.Instant
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
+import org.junit.jupiter.api.Test
+import org.testcontainers.junit.jupiter.Testcontainers
+
+@Testcontainers
+class CollectStatisticRoutesTest : RedisContainerSetup(){
+
+    private val epidemicApiPath = "api/v1/stats/collect/epidemic"
+    private val temperatureApiPath = "api/v1/stats/collect/temperature"
+    private val instant = Instant.fromEpochSeconds(1767694524)
+
+    @Test
+    fun `given wrongly request body when call {api v1 stats epidemic} then return list of errors`() = testApplication {
+        //given
+        val redisContainerProps = getRedisConfig()
+        environment {
+            config = ApplicationConfig("application-test.yaml").mergeWith(redisContainerProps)
+        }
+        val client = createClient {
+            install(ContentNegotiation) {
+                json()
+            }
+        }
+        val requestBody = EpidemicDto(
+            EpidemicMetaDto(
+                deviceId = "",
+                runId = 0,
+                timestamp = instant.toLocalDateTime(TimeZone.UTC),
+                generation = 0
+            ),
+            state = EpidemicStateDto(
+                susceptible = 0,
+                infected = 0,
+                recovered = 0,
+                population = 0,
+                mobilityMultiplier = 0.0,
+                dead = 0,
+                exposed = 0,
+                lockdown = false,
+                detailedDataByType = mapOf(),
+            )
+        )
+
+        //when and then
+        client.post(epidemicApiPath) {
+            setBody(requestBody)
+            contentType(ContentType.Application.Json)
+        }.apply {
+            status shouldBe HttpStatusCode.BadRequest
+            val response = body<List<String>>()
+            response.shouldNotBeEmpty()
+        }
+    }
+
+    @Test
+    fun `given request body when call {api v1 stats epidemic} then return ok`() = testApplication {
+        //given
+        val redisContainerProps = getRedisConfig()
+        environment {
+            config = ApplicationConfig("application-test.yaml").mergeWith(redisContainerProps)
+        }
+        val client = createClient {
+            install(ContentNegotiation) {
+                json()
+            }
+        }
+        val requestBody = EpidemicDto(
+            EpidemicMetaDto(
+                deviceId = "testId",
+                runId = 1,
+                timestamp = instant.toLocalDateTime(TimeZone.UTC),
+                generation = 1
+            ),
+            state = EpidemicStateDto(
+                susceptible = 25,
+                infected = 25,
+                recovered = 50,
+                population = 100,
+                mobilityMultiplier = 0.3,
+                dead = 0,
+                exposed = 0,
+                lockdown = false,
+                detailedDataByType = mapOf(
+                    HumanType.CHILD to DetailedData(
+                        susceptible = 1,
+                        infected = 1,
+                        recovered = 1,
+                        dead = 1,
+                        exposed = 1
+                    )
+                )
+            )
+        )
+
+        //when and then
+        client.post(epidemicApiPath) {
+            setBody(requestBody)
+            contentType(ContentType.Application.Json)
+        }.apply {
+            status shouldBe HttpStatusCode.OK
+        }
+    }
+
+    @Test
+    fun `given wrongly request body when call {api v1 stats temperature} then return list of errors`() =
+        testApplication {
+            //given
+            val redisContainerProps = getRedisConfig()
+            environment {
+                config = ApplicationConfig("application-test.yaml").mergeWith(redisContainerProps)
+            }
+            val client = createClient {
+                install(ContentNegotiation) {
+                    json()
+                }
+            }
+            val requestBody = TemperatureDto(
+                status = "",
+                deviceId = "",
+                timestamp = instant.toLocalDateTime(TimeZone.UTC),
+                temperature = -0.1,
+                humidity = null
+            )
+
+            //when and then
+            client.post(temperatureApiPath) {
+                setBody(requestBody)
+                contentType(ContentType.Application.Json)
+            }.apply {
+                status shouldBe HttpStatusCode.BadRequest
+                val response = body<List<String>>()
+                response.shouldNotBeEmpty()
+            }
+        }
+
+    @Test
+    fun `given request body when call {api v1 stats temperature} then return ok`() = testApplication {
+        //given
+        val redisContainerProps = getRedisConfig()
+        environment {
+            config = ApplicationConfig("application-test.yaml").mergeWith(redisContainerProps)
+        }
+        val client = createClient {
+            install(ContentNegotiation) {
+                json()
+            }
+        }
+        val requestBody = TemperatureDto(
+            status = "up",
+            deviceId = "test_id_2",
+            timestamp = Clock.System.now().toLocalDateTime(TimeZone.UTC),
+            temperature = 15.0,
+            humidity = 10.0
+        )
+        //when and then
+        client.post(temperatureApiPath) {
+            setBody(requestBody)
+            contentType(ContentType.Application.Json)
+        }.apply {
+            status shouldBe HttpStatusCode.OK
+        }
+    }
+}

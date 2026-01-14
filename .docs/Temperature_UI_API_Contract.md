@@ -16,7 +16,7 @@ The extension is fully compatible with the original architectural assumptions an
 4. Backend:
    - stores raw measurements
    - aggregates data for UI needs
-   - correlates temperature data with epidemic runs using timestamps
+   - correlates temperature data with runs using timestamps
 
 ---
 
@@ -28,8 +28,8 @@ A single environmental measurement (temperature, optional humidity)
 ### TemperatureSeries
 A time-series of temperature points for a given device and time range
 
-### RunTemperatureSummary
-Aggregated temperature statistics for the duration of a specific epidemic run
+### TemperatureSummary
+Aggregated temperature statistics for the duration of a specific timeline run
 
 ---
 
@@ -44,8 +44,8 @@ data class TemperatureDto(
     val deviceId: String,
     @Serializable(with = LocalDateTimeIso8601Serializer::class)
     val timestamp: LocalDateTime,
-    val temperature: Float,
-    val humidity: Float? = null
+    val temperature: Double,
+    val humidity: Double? = null
 )
 ```
 
@@ -57,8 +57,8 @@ data class TemperaturePoint(
     val deviceId: String,
     @Serializable(with = LocalDateTimeIso8601Serializer::class)
     val timestamp: LocalDateTime,
-    val temperature: Float,
-    val humidity: Float? = null
+    val temperature: Double,
+    val humidity: Double? = null
 )
 ```
 
@@ -68,7 +68,9 @@ data class TemperaturePoint(
 @Serializable
 data class TemperatureSeries(
     val deviceId: String,
+    @Serializable(with = LocalDateTimeIso8601Serializer::class)
     val from: LocalDateTime,
+    @Serializable(with = LocalDateTimeIso8601Serializer::class)
     val to: LocalDateTime,
     val points: List<TemperaturePoint>
 )
@@ -79,12 +81,13 @@ data class TemperatureSeries(
 ```kotlin
 @Serializable
 data class RunTemperatureSummary(
-    val runId: String,
     val deviceId: String,
-    val avgTemperature: Float,
-    val minTemperature: Float,
-    val maxTemperature: Float,
-    val avgHumidity: Float? = null
+    val avgTemperature: Double,
+    val minTemperature: Double,
+    val maxTemperature: Double,
+    val avgHumidity: Double? = null,
+    val minHumidity: Double? = null,
+    val maxHumidity: Double? = null
 )
 ```
 
@@ -94,7 +97,7 @@ data class RunTemperatureSummary(
 
 ### 1️⃣ List devices with temperature data
 
-**GET `/api/temperature/devices`**
+**GET `/api/v1/temperature/devices`**
 
 Used by the UI to:
 - list available sensors
@@ -115,7 +118,7 @@ Used by the UI to:
 
 ### 2️⃣ Temperature time-series for a device
 
-**GET `/api/temperature/{deviceId}`**
+**GET `/api/v1/temperature/devices/{deviceId}`**
 
 Query parameters:
 - `from` – ISO8601 timestamp
@@ -124,7 +127,7 @@ Query parameters:
 
 **Example**
 ```http
-GET /api/temperature/esp32-01?from=2024-11-10T08:00:00Z&to=2024-11-10T12:00:00Z
+GET /api/v1/temperature/esp32-01?from=2024-11-10T08:00:00Z&to=2024-11-10T12:00:00Z
 ```
 
 **Response**
@@ -135,6 +138,7 @@ GET /api/temperature/esp32-01?from=2024-11-10T08:00:00Z&to=2024-11-10T12:00:00Z
   "to": "2024-11-10T12:00:00Z",
   "points": [
     {
+      "deviceId": "esp32-01",
       "timestamp": "2024-11-10T08:00:00Z",
       "temperature": 21.4,
       "humidity": 43.2
@@ -147,35 +151,36 @@ GET /api/temperature/esp32-01?from=2024-11-10T08:00:00Z&to=2024-11-10T12:00:00Z
 
 ---
 
-### 3️⃣ Temperature summary for an epidemic run
+### 3️⃣ Temperature summary 
 
-**GET `/api/runs/{runId}/temperature`**
+**GET `/api/v1/temperature/devices/{deviceId}/summary`**
 
 Backend behavior:
-- uses `startedAt` and `endedAt` of the epidemic run
+- uses `startedAt` and `endedAt` of the collected data
 - aggregates temperature data in that time range
 
 **Response**
 ```json
 {
-  "runId": "esp32-01-1700001200",
   "deviceId": "esp32-01",
   "avgTemperature": 22.1,
   "minTemperature": 20.3,
   "maxTemperature": 24.0,
-  "avgHumidity": 41.2
+  "avgHumidity": 41.2,
+  "minHumidity": 30.0,
+  "maxHumidity": 50.0
 }
 ```
 
 Used in the UI to:
 - display environmental context of a run
-- compare epidemic outcomes with temperature conditions
+- compare temperature outcomes 
 
 ---
 
 ## 🔴 Live Temperature (Optional)
 
-**WebSocket `/api/temperature/{deviceId}/live`**
+**WebSocket `/api/v1/temperature/{deviceId}/live`**
 
 Each new measurement is sent as:
 
@@ -223,7 +228,7 @@ fun prepareTemperatureBody(dto: TemperatureDto): Map<String, String> =
 The backend is responsible for:
 - converting Redis stream entries into `TemperaturePoint`
 - aggregating data by time buckets
-- correlating temperature data with epidemic runs
+- correlating temperature data with runs
 
 ---
 
