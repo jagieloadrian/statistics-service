@@ -61,7 +61,7 @@ dependencies {
     testImplementation("io.mockk:mockk-jvm:1.14.7")
     testImplementation("io.ktor:ktor-server-test-host")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version")
-    testImplementation("org.junit.platform:junit-platform-launcher:1.14.1")
+    testImplementation("org.junit.platform:junit-platform-launcher:6.0.2")
     testImplementation("io.ktor:ktor-client-content-negotiation:${ktor_version}")
     testImplementation("redis.clients:jedis:7.2.0")
 
