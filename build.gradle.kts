@@ -32,8 +32,8 @@ dependencies {
     implementation("io.github.oshai:kotlin-logging-jvm:7.0.14")
 
     //CACHE
-    implementation("com.ucasoft.ktor:ktor-simple-cache:0.55.3")
-    implementation("com.ucasoft.ktor:ktor-simple-redis-cache:0.55.3")
+    implementation("com.ucasoft.ktor:ktor-simple-cache:0.57.7")
+    implementation("com.ucasoft.ktor:ktor-simple-redis-cache:0.57.7")
 
     //METRICS
     implementation("dev.hayden:khealth:3.0.2")
