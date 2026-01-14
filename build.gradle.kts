@@ -66,8 +66,8 @@ dependencies {
     testImplementation("redis.clients:jedis:7.2.0")
 
     //TEST CONTAINERS
-    testImplementation("org.testcontainers:testcontainers:1.20.3")
-    testImplementation("org.testcontainers:junit-jupiter:1.20.3")
+    testImplementation("org.testcontainers:testcontainers:1.21.4")
+    testImplementation("org.testcontainers:junit-jupiter:1.21.4")
     testImplementation("com.redis:testcontainers-redis:2.2.4")
 }
 
