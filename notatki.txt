@@ -1,8 +1,8 @@
 Statistics-Service
-2. podbić wersje ktor do 3.4 (spr czy nie ma jakiegoś early access)
 3. implementacja routingu i logiki
-    3.3. dodatkowe implementacje (cache, monitoring i inne)
-    3.2 testy (sprawdzić runid xaddargs i zobaczyć agentos
+    3.1 dodatkowe implementacje (cache, monitoring i inne)
+    3.2 testy (sprawdzić runid xaddargs i zobaczyć agentos)
+    3.3 czy temperature powinien zwracać dane dla nie istniejącego device?
 4. wystawienie endpointu dla KMP
     4.1 testy integracyjne
 
@@ -12,10 +12,3 @@ epidemic:runs
 
 temperature:runs
 temperature:device:{deviceId}:run
-
-Statisctics app and web page
-1. kontrakt z backendem
-    1.1. pomyśleć o attack rate
-2. init project z odpowiednimi libkami
-3. implementacje wizualizacji statsów
-4. dodać ewnentualne bajery

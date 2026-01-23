@@ -4,9 +4,9 @@ import com.anjo.statisticservice.model.dto.EpidemicDto
 import com.anjo.statisticservice.model.dto.TemperatureDto
 import com.anjo.statisticservice.validation.ValidatorMessages.MUST_BE_GREATER_THAN_ZERO
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.DurationUnit.DAYS
 import kotlin.time.ExperimentalTime

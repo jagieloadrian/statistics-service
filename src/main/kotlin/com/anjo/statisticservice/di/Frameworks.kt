@@ -13,8 +13,11 @@ import io.ktor.server.plugins.calllogging.CallLogging
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.plugins.defaultheaders.DefaultHeaders
+import io.ktor.server.routing.openapi.hide
+import io.ktor.utils.io.ExperimentalKtorApi
 import kotlin.time.Duration.Companion.seconds
 
+@OptIn(ExperimentalKtorApi::class)
 fun Application.configureFrameworks() {
     install(DefaultHeaders) {
         header("X-Engine", "Ktor")
@@ -37,8 +40,9 @@ fun Application.configureFrameworks() {
         }
     }
     install(KHealth) {
-        readyCheckPath = "/ready"
-        healthCheckPath = "/health"
+        wrap {
+            this.hide()
+        }
     }
     install(CallLogging) {
         callIdMdc("call-id")

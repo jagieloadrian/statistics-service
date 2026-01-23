@@ -1,13 +1,11 @@
-import io.ktor.plugin.OpenApiPreview
-
 val kotlin_version: String by project
 val logback_version: String by project
 val ktor_version: String by project
 
 plugins {
-    kotlin("jvm") version "2.2.21"
-    kotlin("plugin.serialization") version "2.2.21"
-    id("io.ktor.plugin") version "3.3.2"
+    kotlin("jvm")
+    kotlin("plugin.serialization")
+    id("io.ktor.plugin")
     jacoco
 }
 
@@ -21,6 +19,9 @@ application {
 dependencies {
     //Headers
     implementation("io.ktor:ktor-server-default-headers")
+    //Kotlinx date time
+    implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.7.1")
+
     //Core
     implementation("io.ktor:ktor-server-core")
     implementation("io.ktor:ktor-server-netty")
@@ -52,9 +53,10 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.10.2")
     runtimeOnly("org.jetbrains.kotlinx:kotlinx-coroutines-reactive:1.10.2")
 
-
     //SZWAGIER
     implementation("io.ktor:ktor-server-swagger:${ktor_version}")
+    // will be removed with ktor 3.4.1
+    implementation("io.ktor:ktor-server-routing-openapi:${ktor_version}")
 
     //TESTS
     testImplementation("io.kotest:kotest-assertions-core-jvm:6.0.7")
@@ -86,13 +88,7 @@ tasks.withType<Test> {
     useJUnitPlatform()
     finalizedBy(tasks.jacocoTestReport)
 }
-
-ktor {
-    @OptIn(OpenApiPreview::class)
-    openApi {
-        title = "StatisticsService"
-        version = "1.0"
-        description = "This is a small project to store and calculate statistics from diff sources"
-        target = project.layout.projectDirectory.dir("openapi").file("document.yaml")
-    }
-}
+//
+//ktor {
+//    openApi {}
+//}
