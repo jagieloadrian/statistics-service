@@ -40,8 +40,9 @@ fun Application.configureFrameworks() {
         }
     }
     install(KHealth) {
-        wrap {
-            this.hide()
+        wrap { next ->
+            hide()
+            next()
         }
     }
     install(CallLogging) {
