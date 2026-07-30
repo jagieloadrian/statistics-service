@@ -7,3 +7,5 @@ class EmptyParamException : Exception {
 class EmptyDataException: Exception {
     constructor(message: String) : super(message)
 }
+
+class PluginValidationException(val reasons: List<String>) : Exception()

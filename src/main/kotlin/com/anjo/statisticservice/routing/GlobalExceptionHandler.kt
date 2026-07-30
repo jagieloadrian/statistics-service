@@ -2,6 +2,7 @@ package com.anjo.statisticservice.routing
 
 import com.anjo.statisticservice.exception.EmptyDataException
 import com.anjo.statisticservice.exception.EmptyParamException
+import com.anjo.statisticservice.exception.PluginValidationException
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
@@ -19,6 +20,9 @@ fun Application.validatorExceptionHandler() {
         }
         exception<EmptyDataException> { call, cause ->
             call.respond(status = HttpStatusCode.NotFound, message = cause.message ?: cause.localizedMessage)
+        }
+        exception<PluginValidationException> { call, cause ->
+            call.respond(HttpStatusCode.BadRequest, cause.reasons)
         }
     }
 }

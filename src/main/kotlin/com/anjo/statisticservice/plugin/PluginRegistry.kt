@@ -11,4 +11,6 @@ class PluginRegistry(plugins: List<StatPlugin>) {
 
     fun resolve(pluginId: String): StatPlugin =
         byId[pluginId] ?: throw EmptyDataException("Unknown plugin id: $pluginId")
+
+    fun all(): Collection<StatPlugin> = byId.values
 }

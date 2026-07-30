@@ -2,10 +2,12 @@ package com.anjo.statisticservice.di
 
 import com.anjo.statisticservice.configuration.RedisClientProvider
 import com.anjo.statisticservice.model.RedisConfig
+import com.anjo.statisticservice.plugin.EpidemicPlugin
+import com.anjo.statisticservice.plugin.PluginRegistry
+import com.anjo.statisticservice.plugin.TemperaturePlugin
 import com.anjo.statisticservice.repository.StatsRepositoryRedisImpl
 import com.anjo.statisticservice.service.StatsCollectorService
 import com.anjo.statisticservice.service.exposer.EpidemicStatsExposerService
-import com.anjo.statisticservice.service.exposer.StatsExposerFacade
 import com.anjo.statisticservice.service.exposer.TemperatureStatsExposerService
 import io.ktor.server.application.Application
 import io.ktor.server.plugins.di.DependencyKey
@@ -29,7 +31,14 @@ fun Application.configureDI() {
         provide { StatsCollectorService(get(DependencyKey<StatsRepositoryRedisImpl>())) }
         provide { EpidemicStatsExposerService(get(DependencyKey<StatsRepositoryRedisImpl>())) }
         provide { TemperatureStatsExposerService(get(DependencyKey<StatsRepositoryRedisImpl>())) }
-        provide { StatsExposerFacade(get(DependencyKey<EpidemicStatsExposerService>()),
-            get(DependencyKey<TemperatureStatsExposerService>())) }
+        provide {
+            EpidemicPlugin(get(DependencyKey<StatsCollectorService>()), get(DependencyKey<EpidemicStatsExposerService>()))
+        }
+        provide {
+            TemperaturePlugin(get(DependencyKey<StatsCollectorService>()), get(DependencyKey<TemperatureStatsExposerService>()))
+        }
+        provide {
+            PluginRegistry(listOf(get(DependencyKey<EpidemicPlugin>()), get(DependencyKey<TemperaturePlugin>())))
+        }
     }
 }

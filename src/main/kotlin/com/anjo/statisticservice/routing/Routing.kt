@@ -1,20 +1,16 @@
 package com.anjo.statisticservice.routing
 
-import com.anjo.statisticservice.service.StatsCollectorService
-import com.anjo.statisticservice.service.exposer.StatsExposerFacade
+import com.anjo.statisticservice.plugin.PluginRegistry
 import io.ktor.server.application.Application
 import io.ktor.server.plugins.di.dependencies
 import io.ktor.server.routing.routing
 
 fun Application.configureRouting() {
-    val statsCollectorService: StatsCollectorService by dependencies
-    val statsExposerFacade: StatsExposerFacade by dependencies
-    validationStatsRequestBody()
+    val pluginRegistry: PluginRegistry by dependencies
     validatorExceptionHandler()
     routing {
-        collectStatisticRoutes(statsCollectorService)
-        exposeEpidemicData(statsExposerFacade)
-        exposeTemperatureData(statsExposerFacade)
+        pluginCollectRoute(pluginRegistry)
+        pluginExposeRoutes(pluginRegistry)
         swaggerEndpoint()
     }
 }

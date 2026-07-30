@@ -6,7 +6,7 @@ import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 
 private class FakePlugin(override val id: String) : StatPlugin {
-    override suspend fun expose(): PluginRouteSet = PluginRouteSet()
+    override suspend fun expose(): PluginRouteSet = PluginRouteSet {}
 }
 
 class PluginRegistryTest {
