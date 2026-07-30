@@ -17,6 +17,12 @@ application {
 }
 
 dependencies {
+    //Plugins
+    implementation(project(":plugin:plugin-api"))
+    implementation(project(":plugin:rpi_epidemic_api"))
+    implementation(project(":plugin:rpi_temperature_api"))
+    implementation(project(":plugin:home_assistant_api"))
+
     //Headers
     implementation("io.ktor:ktor-server-default-headers")
     //Kotlinx date time

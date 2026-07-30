@@ -3,10 +3,12 @@ package com.anjo.statisticservice.di
 import com.anjo.statisticservice.configuration.RedisClientProvider
 import com.anjo.statisticservice.model.RedisConfig
 import com.anjo.statisticservice.plugin.EpidemicPlugin
+import com.anjo.statisticservice.plugin.HomeAssistantPlugin
 import com.anjo.statisticservice.plugin.PluginRegistry
 import com.anjo.statisticservice.plugin.TemperaturePlugin
 import com.anjo.statisticservice.repository.StatsRepositoryRedisImpl
-import com.anjo.statisticservice.service.StatsCollectorService
+import com.anjo.statisticservice.service.EpidemicStatsCollectorService
+import com.anjo.statisticservice.service.TemperatureStatsCollectorService
 import com.anjo.statisticservice.service.exposer.EpidemicStatsExposerService
 import com.anjo.statisticservice.service.exposer.TemperatureStatsExposerService
 import io.ktor.server.application.Application
@@ -28,17 +30,19 @@ fun Application.configureDI() {
         }
         provide { RedisClientProvider(get(DependencyKey<RedisConfig>())) }
         provide { StatsRepositoryRedisImpl(get(DependencyKey<RedisClientProvider>())) }
-        provide { StatsCollectorService(get(DependencyKey<StatsRepositoryRedisImpl>())) }
+        provide { EpidemicStatsCollectorService(get(DependencyKey<StatsRepositoryRedisImpl>())) }
+        provide { TemperatureStatsCollectorService(get(DependencyKey<StatsRepositoryRedisImpl>())) }
         provide { EpidemicStatsExposerService(get(DependencyKey<StatsRepositoryRedisImpl>())) }
         provide { TemperatureStatsExposerService(get(DependencyKey<StatsRepositoryRedisImpl>())) }
         provide {
-            EpidemicPlugin(get(DependencyKey<StatsCollectorService>()), get(DependencyKey<EpidemicStatsExposerService>()))
+            EpidemicPlugin(get(DependencyKey<EpidemicStatsCollectorService>()), get(DependencyKey<EpidemicStatsExposerService>()))
         }
         provide {
-            TemperaturePlugin(get(DependencyKey<StatsCollectorService>()), get(DependencyKey<TemperatureStatsExposerService>()))
+            TemperaturePlugin(get(DependencyKey<TemperatureStatsCollectorService>()), get(DependencyKey<TemperatureStatsExposerService>()))
         }
+        provide { HomeAssistantPlugin() }
         provide {
-            PluginRegistry(listOf(get(DependencyKey<EpidemicPlugin>()), get(DependencyKey<TemperaturePlugin>())))
+            PluginRegistry(listOf(get(DependencyKey<EpidemicPlugin>()), get(DependencyKey<TemperaturePlugin>()), get(DependencyKey<HomeAssistantPlugin>())))
         }
     }
 }

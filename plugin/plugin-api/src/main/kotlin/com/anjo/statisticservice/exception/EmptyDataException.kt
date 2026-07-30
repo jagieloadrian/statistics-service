@@ -1,5 +1,5 @@
 package com.anjo.statisticservice.exception
 
-class EmptyParamException : Exception {
+class EmptyDataException : Exception {
     constructor(message: String) : super(message)
 }

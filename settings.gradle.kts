@@ -1,5 +1,12 @@
 rootProject.name = "StatisticsService"
 
+include(
+    ":plugin:plugin-api",
+    ":plugin:rpi_epidemic_api",
+    ":plugin:rpi_temperature_api",
+    ":plugin:home_assistant_api",
+)
+
 dependencyResolutionManagement {
     repositories {
         mavenCentral()

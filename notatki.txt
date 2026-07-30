@@ -12,3 +12,6 @@ epidemic:runs
 
 temperature:runs
 temperature:device:{deviceId}:run
+
+
+Faza 3 po ukończeniu mon-home-ass

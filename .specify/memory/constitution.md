@@ -1,25 +1,23 @@
 <!--
 Sync Impact Report
-Version change: 1.1.0 → 1.2.0
-Modified principles: none renamed/redefined; all agent-os/* citations rewired to
-  user-roadmap.md (now sole source of truth per user-roadmap.md line 3 — agent-os
-  content was folded in there, agent-os/config.yml + product/ + standards/ +
-  specs/ and .copilot/ are legacy/frozen and safe to delete after this amendment)
-Added sections: Development Workflow — Agent Tooling rule (every skill invocation
-  MUST run under the ponytail + caveman [+ i-have-adhd when installed] combo)
+Version change: 1.2.0 → 1.3.0
+Modified principles: I. Plugin Contract First — expanded to require plugins be
+  separate Gradle modules under `/plugin` (each depending only on
+  `:plugin-api`, never on core-by-name), not classes living inside core `src`;
+  reflects user-roadmap.md's new "Plugins are packages, not classes in `src`"
+  section and Phase 2.5.
+Added sections: none new (existing principle expanded, existing Tech
+  Constraints bullet on Gradle builds expanded to name the multi-module layout)
 Removed sections: none
 Templates requiring updates:
   - .specify/templates/plan-template.md ✅ no change needed
   - .specify/templates/spec-template.md ✅ no change needed
   - .specify/templates/tasks-template.md ✅ no change needed
 Follow-up TODOs:
-  - "i-have-adhd" is not present in this session's available skill/plugin list.
-    Rule below is written as MUST-when-available so it doesn't block work if the
-    plugin isn't installed in a given environment — confirm install, or drop the
-    clause, next time this file is amended.
-  - agent-os/ and .copilot/ deletion itself NOT performed here (destructive,
-    out of this skill's scope) — user should delete manually now that nothing
-    in this constitution cites those paths.
+  - "i-have-adhd" still not present in this session's available skill/plugin
+    list — Agent Tooling rule unchanged, still MUST-when-available.
+  - agent-os/ and .copilot/ deletion still not performed (destructive, out of
+    this skill's scope) — carried over from prior amendment.
 -->
 
 # StatisticsService Constitution
@@ -29,16 +27,24 @@ Follow-up TODOs:
 ### I. Plugin Contract First
 Every data domain (epidemic, temperature, Home Assistant, ...) MUST implement
 collection and exposition behind the single shared `StatPlugin` contract, and
-MUST be registered explicitly (no dynamic/jar-based loading). Core storage
-(`StatsRepository`, Redis Streams) MUST stay domain-agnostic — plugin-specific
-logic never leaks into shared infrastructure. Adding a new data source MUST
-require only a new plugin class plus a registration line (see "Adding a new
-plugin" mechanism in `user-roadmap.md`), not new hand-wired routes or services.
+MUST be registered explicitly (no dynamic/jar-based loading — Gradle
+multi-module only, per `user-roadmap.md` "Plugins are packages, not classes in
+`src`"). Each plugin MUST live in its own Gradle subproject under `/plugin`
+(e.g. `:plugin:rpi_temperature_api`), depending only on the shared
+`:plugin-api` module (`StatPlugin`, `PluginRouteSet`, the key builder) — never
+on core, and core MUST NOT import plugin classes by name outside the single
+registration list. Core storage (`StatsRepository`, Redis Streams) MUST stay
+domain-agnostic — plugin-specific logic never leaks into shared
+infrastructure. Adding a new data source MUST require only a new plugin
+module plus a registration line (see "Adding a new plugin" mechanism in
+`user-roadmap.md`), not new hand-wired routes or services.
 
 **Rationale**: the product's differentiator is that new sources are cheap to
-add; hardcoded per-domain services (the pre-plugin state being migrated away
-from in `user-roadmap.md` Phase 2) directly contradict the mission and
-re-accumulate coupling the plugin architecture exists to remove.
+add and buildable independently; hardcoded per-domain services (the
+pre-plugin state migrated away from in `user-roadmap.md` Phase 2) and
+plugin classes hardcoded inside core `src` (the state migrated away from in
+Phase 2.5) both re-accumulate the coupling the plugin architecture exists to
+remove.
 
 ### II. Contract-Compliant Ingestion & Exposition
 Ingestion and UI-facing API payloads MUST match the versioned contracts in
@@ -97,7 +103,11 @@ that migration path.
 
 ## Technology & Architecture Constraints
 
-- Backend: Kotlin + Ktor (HTTP + WebSocket server), Gradle Kotlin DSL builds.
+- Backend: Kotlin + Ktor (HTTP + WebSocket server), Gradle Kotlin DSL builds —
+  multi-module: core (`src`) plus one Gradle subproject per plugin under
+  `/plugin` (`:plugin:plugin-api`, `:plugin:rpi_temperature_api`,
+  `:plugin:rpi_epidemic_api`, `:plugin:home_assistant_api`), per
+  `user-roadmap.md` Phase 2.5.
 - Storage: Redis (Streams) for ingestion/time-series storage — domain-agnostic
   (`StatsRepository`), reused unchanged by every plugin; PostgreSQL/ClickHouse
   reserved for future analytics needs, not current scope.
@@ -128,8 +138,9 @@ that migration path.
 
 - New or changed endpoints MUST update `.docs` contracts in the same change.
 - Plugin migrations (collapsing hardcoded per-domain services into
-  `StatPlugin` implementations) MUST NOT change observable behavior unless
-  explicitly scoped to do so — see `user-roadmap.md` Ground Rules.
+  `StatPlugin` implementations, or extracting plugin classes out of core
+  `src` into their own Gradle module) MUST NOT change observable behavior
+  unless explicitly scoped to do so — see `user-roadmap.md` Ground Rules.
 - Tests MUST accompany contract or storage-indexing changes; a change that
   touches `StatsRepository`, collect/expose routes, or plugin registration
   without corresponding test updates fails review — scoped to core flows
@@ -155,4 +166,4 @@ clarification), and (3) propagation check against
 verify compliance with Core Principles; deviations MUST be justified in the
 plan's Complexity Tracking section or rejected.
 
-**Version**: 1.2.0 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-07-30
+**Version**: 1.3.0 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-07-30
