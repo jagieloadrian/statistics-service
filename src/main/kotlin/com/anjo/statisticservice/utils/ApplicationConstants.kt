@@ -13,4 +13,12 @@ object ApplicationConstants {
     fun getTemperatureKey(deviceId:String): String {
         return "temperature:device:${deviceId}:run"
     }
+
+    fun getKey(pluginId: String, deviceId: String, runId: String? = null): String {
+        return if (runId != null) {
+            "$pluginId:device:$deviceId:run:$runId"
+        } else {
+            "$pluginId:device:$deviceId:run"
+        }
+    }
 }
