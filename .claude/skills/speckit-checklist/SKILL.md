@@ -10,6 +10,8 @@ user-invocable: true
 disable-model-invocation: false
 ---
 
+> Run this skill under `ponytail` + `caveman` (and `i-have-adhd` if installed) per project constitution `.specify/memory/constitution.md`.
+
 
 ## Checklist Purpose: "Unit Tests for English"
 
