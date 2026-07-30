@@ -28,7 +28,6 @@ import org.testcontainers.junit.jupiter.Testcontainers
 class StatsEpidemicExposerRoutingTest : RedisContainerSetup() {
 
     private val epidemicApiPath = "api/v1/stats/expose/epidemic"
-//    private val temperatureApiPath = "api/v1/stats/expose/temperature"
 
     @AfterEach
     fun tearDown() {

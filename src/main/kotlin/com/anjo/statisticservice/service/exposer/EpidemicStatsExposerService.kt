@@ -47,6 +47,7 @@ import kotlin.time.Clock
 class EpidemicStatsExposerService(private val repository: StatsRepository) {
 
     private val log = KotlinLogging.logger {}
+
     suspend fun getEpidemicRuns(): List<EpidemicShortRun> {
         val keys = repository.getKeyStats(EPIDEMIC_KEYS).toList()
         log.info { "Obtained: ${keys.size} keys" }

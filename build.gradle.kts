@@ -51,6 +51,7 @@ dependencies {
 
     //COROUTINES
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.10.2")
+    testImplementation("org.junit.jupiter:junit-jupiter:5.14.0")
     runtimeOnly("org.jetbrains.kotlinx:kotlinx-coroutines-reactive:1.10.2")
 
     //SZWAGIER
@@ -88,7 +89,3 @@ tasks.withType<Test> {
     useJUnitPlatform()
     finalizedBy(tasks.jacocoTestReport)
 }
-//
-//ktor {
-//    openApi {}
-//}

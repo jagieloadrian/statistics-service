@@ -17,8 +17,9 @@ class RedisClientProvider(private val configuration: RedisConfig) {
             builder.withPassword(configuration.password)
         }
         val uri = builder.build()
-        val client1 = RedisClient.create(uri)
-        client1.options = ClientOptions.builder().autoReconnect(true).build()
-        client1
+         RedisClient.create(uri)
+                .apply {
+                    options = ClientOptions.builder().autoReconnect(true).build()
+                }
     }
 }

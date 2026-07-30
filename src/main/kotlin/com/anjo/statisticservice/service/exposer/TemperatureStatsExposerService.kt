@@ -11,8 +11,8 @@ import com.anjo.statisticservice.utils.DbKeyConstants.HUMIDITY_KEY
 import com.anjo.statisticservice.utils.DbKeyConstants.TEMPERATURE_KEY
 import com.anjo.statisticservice.utils.DbKeyConstants.TIMESTAMP_KEY
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.toList
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
@@ -104,12 +104,11 @@ class TemperatureStatsExposerService(private val repository: StatsRepository) {
     }
 
     private suspend fun getTimestamp(value: Flow<Map<String, String>>): List<LocalDateTime> =
-        value.map { it[TIMESTAMP_KEY] }.filterNotNull().map { LocalDateTime.parse(it) }
+        value.mapNotNull { it[TIMESTAMP_KEY] }.map { LocalDateTime.parse(it) }
             .toList()
 
     private suspend fun getDoubleField(fieldName: String, value: Flow<Map<String, String>>): List<Double> =
-        value.map { it[fieldName] }
-            .filterNotNull()
+        value.mapNotNull { it[fieldName] }
             .map { it.toDouble() }
             .toList()
 }

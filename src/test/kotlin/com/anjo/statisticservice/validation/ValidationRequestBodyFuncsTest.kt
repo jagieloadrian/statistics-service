@@ -10,13 +10,13 @@ import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
-import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import kotlin.time.Clock.System
 import kotlin.time.Duration
 import kotlin.time.DurationUnit.DAYS
 import kotlin.time.ExperimentalTime
@@ -86,7 +86,7 @@ class ValidationRequestBodyFuncsTest {
             // given
             val dto = mockk<TemperatureDto>()
             // per the implementation, timestamp must be <= yesterday to be considered valid
-            val yesterday = Clock.System.now()
+            val yesterday = System.now()
                 .minus(Duration.convert(1.0, DAYS, DAYS).toDuration(DAYS))
                 .toLocalDateTime(TimeZone.UTC)
 
@@ -108,7 +108,7 @@ class ValidationRequestBodyFuncsTest {
         fun `given invalid temperature dto when validating then returns false and contains reasons`() {
             // given
             val dto = mockk<TemperatureDto>()
-            val now = Clock.System.now().toLocalDateTime(TimeZone.UTC) // this is newer than yesterday -> treated invalid by current logic
+            val now = System.now().toLocalDateTime(TimeZone.UTC) // this is newer than yesterday -> treated invalid by current logic
             every { dto.component1() } returns ""            // empty status -> invalid
             every { dto.component2() } returns "   "         // blank device -> invalid
             every { dto.component3() } returns now           // timestamp newer than yesterday -> invalid per implementation

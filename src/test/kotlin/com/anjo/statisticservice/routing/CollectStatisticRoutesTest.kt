@@ -20,12 +20,12 @@ import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.config.ApplicationConfig
 import io.ktor.server.config.mergeWith
 import io.ktor.server.testing.testApplication
-import kotlinx.datetime.Clock
-import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import org.junit.jupiter.api.Test
 import org.testcontainers.junit.jupiter.Testcontainers
+import kotlin.time.Clock
+import kotlin.time.Instant
 
 @Testcontainers
 class CollectStatisticRoutesTest : RedisContainerSetup(){
