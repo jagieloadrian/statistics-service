@@ -25,6 +25,10 @@
 - Q: Collector apps only, or also in-platform extensions? → A: separate
   collector apps only, feeding the platform over the supported channels; no
   in-platform extension mechanism (FR-024).
+- Q: Keep the old `/api/v1/stats/**` API for existing devices and screens? →
+  A: no. It is not in real use and the RPi software can be changed; the old
+  API, plugins and screens are removed outright, devices are reprogrammed to
+  the new ingestion address (FR-023).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -62,38 +66,36 @@ over the last 24 h, and confirm the chart shows all 100 points.
 
 ---
 
-### User Story 2 - Existing temperature and epidemic views reproduced as pure configuration (Priority: P1)
+### User Story 2 - Temperature and epidemic as pure configuration (Priority: P1)
 
-As the owner of the existing Raspberry Pi devices, I keep them sending exactly
-what they send today, and I get temperature and epidemic dashboards equivalent
-to today's screens — built only from source/dataset/dashboard definitions, with
-no temperature- or epidemic-specific code left in backend or frontend.
+As the owner of the Raspberry Pi devices, I point them at the platform (new
+address + source credential) and get temperature and epidemic dashboards —
+built only from source/dataset/dashboard definitions, with no temperature- or
+epidemic-specific code anywhere in backend or frontend.
 
 **Why this priority**: it is the acceptance test that the platform is actually
-generic (two very different shapes: a flat device time series and nested
-simulation runs with per-type breakdown), and it protects devices whose
-firmware cannot be redeployed in sync with the platform.
+generic: two very different shapes — a flat device time series and nested
+simulation runs with a per-type breakdown — must both work as configuration.
 
-**Independent Test**: replay the recorded device payloads from the existing
-test fixtures through today's ingestion addresses, import the two provided
-dashboard definitions, and compare each widget against today's endpoint output
-(device list, series per resolution, summaries, runs list, run timeline, run
-summary) for the same data.
+**Independent Test**: import the two provided definition bundles, send the
+sample payloads from the device contracts to the new sources, and check every
+widget: device list with first/last seen, series per resolution, min/avg/max
+summary; runs list, run timeline by generation, run summary (peak infected,
+generation of peak, final recovered/dead).
 
 **Acceptance Scenarios**:
 
-1. **Given** a device posting to today's ingestion address with today's
-   payload, **When** the new platform is live, **Then** the payload is accepted
-   with the same success/error responses and lands in the configured dataset.
+1. **Given** a device reprogrammed with the new address and credential,
+   **When** it sends its payload, **Then** the payload lands in the configured
+   dataset without the device having to change its payload shape.
 2. **Given** an epidemic payload with a per-type breakdown (`byType`), **When**
    it is ingested, **Then** each type is queryable as a separate series via a
    dimension (e.g. `type = "0"`), alongside the totals.
-3. **Given** the temperature dashboard definition, **When** a user picks a
-   device and a resolution (raw / 1 min / 1 h / 1 day), **Then** the series
-   and summary values match today's temperature endpoints for the same data.
-4. **Given** the epidemic dashboard definition, **When** a user picks a run,
-   **Then** the timeline and summary values match today's epidemic endpoints
-   for the same run.
+3. **Given** the temperature dashboard, **When** a user picks a device and a
+   resolution (raw / 1 min / 1 h / 1 day), **Then** the series and min/avg/max
+   summary are computed correctly for the chosen range.
+4. **Given** the epidemic dashboard, **When** a user picks a run, **Then** the
+   timeline and summary values are computed correctly for that run.
 
 ---
 
@@ -248,9 +250,9 @@ source as silent.
   (gRPC) MUST be supported as additional channel types using the same mapping
   model. (Channel names are user-mandated integration requirements, not
   implementation choices.)
-- **FR-003**: Every source MUST have its own credential (except sources the
-  admin explicitly marks as open for trusted local devices); credentials MUST
-  be rotatable without changing the source's identity.
+- **FR-003**: Every source MUST have its own credential, and data without a
+  valid credential MUST be rejected; credentials MUST be rotatable without
+  changing the source's identity.
 - **FR-004**: Each source MUST show status: last record time, records
   accepted/rejected in the last hour and day, and the last 50 rejection
   reasons with the offending payload excerpt.
@@ -268,6 +270,9 @@ source as silent.
   record per entry with the key as a dimension.
 - **FR-008**: The admin MUST be able to test a mapping against a sample
   payload and see the resulting records before saving.
+- **FR-025**: A source without mapping rules MUST accept the platform's
+  native record format (timestamp, dimensions, measures; one record or a
+  list), so producers that can be changed need no mapping at all.
 - **FR-009**: Datasets MUST support an optional retention period after which
   records are deleted; default is keep forever.
 
@@ -277,8 +282,9 @@ source as silent.
   dimension filters, grouping by dimensions, and a time bucket (raw or fixed
   bucket sizes).
 - **FR-011**: Aggregations MUST include count, sum, average, min, max, first,
-  last, and the timestamp at which min/max occurred (covers today's run
-  summaries, e.g. peak infected and when it happened).
+  last, and the timestamp or value of another measure at the record where a
+  measure hit its min/max (covers today's run summaries, e.g. peak infected
+  and the generation at which it happened).
 - **FR-012**: Users MUST be able to define calculated measures as simple
   arithmetic over other measures of the same dataset (e.g. attack rate =
   (recovered + dead) / population).
@@ -317,15 +323,13 @@ source as silent.
 - **FR-022**: Each user MUST be able to set favourites, a home dashboard,
   time zone, unit preference and theme.
 
-**Compatibility & migration**
+**Legacy**
 
-- **FR-023**: Today's device ingestion addresses and payloads for temperature
-  and epidemic MUST keep working unchanged, mapped onto their datasets through
-  ordinary source definitions. Today's UI-facing read endpoints MAY be removed
-  once the new frontend replaces the current screens (the frontend is their
-  only consumer). The new platform starts with empty datasets; historical data
-  already stored MUST be left untouched as a read-only archive (not migrated,
-  not deleted, not shown in the new UI).
+- **FR-023**: No part of today's API (`/api/v1/stats/**`), plugins or
+  domain screens is kept or emulated; devices are reprogrammed to the new
+  ingestion address. The new platform starts with empty datasets; historical
+  data already stored MUST be left untouched as a read-only archive (not
+  migrated, not deleted, not shown in the new UI).
 
 **Extensibility**
 
@@ -366,8 +370,9 @@ source as silent.
 - **SC-002**: Temperature and epidemic views are reproduced 100% from
   definitions; a search of backend and frontend source finds zero
   temperature- or epidemic-specific types, screens or addresses.
-- **SC-003**: Existing devices send through the cutover with zero firmware
-  changes and zero lost records.
+- **SC-003**: Switching an existing device to the platform needs only a new
+  target address and credential on the device — no change to the payload it
+  builds.
 - **SC-004**: At home-lab scale (10 sources, 5 million records), a dashboard
   with 8 widgets over 30 days of data fully renders in under 2 seconds for 95%
   of loads.
@@ -396,9 +401,8 @@ source as silent.
   v1.
 - The Home Assistant integration remains a separate project; on this platform
   it is a collector app feeding a source (FR-024), or a pull source.
-- FR-023 compatibility covers device ingestion only; the current epidemic
-  run-details screen is already broken (see research.md §1) and is replaced,
-  not fixed.
+- The RPi device software is owned by the same person and can be updated
+  alongside the platform (FR-023, SC-003).
 - Constitution v2.0.0 (2026-10-27) replaces the plugin-per-domain principles
   with configuration over code, generic versioned contracts and auth in
   scope; `user-roadmap.md` is superseded by this spec.

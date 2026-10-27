@@ -1,6 +1,10 @@
 <!--
 Sync Impact Report
-Version change: 1.3.0 → 2.0.0 (MAJOR — principles I, II, IV redefined; plugin-per-domain
+Version change: 2.0.0 → 2.1.0 (MINOR, 2026-10-27) — principle II: transitional legacy
+  device-ingestion clause removed (old API has no consumers, RPi software can change);
+  Tech Constraints/Workflow legacy alias + cutover rules and "open source" exception
+  removed. Principle intent unchanged, so not MAJOR.
+Previous: 1.3.0 → 2.0.0 (MAJOR — principles I, II, IV redefined; plugin-per-domain
   model removed)
 Modified principles:
   - I. Plugin Contract First → I. Configuration Over Code
@@ -55,23 +59,20 @@ mapping model, the query API, the dimension-values API, and the definition
 file format (sources, datasets, widgets, dashboards). They MUST be versioned
 (URL path for APIs, explicit version field for definition files), documented
 (OpenAPI + `.docs`), and MUST NOT break silently — a breaking change needs a
-version bump and explicit call-out. Legacy device ingestion addresses and
-payloads (`.docs/RPI_*_Contract.md`) MUST keep working unchanged, served as
-ordinary source definitions. Per-domain UI read endpoints
-(`/api/v1/stats/expose/**`, `.docs/*_UI_API_Contract.md`) MAY be removed once
-the generic frontend replaces the screens that use them.
+version bump and explicit call-out. The pre-2.0 API (`/api/v1/stats/**`,
+`.docs/*_Contract.md`) is not a contract: it is removed, not emulated.
 
-**Rationale**: device firmware cannot be redeployed in sync with the platform,
-so device ingestion is the one legacy contract that must survive; the
-frontend is owned by the same person and is the only consumer of the old read
-endpoints, so keeping them adds cost without protecting anyone.
+**Rationale**: devices and app clients evolve independently of the backend
+once they target the generic contracts, so those must be stable; the old API
+has no real consumers and the device software can be updated, so keeping it
+would only add code.
 
 ### III. Test Coverage for Core Flows, Not Every Line
 
 Ingestion (per channel), mapping, record storage, query/aggregation and
 access control MUST have test coverage before a feature is done: unit tests
 for mapping and aggregation rules, integration tests for endpoints, contract
-tests for published shapes (including the legacy device payloads). Tests
+tests for published shapes (ingest envelope, query API, definition format). Tests
 target core user/device flows and contract shapes — MUST NOT be written for
 every intermediate step, and non-critical edge cases MAY be deferred to a
 follow-up rather than blocking the feature. Tests assert behavior, not
@@ -117,25 +118,24 @@ minimal, and the abstraction keeps the later upgrade path open.
 ## Technology & Architecture Constraints
 
 - Backend: Kotlin + Ktor, Gradle Kotlin DSL — single application module;
-  `/plugin/*` modules, `StatsRepositoryRedisImpl` and Redis wiring are
-  removed at cutover (spec 004 research §3).
+  `/plugin/*` modules, the v1 API, `StatsRepositoryRedisImpl` and Redis
+  wiring are removed up front (spec 004 FR-023).
 - Frontend: separate repo `Statistics-UI`, Kotlin Multiplatform Compose (web
   + desktop); only generic widget renderers, dashboard viewer and definition
   editors — no domain DTOs, clients or screens. Talks to the backend only
   through published contracts.
 - Storage: one record store (PostgreSQL direction) for definitions, users and
   records; Redis kept only as untouched archive.
-- Contracts: JSON over HTTP; generic APIs versioned under `/api/v2/...`;
-  legacy `POST /api/v1/stats/collect/{temperature|epidemic}` kept as aliases
-  of their source definitions. RESTful, plural nouns, nesting ≤ 3 levels,
+- Contracts: JSON over HTTP; generic APIs versioned under `/api/v2/...`
+  (v2 because v1 was the removed plugin API). RESTful, plural nouns, nesting ≤ 3 levels,
   filtering/sorting/pagination via query params or query body, not new
   endpoints.
 - Ingestion: HTTP push is the baseline channel; HTTP pull, Kafka and gRPC use
   the same mapping model and are added only when a producer exists. A record
   is acknowledged only after it is durably stored.
 - Validation: declarative, per source mapping, always server-side; never
-  trust device/client input. Every source has its own rotatable credential
-  unless an admin explicitly marks it open for trusted local devices.
+  trust device/client input. Every source has its own rotatable credential;
+  data without a valid one is rejected.
 - Local dev/deploy: Docker Compose; no k8s until a real multi-host need.
 - Testing: JUnit + Kotest assertions, Testcontainers for storage-backed
   integration tests.
@@ -145,8 +145,6 @@ minimal, and the abstraction keeps the later upgrade path open.
 
 - New or changed contracts (APIs, ingest envelope, definition format) MUST
   update OpenAPI/`.docs` in the same change.
-- Cutover work MUST keep legacy device ingestion responding identically
-  (contract-tested against `.docs/RPI_*_Contract.md`) at every step.
 - Tests MUST accompany changes to ingestion, mapping, record store, query or
   access control; such a change without test updates fails review — scoped
   to core flows per Principle III.
@@ -171,4 +169,4 @@ clarification), and (3) propagation check against
 verify compliance with Core Principles; deviations MUST be justified in the
 plan's Complexity Tracking section or rejected.
 
-**Version**: 2.0.0 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-10-27
+**Version**: 2.1.0 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-10-27

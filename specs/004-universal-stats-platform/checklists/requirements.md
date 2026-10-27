@@ -38,3 +38,6 @@
   organization extensible to many, FR-023 no history migration, FR-024
   collector apps only.
 - Constitution amended to v2.0.0 for this spec — ready for `/speckit-plan`.
+- 2026-10-27 revision: old v1 API dropped entirely (no compatibility layer,
+  devices reprogrammed); FR-003 no open sources; FR-025 native record format
+  added; constitution → v2.1.0. Re-validated: all items pass.
