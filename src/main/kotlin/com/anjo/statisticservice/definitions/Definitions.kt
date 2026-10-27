@@ -2,6 +2,7 @@ package com.anjo.statisticservice.definitions
 
 import com.anjo.statisticservice.db.Db
 import com.anjo.statisticservice.mapping.Expr
+import com.anjo.statisticservice.routing.ApiException
 import com.anjo.statisticservice.db.query
 import com.anjo.statisticservice.db.update
 import com.anjo.statisticservice.routing.badRequest
@@ -39,6 +40,8 @@ data class Dataset(
 )
 
 // ponytail: push only; pull/kafka/grpc settings land with their channel (US5)
+fun Dataset.names() = measures.map { it.name } + dimensions.map { it.name } + calculated.keys
+
 fun Dataset.numberMeasures() = measures.filter { it.type == MeasureType.number }.map { it.name }.toSet()
 
 @Serializable
@@ -159,6 +162,9 @@ data class Bundle(
 )
 
 @Serializable
+data class ImportResult(val created: Int, val updated: Int, val errors: List<String> = emptyList())
+
+@Serializable
 data class DefinitionSummary(val id: String, val label: String?, val updatedAt: String)
 
 enum class Kind(val key: String) { DATASET("dataset"), SOURCE("source"), DASHBOARD("dashboard") }
@@ -219,6 +225,48 @@ class DefinitionStore(private val db: Db) {
         }.firstOrNull() ?: return false
         return MessageDigest.isEqual(stored, sha256(token))
     }
+
+    suspend fun export() = Bundle(
+        datasets = list(Kind.DATASET, Dataset.serializer()),
+        sources = list(Kind.SOURCE, Source.serializer()),
+        dashboards = list(Kind.DASHBOARD, Dashboard.serializer()),
+    )
+
+    /** All-or-nothing upsert; on any invalid document nothing is stored and every error is returned. */
+    // ponytail: no reference guard on import, it restores whole bundles
+    suspend fun import(b: Bundle): ImportResult = db.tx { c ->
+        val errors = mutableListOf<String>()
+        val created = mutableListOf<Boolean>()
+        fun attempt(what: String, put: () -> Boolean) = try {
+            created += put()
+        } catch (e: ApiException) {
+            errors += (listOf("$what: ${e.message}") + e.details).joinToString("; ")
+        }
+        if (b.version != 1) errors += "version: must be 1"
+        b.datasets.forEach { attempt("dataset ${it.id}") { c.putDataset(it) } }
+        b.sources.forEach { attempt("source ${it.id}") { c.putSource(it) } }
+        b.dashboards.forEach { attempt("dashboard ${it.id}") { c.putDashboard(it, null) } }
+        if (errors.isEmpty()) ImportResult(created.count { it }, created.count { !it })
+        else ImportResult(0, 0, errors).also { c.rollback() }
+    }
+
+    /**
+     * Widgets (`dashboard/widget`), dashboard variables (`dashboard/$var`) and sources using a dataset;
+     * with [names], only those using one of these names.
+     */
+    suspend fun references(datasetId: String, names: Set<String>? = null): List<String> {
+        fun hit(used: Collection<String>) = names == null || used.any { it in names }
+        val dashboards = list(Kind.DASHBOARD, Dashboard.serializer()).flatMap { d ->
+            d.widgets.filter { it.query.dataset == datasetId && hit(it.uses()) }.map { "${d.id}/${it.id}" } +
+                d.variables.filter { it.dataset == datasetId && hit(listOfNotNull(it.dimension)) }.map { "${d.id}/$${it.name}" }
+        }
+        val sources = list(Kind.SOURCE, Source.serializer())
+            .filter { s -> s.dataset == datasetId && hit(s.mapping.flatMap { it.dims.keys + it.vals.keys + it.constDims.keys }) }
+            .map { "source ${it.id}" }
+        return dashboards + sources
+    }
+
+    private fun Widget.uses() = query.measures.flatMap { listOfNotNull(it.field, it.by) } + query.filter.keys + query.groupBy + listOfNotNull(options.x)
 
     // --- per-connection helpers, reused by import (one transaction) ---
 

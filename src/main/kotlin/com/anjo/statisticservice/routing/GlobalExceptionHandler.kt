@@ -27,6 +27,8 @@ fun badRequest(message: String, details: List<String> = emptyList()) =
 
 fun notFound(message: String) = ApiException(HttpStatusCode.NotFound, "not_found", message)
 
+fun conflict(message: String, details: List<String> = emptyList()) = ApiException(HttpStatusCode.Conflict, "conflict", message, details)
+
 fun Application.validatorExceptionHandler() {
     install(StatusPages) {
         exception<ApiException> { call, e ->

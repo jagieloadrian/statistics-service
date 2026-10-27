@@ -1,9 +1,11 @@
 package com.anjo.statisticservice.routing
 
+import com.anjo.statisticservice.definitions.Bundle
 import com.anjo.statisticservice.definitions.Dashboard
 import com.anjo.statisticservice.definitions.Dataset
 import com.anjo.statisticservice.definitions.DefinitionStore
 import com.anjo.statisticservice.definitions.Kind
+import com.anjo.statisticservice.definitions.names
 import com.anjo.statisticservice.definitions.Query
 import com.anjo.statisticservice.definitions.Rule
 import com.anjo.statisticservice.definitions.Source
@@ -12,6 +14,7 @@ import com.anjo.statisticservice.ingest.SourceStatus
 import com.anjo.statisticservice.mapping.Mapper
 import com.anjo.statisticservice.mapping.MappingException
 import com.anjo.statisticservice.records.RecordStore
+import io.ktor.http.HttpStatusCode
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
@@ -43,6 +46,7 @@ data class MappedRecord(
 data class MappingTestResult(val records: List<MappedRecord>, val errors: List<String>)
 
 private val RoutingCall.id get() = parameters["id"]!!
+private val RoutingCall.force get() = request.queryParameters["force"] == "true"
 
 private fun requireSameId(pathId: String, bodyId: String) {
     if (pathId != bodyId) throw badRequest("id in path '$pathId' differs from body '$bodyId'")
@@ -57,6 +61,10 @@ fun Route.apiRoutes(defs: DefinitionStore, records: RecordStore, status: SourceS
             call.respond(defs.get(kind, call.id, JsonElement.serializer()) ?: throw notFound("Unknown ${kind.key} '${call.id}'"))
         }.describe { summary = "Get one ${kind.key}" }
         delete("/$path/{id}") {
+            if (kind == Kind.DATASET && !call.force) {
+                val refs = defs.references(call.id)
+                if (refs.isNotEmpty()) throw conflict("Dataset '${call.id}' is still in use; add ?force=true to delete anyway", refs)
+            }
             if (!defs.delete(kind, call.id)) throw notFound("Unknown ${kind.key} '${call.id}'")
             if (kind == Kind.SOURCE) status.forget(call.id)
             call.respond(mapOf("deleted" to call.id))
@@ -65,6 +73,11 @@ fun Route.apiRoutes(defs: DefinitionStore, records: RecordStore, status: SourceS
 
     put("/datasets/{id}") {
         val d = call.receive<Dataset>().also { requireSameId(call.id, it.id) }
+        val removed = defs.dataset(d.id)?.let { it.names().toSet() - d.names().toSet() }.orEmpty()
+        if (removed.isNotEmpty() && !call.force) {
+            val refs = defs.references(d.id, removed)
+            if (refs.isNotEmpty()) throw conflict("Removing $removed breaks references; add ?force=true to save anyway", refs)
+        }
         defs.putDataset(d)
         call.respond(d)
     }.describe { summary = "Create or replace a dataset" }
@@ -78,6 +91,13 @@ fun Route.apiRoutes(defs: DefinitionStore, records: RecordStore, status: SourceS
         defs.putDashboard(d)
         call.respond(d)
     }.describe { summary = "Create or replace a dashboard" }
+
+    get("/export") { call.respond(defs.export()) }
+        .describe { summary = "Export all datasets, sources and dashboards as one bundle (no credentials)" }
+    post("/import") {
+        val result = defs.import(call.receive<Bundle>())
+        call.respond(if (result.errors.isEmpty()) HttpStatusCode.OK else HttpStatusCode.BadRequest, result)
+    }.describe { summary = "Import a bundle: upsert by kind and id, all or nothing" }
 
     post("/sources/{id}/credential") {
         defs.source(call.id) ?: throw notFound("Unknown source '${call.id}'")

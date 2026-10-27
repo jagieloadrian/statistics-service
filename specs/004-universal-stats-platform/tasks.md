@@ -138,12 +138,12 @@ that can be demoed on its own.
 
 ### Tests for US3
 
-- [ ] T051 [P] [US3] `src/test/kotlin/com/anjo/statisticservice/routing/ImportExportTest.kt`: export → import into a truncated DB reproduces identical documents; credentials never exported; invalid bundle → nothing imported; dataset change removing a measure referenced by a widget → 409 listing widget refs, `?force=true` succeeds; deleting a dataset removes its records
+- [X] T051 [P] [US3] `src/test/kotlin/com/anjo/statisticservice/routing/ImportExportTest.kt`: export → import into a truncated DB reproduces identical documents; credentials never exported; invalid bundle → nothing imported; dataset change removing a measure referenced by a widget → 409 listing widget refs, `?force=true` succeeds; deleting a dataset removes its records
 - [ ] T052 [P] [US3] `Statistics-UI/composeApp/src/commonTest/kotlin/com/anjo/statisticsui/LayoutTest.kt`: 12-column flow layout groups widgets into rows by `w`
 
 ### Implementation for US3
 
-- [ ] T053 [US3] `routing/ApiRoutes.kt` + `definitions/Definitions.kt`: `GET $API_V2/export`, `POST /import` (one transaction, all-or-nothing, `{created, updated, errors}`); reference guard on dataset/source PUT/DELETE → 409 with referencing widget ids unless `?force=true`; `describe {}` OpenAPI summaries on the new routes
+- [X] T053 [US3] `routing/ApiRoutes.kt` + `definitions/Definitions.kt`: `GET $API_V2/export`, `POST /import` (one transaction, all-or-nothing, `{created, updated, errors}`); reference guard on dataset/source PUT/DELETE → 409 with referencing widget ids unless `?force=true`; `describe {}` OpenAPI summaries on the new routes
 - [ ] T054 [P] [US3] `presentation/dashboard/Widgets.kt`: add `area` and `gauge` (Canvas arc with `min`/`max`/`thresholds`); apply `options.unit`, `colors`, `decimals`, `thresholds`; "missing data definition" state when the query returns 400 for an unknown dataset/field; "no data in range" state
 - [ ] T055 [US3] `presentation/dashboard/DashboardScreen.kt`: 12-column grid (`w` 1–12, `h` rows, rows filled left to right, function shared with LayoutTest); auto-refresh loop every `refreshSeconds` while the screen is visible
 - [ ] T056 [US3] `Statistics-UI/composeApp/src/commonMain/kotlin/com/anjo/statisticsui/presentation/dashboard/DashboardEditor.kt`: edit title, default range, refresh; add/edit/delete/reorder widgets with all fields from the Widget table in definition-format; variable editor (dimension, timeRange, bucket); save via PUT

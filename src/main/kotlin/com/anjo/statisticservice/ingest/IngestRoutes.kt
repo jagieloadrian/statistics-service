@@ -7,6 +7,7 @@ import com.anjo.statisticservice.records.RecordStore
 import com.anjo.statisticservice.routing.API_V2
 import com.anjo.statisticservice.routing.ApiException
 import com.anjo.statisticservice.routing.badRequest
+import com.anjo.statisticservice.routing.conflict
 import com.anjo.statisticservice.routing.notFound
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -56,7 +57,7 @@ fun Route.ingestRoutes(defs: DefinitionStore, records: RecordStore, status: Sour
                 throw ApiException(HttpStatusCode.ServiceUnavailable, "paused", "Source '$id' is paused")
             }
             val dataset = defs.dataset(source.dataset)
-                ?: throw ApiException(HttpStatusCode.Conflict, "conflict", "Dataset '${source.dataset}' no longer exists")
+                ?: throw conflict("Dataset '${source.dataset}' no longer exists")
             val body = call.receiveText()
             val now = Clock.System.now()
             val mapped = try {
