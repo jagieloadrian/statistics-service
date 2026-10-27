@@ -20,7 +20,10 @@ class AuthService(private val db: Db, private val local: Boolean = true, private
 
     val config = AuthConfig(local, oidc?.let { OidcInfo(it.name) })
 
-    /** Creates the first admin from config, only while there are no users at all. */
+    /**
+     * Creates the first admin from config, only while there are no users at all. Without a password nothing is
+     * created; the first provider sign-in with a verified [email] becomes admin instead.
+     */
     suspend fun bootstrapAdmin(email: String, password: String): Boolean {
         if (email.isBlank() || password.isBlank()) return false
         return db.tx {
@@ -38,16 +41,24 @@ class AuthService(private val db: Db, private val local: Boolean = true, private
 
     suspend fun oidcStart(redirectUri: String) = provider().start(redirectUri)
 
-    /** Redeems the provider's [code]: signs in the account linked to that identity, or creates a viewer. */
+    /**
+     * Redeems the provider's [code] and signs in the account linked to that identity. Otherwise links the account with
+     * the same email if the provider verified it, or creates one: admin for a verified `ADMIN_EMAIL`, else viewer.
+     */
     suspend fun oidcLogin(code: String, codeVerifier: String, redirectUri: String): LoginResponse {
         val p = provider()
         val c = p.redeem(code, codeVerifier, redirectUri)
         val email = c.email?.takeIf { it.isNotBlank() }?.let(::normalizeEmail) ?: throw unauthorized("Provider sent no email")
         val id = db.tx {
-            UserRepository.findByOidc(p.issuer, c.subject) ?: run {
-                if (UserRepository.findByEmail(email) != null) throw unauthorized("Email is used by another account")
+            UserRepository.findByOidc(p.issuer, c.subject) ?: UserRepository.findByEmail(email)?.let { (id, linked) ->
+                if (!c.emailVerified) throw unauthorized("Email not verified by the provider")
+                if (linked) throw unauthorized("Account is linked to another sign-in")
+                UserRepository.linkOidc(id, p.issuer, c.subject)
+                id
+            } ?: run {
+                val role = if (c.emailVerified && email == normalizeEmail(adminEmail)) ADMIN else VIEWER
                 // ponytail: email/name not synced after creation
-                UserRepository.insert(email, c.name ?: email, VIEWER, null, p.issuer, c.subject)
+                UserRepository.insert(email, c.name ?: email, role, null, p.issuer, c.subject)
             }
         }
         return issueSession(id)

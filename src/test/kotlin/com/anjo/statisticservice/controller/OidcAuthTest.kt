@@ -1,14 +1,21 @@
 package com.anjo.statisticservice.controller
 
+import com.anjo.statisticservice.db.Db
+import com.anjo.statisticservice.repository.UserRepository
+import com.anjo.statisticservice.service.AuthService
 import com.anjo.statisticservice.testutils.FakeOidcProvider
+import com.anjo.statisticservice.testutils.FakeOidcProvider.Companion.user
 import com.anjo.statisticservice.testutils.Pg
 import com.anjo.statisticservice.testutils.TestApp
 import com.anjo.statisticservice.testutils.json
 import com.anjo.statisticservice.testutils.postJson
+import com.anjo.statisticservice.testutils.putJson
 import com.anjo.statisticservice.testutils.testApp
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.statement.HttpResponse
@@ -40,6 +47,11 @@ private suspend fun TestApp.oidcSignIn(code: String = "code-1", verifier: String
     anonymous.postJson("/api/v2/auth/oidc", """{"code":"$code","codeVerifier":"$verifier","redirectUri":"$REDIRECT"}""")
 
 private fun JsonObject.str(key: String) = this[key]!!.jsonPrimitive.content
+
+private suspend fun HttpResponse.user() = json().jsonObject["user"]!!.jsonObject
+
+/** No local admin: the first verified provider sign-in with ADMIN_EMAIL becomes admin. */
+private val PROVIDER_ADMIN = mapOf("ktor.auth.adminEmail" to "Boss@Test.local", "ktor.auth.adminPassword" to "")
 
 class OidcAuthTest : FunSpec({
     beforeTest { Pg.truncateAll() }
@@ -120,7 +132,7 @@ class OidcAuthTest : FunSpec({
             "wrong audience" to { audience = "someone-else" },
             "expired" to { expiresAt = Instant.now().minusSeconds(3600) },
             "code refused" to { failToken = true },
-            "userinfo for another user" to { claims = mapOf("sub" to "alice-sub"); userinfoClaims = FakeOidcProvider.user("mallory-sub", "alice@test.local") },
+            "userinfo for another user" to { claims = mapOf("sub" to "alice-sub"); userinfoClaims = user("mallory-sub", "alice@test.local") },
             "no email anywhere" to { claims = mapOf("sub" to "alice-sub"); userinfoClaims = mapOf("sub" to "alice-sub") },
         )
         // one app per case: start and exchange share the 5/min login limit
@@ -133,10 +145,85 @@ class OidcAuthTest : FunSpec({
         }
     }
 
+    test("verified ADMIN_EMAIL becomes admin in any letter case, unverified stays viewer") {
+        oidcApp(PROVIDER_ADMIN) { idp ->
+            idp.claims = user("boss-sub", "boss@test.local", verified = false)
+            oidcSignIn().user().str("role") shouldBe "viewer"
+        }
+        Pg.truncateAll()
+        oidcApp(PROVIDER_ADMIN) { idp ->
+            idp.claims = user("boss-sub", "BOSS@test.local")
+            oidcSignIn().user().str("role") shouldBe "admin"
+        }
+    }
+
+    test("a local account is linked by verified email and keeps id, role and password") {
+        oidcApp { idp ->
+            val id = client.postJson("/api/v2/users", """{"email":"Alice@test.local","role":"editor","password":"alice-password"}""")
+                .json().jsonObject.str("id")
+            idp.claims = user("alice-sub", "alice@test.local", verified = false)
+            oidcSignIn().status shouldBe HttpStatusCode.Unauthorized
+
+            idp.claims = user("alice-sub", "alice@test.local")
+            val linked = oidcSignIn().user()
+            linked.str("id") shouldBe id
+            linked.str("role") shouldBe "editor"
+            linked.str("hasPassword") shouldBe "true"
+            login("alice@test.local", "alice-password").get("/api/v2/me").status shouldBe HttpStatusCode.OK
+        }
+    }
+
+    test("an account linked to another identity is not relinked") {
+        oidcApp { idp ->
+            oidcSignIn().status shouldBe HttpStatusCode.OK
+            idp.claims = user("other-sub", "alice@test.local")
+            oidcSignIn("code-2").status shouldBe HttpStatusCode.Unauthorized
+            userCount() shouldBe 2
+        }
+    }
+
+    test("roles are managed in the app and survive the next sign-in") {
+        oidcApp {
+            val id = oidcSignIn().user().str("id")
+            client.putJson("/api/v2/users/$id", """{"role":"editor"}""").status shouldBe HttpStatusCode.OK
+            oidcSignIn("code-2").user().str("role") shouldBe "editor"
+        }
+    }
+
+    test("the only admin cannot be demoted or deleted when it signs in through the provider") {
+        oidcApp(PROVIDER_ADMIN) { idp ->
+            idp.claims = user("boss-sub", "boss@test.local")
+            val answer = oidcSignIn().json().jsonObject
+            val id = answer["user"]!!.jsonObject.str("id")
+            val boss = withToken(answer.str("token"))
+            boss.putJson("/api/v2/users/$id", """{"role":"editor"}""").status shouldBe HttpStatusCode.Conflict
+            boss.delete("/api/v2/users/$id").status shouldBe HttpStatusCode.Conflict
+        }
+    }
+
+    test("deleting a provider user ends their session; the next sign-in is a new viewer") {
+        oidcApp {
+            val answer = oidcSignIn().json().jsonObject
+            val id = answer["user"]!!.jsonObject.str("id")
+            client.delete("/api/v2/users/$id").status shouldBe HttpStatusCode.NoContent
+            withToken(answer.str("token")).get("/api/v2/me").status shouldBe HttpStatusCode.Unauthorized
+            val again = oidcSignIn("code-2").user()
+            again.str("id") shouldNotBe id
+            again.str("role") shouldBe "viewer"
+        }
+    }
+
+    test("no admin password, no bootstrap admin") {
+        Db(Pg.container.jdbcUrl, Pg.container.username, Pg.container.password).use { db ->
+            AuthService(db).bootstrapAdmin("boss@test.local", "") shouldBe false
+            db.tx { UserRepository.count() } shouldBe 0L
+        }
+    }
+
     test("email and name come from userinfo when the ID token has none") {
         oidcApp { idp ->
             idp.claims = mapOf("sub" to "bob-sub")
-            idp.userinfoClaims = FakeOidcProvider.user("bob-sub", "bob@test.local", name = "Bob")
+            idp.userinfoClaims = user("bob-sub", "bob@test.local", name = "Bob")
             val user = oidcSignIn().json().jsonObject["user"]!!.jsonObject
             user.str("email") shouldBe "bob@test.local"
             user.str("name") shouldBe "Bob"
