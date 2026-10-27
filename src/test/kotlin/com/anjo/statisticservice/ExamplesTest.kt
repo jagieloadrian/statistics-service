@@ -31,7 +31,7 @@ import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 
-/** The shipped definition bundles work end to end with the device payloads (SC-002). */
+/** The shipped definition bundles work end to end with the device payloads. */
 class ExamplesTest {
     @BeforeEach
     fun clean() = Pg.truncateAll()

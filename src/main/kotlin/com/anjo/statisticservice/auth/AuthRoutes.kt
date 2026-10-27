@@ -33,7 +33,6 @@ data class NewUser(val email: String, val name: String = "", val role: String, v
 @Serializable
 data class UserUpdate(val name: String? = null, val role: String? = null)
 
-/** Public: login only. Mount inside the API base route. */
 fun Route.loginRoute(auth: AuthStore) = rateLimit(LOGIN) {
     post("/auth/login") {
         val req = call.receive<LoginRequest>()
@@ -43,7 +42,6 @@ fun Route.loginRoute(auth: AuthStore) = rateLimit(LOGIN) {
     }.describe { summary = "Sign in; returns a bearer token (5 attempts/min per client)" }
 }
 
-/** Signed-in routes: own account for everybody, user management for admins. Mount inside `authenticate("user")`. */
 fun Route.accountRoutes(auth: AuthStore) {
     post("/auth/logout") {
         auth.logout(call.user().token)

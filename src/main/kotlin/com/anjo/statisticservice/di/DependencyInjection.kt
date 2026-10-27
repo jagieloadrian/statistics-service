@@ -22,7 +22,6 @@ fun Application.configureDI() {
     val auth = AuthStore(db)
     val adminEmail = cfg.propertyOrNull("ktor.auth.adminEmail")?.getString().orEmpty()
     val adminPassword = cfg.propertyOrNull("ktor.auth.adminPassword")?.getString().orEmpty()
-    // startup only: the first admin must exist before the first login
     if (runBlocking { auth.bootstrapAdmin(adminEmail, adminPassword) }) log.info("Created admin $adminEmail")
 
     dependencies {

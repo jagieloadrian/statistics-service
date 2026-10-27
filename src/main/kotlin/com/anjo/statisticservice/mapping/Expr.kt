@@ -1,7 +1,7 @@
 package com.anjo.statisticservice.mapping
 
 /**
- * Calculated measure → SQL over one record (research D6): numbers, number measures,
+ * Calculated measure → SQL over one record: numbers, number measures,
  * `+ - * /` and parentheses only. Every other character is rejected, so the output
  * can be inlined. Division by zero gives null.
  */

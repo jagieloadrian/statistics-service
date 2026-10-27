@@ -25,7 +25,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.io.File
 
-/** Role × endpoint matrix from data-model.md (SC-008). */
+/** Role × endpoint matrix from data-model.md. */
 class AccessControlTest {
     @BeforeEach
     fun clean() = Pg.truncateAll()

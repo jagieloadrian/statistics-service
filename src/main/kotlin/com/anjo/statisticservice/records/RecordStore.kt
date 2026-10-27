@@ -34,7 +34,6 @@ data class DimensionValue(val value: String, val firstSeen: String, val lastSeen
 
 data class InsertResult(val accepted: Int, val duplicates: Int)
 
-/** The only code that touches `records` (constitution V). */
 class RecordStore(private val db: Db) {
 
     suspend fun insert(records: List<Record>): InsertResult = db.tx { c ->
@@ -63,7 +62,7 @@ class RecordStore(private val db: Db) {
 
     suspend fun dimensionValues(ds: Dataset, dim: String, search: String?, limit: Int, offset: Int): List<DimensionValue> {
         if (ds.dimensions.none { it.name == dim }) throw badRequest("Unknown dimension '$dim'")
-        val col = "dims->>'$dim'" // name validated against the declaration (research D7)
+        val col = "dims->>'$dim'" // name validated against the dataset
         val params = mutableListOf<Any?>(Db.ORG, ds.id)
         val where = if (search.isNullOrBlank()) "" else " AND $col ILIKE ?".also { params += "%$search%" }
         params += limit.coerceIn(1, 500)
@@ -150,7 +149,7 @@ class RecordStore(private val db: Db) {
         }
     }
 
-    /** SQL value and type of `ts`, a declared or a calculated measure; names validated before being inlined (research D7). */
+    /** SQL value and type of `ts`, a declared or a calculated measure; names validated before being inlined. */
     private fun field(ds: Dataset, name: String): Pair<String, MeasureType?> {
         if (name == "ts") return "ts" to null
         ds.calculated[name]?.let { return Expr.toSql(it, ds.numberMeasures()) to MeasureType.number }

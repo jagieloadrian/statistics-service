@@ -19,8 +19,6 @@ jobs:
           distribution: temurin
           java-version: 17
           cache: gradle
-
-      # 🔹 Cache Testcontainers
       - name: Cache Testcontainers
         uses: actions/cache@v4
         with:
@@ -34,15 +32,11 @@ jobs:
 
       - name: Build
         run: ./gradlew build -x test
-
-      # 🔹 Testy + Testcontainers
       - name: Test & Coverage Verification
         env:
           DOCKER_HOST: unix:///var/run/docker.sock
           TESTCONTAINERS_RYUK_DISABLED: false
         run: ./gradlew test jacocoTestReport jacocoTestCoverageVerification
-
-      # 🔹 Upload coverage do Codecov
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:

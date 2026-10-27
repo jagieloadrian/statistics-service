@@ -23,7 +23,7 @@ data class StatusView(
     val rejections: List<Rejection>,
 )
 
-/** Per-source ingest health, in memory only; lost on restart (research D10). */
+/** Per-source ingest health, in memory only; lost on restart. */
 class SourceStatus {
     private class Entry {
         val minutes = TreeMap<Long, LongArray>() // epoch minute -> [accepted, rejected], last 24 h

@@ -55,7 +55,7 @@ curl -s -X POST $API/import -H "$AUTH" -H 'Content-Type: application/json' -d @d
 ```
 
 Rotate both source credentials, send the sample payloads from
-`.docs/archive/RPI_Temperature_Contract.md` / `RPI_Epidemic_Contract.md`.
+`src/test/resources/payloads/temperature.json` / `epidemic.json`.
 
 - Temperature: dimension values for `device` list first/last seen; query with
   bucket `raw`, `1m`, `1h`, `1d` returns the right point counts; `none` with

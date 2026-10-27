@@ -19,7 +19,6 @@ import java.security.SecureRandom
 import java.sql.Connection
 import java.util.Base64
 
-// Definition format v1 — contracts/definition-format.md
 
 @Serializable
 enum class MeasureType { number, boolean, text }
@@ -206,7 +205,6 @@ class DefinitionStore(private val db: Db) {
         c.query("SELECT owner_id FROM definitions WHERE org_id = ? AND kind = 'dashboard' AND id = ?", Db.ORG, dashboardId) { it.getObject(1) as Long? }
     }.singleOrNull() == u.id
 
-    /** Datasets a viewer may query: those used by dashboards visible to them. */
     suspend fun visibleDatasets(u: UserPrincipal): Set<String> =
         list(Kind.DASHBOARD, Dashboard.serializer(), u).flatMap { d -> d.widgets.map { it.query.dataset } + d.variables.mapNotNull { it.dataset } }.toSet()
 
@@ -242,7 +240,7 @@ class DefinitionStore(private val db: Db) {
         c.update("DELETE FROM definitions WHERE org_id = ? AND kind = ? AND id = ?", Db.ORG, kind.key, id) > 0
     }
 
-    /** Returns the new token once; only its SHA-256 is stored (research D9). */
+    /** Returns the new token once; only its SHA-256 is stored. */
     suspend fun rotateCredential(sourceId: String): String {
         val token = Base64.getUrlEncoder().withoutPadding().encodeToString(ByteArray(32).also(SecureRandom()::nextBytes))
         db.tx { c ->
@@ -311,8 +309,6 @@ class DefinitionStore(private val db: Db) {
     }
 
     private fun Widget.uses() = query.measures.flatMap { listOfNotNull(it.field, it.by) } + query.filter.keys + query.groupBy + listOfNotNull(options.x)
-
-    // --- per-connection helpers, reused by import (one transaction) ---
 
     fun <T> Connection.get(kind: Kind, id: String, ser: KSerializer<T>): T? =
         query("SELECT body::text FROM definitions WHERE org_id = ? AND kind = ? AND id = ?", Db.ORG, kind.key, id) {

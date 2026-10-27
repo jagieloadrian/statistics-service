@@ -61,7 +61,7 @@ private fun requireSameId(pathId: String, bodyId: String) {
     if (pathId != bodyId) throw badRequest("id in path '$pathId' differs from body '$bodyId'")
 }
 
-/** Every route here needs a signed-in user (mounted inside `authenticate("user")`); roles per data-model.md. */
+/** Mounted inside `authenticate("user")`; roles per data-model.md. */
 fun Route.apiRoutes(defs: DefinitionStore, records: RecordStore, status: SourceStatus) {
     suspend fun RoutingCall.requireDataset(id: String) {
         val u = user()
@@ -98,7 +98,6 @@ fun Route.apiRoutes(defs: DefinitionStore, records: RecordStore, status: SourceS
         call.respond(mapOf("deleted" to call.id))
     }.describe { summary = "Delete a dataset and its records (admin)" }
 
-    // sources: admin only
     route("/sources") {
         get {
             call.requireRole(ADMIN)
@@ -146,7 +145,6 @@ fun Route.apiRoutes(defs: DefinitionStore, records: RecordStore, status: SourceS
         }.describe { summary = "Run a mapping against a sample payload; stores nothing (admin)" }
     }
 
-    // dashboards: visibility for reading, owner editor or admin for writing
     route("/dashboards") {
         get { call.respond(defs.summaries(Kind.DASHBOARD, call.user())) }
             .describe { summary = "List dashboards visible to the caller" }

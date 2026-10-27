@@ -38,7 +38,6 @@ data class Prefs(
 @Serializable
 data class User(val id: Long, val email: String, val name: String, val role: String, val prefs: Prefs = Prefs())
 
-/** Signed-in caller; [token] is the raw bearer token of this request. */
 data class UserPrincipal(val id: Long, val role: String, val token: String)
 
 fun RoutingCall.user(): UserPrincipal = principal<UserPrincipal>()!!
@@ -48,7 +47,7 @@ fun RoutingCall.requireRole(vararg roles: String): UserPrincipal =
 
 fun forbidden(message: String = "Not allowed for your role") = ApiException(HttpStatusCode.Forbidden, "forbidden", message)
 
-/** PBKDF2-HMAC-SHA256, stored as `pbkdf2$<iterations>$<salt b64>$<hash b64>` (research D8). */
+/** PBKDF2-HMAC-SHA256, stored as `pbkdf2$<iterations>$<salt b64>$<hash b64>` */
 object Passwords {
     private const val ITERATIONS = 600_000
     private val b64 = Base64.getEncoder()
@@ -91,7 +90,6 @@ class AuthStore(private val db: Db) {
         }
     }
 
-    /** Returns a new token and the user, or null for any wrong email/password (one generic answer). */
     suspend fun login(email: String, password: String): Pair<String, User>? {
         val row = db.tx { c ->
             c.query("SELECT id, password_hash FROM users WHERE org_id = ? AND email = ?", Db.ORG, normalize(email)) { it.getLong(1) to it.getString(2) }

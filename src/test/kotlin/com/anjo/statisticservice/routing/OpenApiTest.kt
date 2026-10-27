@@ -10,7 +10,7 @@ import kotlinx.serialization.json.jsonObject
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
-/** Every /api/v2 operation is documented in Swagger with a summary (constitution II, T075). */
+/** Every /api/v2 operation is documented in Swagger with a summary. */
 class OpenApiTest {
     @BeforeEach
     fun clean() = Pg.truncateAll()

@@ -30,7 +30,7 @@ data class Record(
 
 class MappingException(val reasons: List<String>) : RuntimeException(reasons.joinToString("; "))
 
-/** Turns one payload into records of the source's dataset (research D5, contracts/definition-format.md). */
+/** Turns one payload into records of the source's dataset. */
 object Mapper {
 
     fun map(source: Source, dataset: Dataset, payload: JsonElement, now: Instant): List<Record> {
@@ -134,7 +134,7 @@ object Mapper {
         }
     }
 
-    /** Native record format (FR-025): `{ts?, dims, vals}` or a list of them. */
+    /** Native record format: `{ts?, dims, vals}` or a list of them. */
     private fun native(ds: Dataset, payload: JsonElement, now: Instant, reasons: MutableList<String>): List<Record> {
         val items = when (payload) {
             is JsonArray -> payload

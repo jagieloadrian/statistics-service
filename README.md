@@ -46,4 +46,3 @@ so Docker must be running.
 - Spec, plan, contracts: [specs/004-universal-stats-platform/](specs/004-universal-stats-platform/)
 - API contract: [contracts/api-v2.md](specs/004-universal-stats-platform/contracts/api-v2.md)
 - Definition format: [contracts/definition-format.md](specs/004-universal-stats-platform/contracts/definition-format.md)
-- Old v1 contracts (removed API): [.docs/archive/](.docs/archive/)

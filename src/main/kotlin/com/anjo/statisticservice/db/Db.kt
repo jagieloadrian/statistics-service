@@ -40,7 +40,6 @@ class Db(url: String, user: String, password: String) : AutoCloseable {
     override fun close() = ds.close()
 
     companion object {
-        // v1 serves exactly one organization (spec FR-020); every owned row carries it
         const val ORG: Short = 1
     }
 }
