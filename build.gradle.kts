@@ -12,6 +12,10 @@ plugins {
 group = "com.anjo"
 version = "0.0.1"
 
+kotlin {
+    compilerOptions { optIn.add("kotlin.time.ExperimentalTime") }
+}
+
 application {
     mainClass = "io.ktor.server.netty.EngineMain"
 }

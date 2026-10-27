@@ -2,6 +2,8 @@ package com.anjo.statisticservice.di
 
 import dev.hayden.KHealth
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpMethod
+import com.anjo.statisticservice.definitions.definitionJson
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
@@ -19,9 +21,15 @@ fun Application.configureFrameworks() {
     install(DefaultHeaders) {
         header("X-Engine", "Ktor")
     }
+    val corsHosts = environment.config.property("ktor.cors.hosts").getString()
+        .split(',').map { it.trim() }.filter { it.isNotEmpty() }
     install(CORS) {
-        anyHost()
+        // only the configured UI origins: the admin API has no auth until US4
+        corsHosts.forEach { allowHost(it, schemes = listOf("http", "https")) }
         allowHeader(HttpHeaders.ContentType)
+        allowHeader(HttpHeaders.Authorization)
+        allowMethod(HttpMethod.Put)
+        allowMethod(HttpMethod.Delete)
     }
     install(CallId) {
         header(HttpHeaders.XRequestId)
@@ -39,6 +47,6 @@ fun Application.configureFrameworks() {
         callIdMdc("call-id")
     }
     install(ContentNegotiation) {
-        json()
+        json(definitionJson)
     }
 }
