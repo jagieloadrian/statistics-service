@@ -1,5 +1,7 @@
 # StatisticsService — Roadmap to Universal Plugin-Based Stats Service
 
+> **SUPERSEDED (2026-10-27)** by [specs/004-universal-stats-platform/spec.md](specs/004-universal-stats-platform/spec.md) and constitution v2.0.0 — plugin-per-domain direction below is frozen history, not current plan.
+
 > This file is now the single source of truth for product direction. `agent-os/product/*.md` was the previous home for mission/roadmap/tech-stack, but Agent OS stopped being free — its content relevant to this project is folded in below and that folder should be treated as legacy/frozen going forward.
 
 ## Mission

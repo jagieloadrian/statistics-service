@@ -1,153 +1,158 @@
 <!--
 Sync Impact Report
-Version change: 1.2.0 → 1.3.0
-Modified principles: I. Plugin Contract First — expanded to require plugins be
-  separate Gradle modules under `/plugin` (each depending only on
-  `:plugin-api`, never on core-by-name), not classes living inside core `src`;
-  reflects user-roadmap.md's new "Plugins are packages, not classes in `src`"
-  section and Phase 2.5.
-Added sections: none new (existing principle expanded, existing Tech
-  Constraints bullet on Gradle builds expanded to name the multi-module layout)
-Removed sections: none
+Version change: 1.3.0 → 2.0.0 (MAJOR — principles I, II, IV redefined; plugin-per-domain
+  model removed)
+Modified principles:
+  - I. Plugin Contract First → I. Configuration Over Code
+  - II. Contract-Compliant Ingestion & Exposition → II. Generic, Versioned Contracts
+  - III. Test Coverage for Core Flows, Not Every Line — kept; scope wording moved from
+    plugin collect/expose to ingestion/mapping/query/access paths
+  - IV. Local-First, Minimal-Ops Simplicity — kept name; auth, user panel and roles
+    moved from deferred to in scope; single organization extensible to multi-org
+  - V. Storage & API Modularity — one record store; PostgreSQL direction; Redis =
+    untouched archive; per-plugin key builder rule removed
+Added sections: none
+Removed sections: none (Technology & Architecture Constraints and Development
+  Workflow rewritten for spec 004)
 Templates requiring updates:
-  - .specify/templates/plan-template.md ✅ no change needed
+  - .specify/templates/plan-template.md ✅ no change needed (generic Constitution Check)
   - .specify/templates/spec-template.md ✅ no change needed
   - .specify/templates/tasks-template.md ✅ no change needed
+  - user-roadmap.md ✅ marked superseded by specs/004-universal-stats-platform
+  - CLAUDE.md ⚠ pending — still points at specs/003 plan; refreshed by
+    /speckit-agent-context-update after /speckit-plan for spec 004
 Follow-up TODOs:
-  - "i-have-adhd" still not present in this session's available skill/plugin
-    list — Agent Tooling rule unchanged, still MUST-when-available.
-  - agent-os/ and .copilot/ deletion still not performed (destructive, out of
-    this skill's scope) — carried over from prior amendment.
+  - "i-have-adhd" still not installed — Agent Tooling rule unchanged.
+  - agent-os/ and .copilot/ deletion still not performed (carried over).
 -->
 
 # StatisticsService Constitution
 
 ## Core Principles
 
-### I. Plugin Contract First
-Every data domain (epidemic, temperature, Home Assistant, ...) MUST implement
-collection and exposition behind the single shared `StatPlugin` contract, and
-MUST be registered explicitly (no dynamic/jar-based loading — Gradle
-multi-module only, per `user-roadmap.md` "Plugins are packages, not classes in
-`src`"). Each plugin MUST live in its own Gradle subproject under `/plugin`
-(e.g. `:plugin:rpi_temperature_api`), depending only on the shared
-`:plugin-api` module (`StatPlugin`, `PluginRouteSet`, the key builder) — never
-on core, and core MUST NOT import plugin classes by name outside the single
-registration list. Core storage (`StatsRepository`, Redis Streams) MUST stay
-domain-agnostic — plugin-specific logic never leaks into shared
-infrastructure. Adding a new data source MUST require only a new plugin
-module plus a registration line (see "Adding a new plugin" mechanism in
-`user-roadmap.md`), not new hand-wired routes or services.
+### I. Configuration Over Code
 
-**Rationale**: the product's differentiator is that new sources are cheap to
-add and buildable independently; hardcoded per-domain services (the
-pre-plugin state migrated away from in `user-roadmap.md` Phase 2) and
-plugin classes hardcoded inside core `src` (the state migrated away from in
-Phase 2.5) both re-accumulate the coupling the plugin architecture exists to
-remove.
+A data domain (temperature, epidemic, Home Assistant, ...) MUST exist only as
+configuration — source, mapping, dataset and dashboard definitions — never as
+domain-specific types, routes, screens or URLs in the backend or the frontend
+(spec 004 FR-018, SC-002). Adding a new data source MUST NOT require code
+changes, rebuilds or redeploys of either side. Logic that declarative mapping
+cannot express MUST live in a separate collector app (any language) that
+feeds the platform over a supported channel (HTTP push, HTTP pull, Kafka,
+gRPC) with a source credential. The platform MUST NOT load plugins or
+extensions in-process (no ServiceLoader, no jar drop-in, no per-domain Gradle
+modules).
 
-### II. Contract-Compliant Ingestion & Exposition
-Ingestion and UI-facing API payloads MUST match the versioned contracts in
-`.docs`. Breaking a documented contract MUST NOT happen silently — it
-requires a version bump and explicit call-out, since device firmware and UI
-clients evolve independently of the backend and rely on those contracts to
-decouple safely. Every phase MUST leave epidemic/temperature endpoints
-responding identically throughout any migration (contract-tested against
-`.docs/*.md`, per `user-roadmap.md` Ground Rules).
+**Rationale**: the plugin contract (specs 001–003) made routing generic but
+left data model, aggregation and screens per domain, so every new source still
+cost backend and frontend code. Out-of-process collectors give the same
+extensibility with process isolation and zero coupling to platform internals.
 
-**Rationale**: hobbyist devices and separate UI clients can't coordinate
-deploys with the backend; the documented contract is the only sync point
-between them.
+### II. Generic, Versioned Contracts
+
+The platform's published contracts are generic: the ingest envelope and
+mapping model, the query API, the dimension-values API, and the definition
+file format (sources, datasets, widgets, dashboards). They MUST be versioned
+(URL path for APIs, explicit version field for definition files), documented
+(OpenAPI + `.docs`), and MUST NOT break silently — a breaking change needs a
+version bump and explicit call-out. Legacy device ingestion addresses and
+payloads (`.docs/RPI_*_Contract.md`) MUST keep working unchanged, served as
+ordinary source definitions. Per-domain UI read endpoints
+(`/api/v1/stats/expose/**`, `.docs/*_UI_API_Contract.md`) MAY be removed once
+the generic frontend replaces the screens that use them.
+
+**Rationale**: device firmware cannot be redeployed in sync with the platform,
+so device ingestion is the one legacy contract that must survive; the
+frontend is owned by the same person and is the only consumer of the old read
+endpoints, so keeping them adds cost without protecting anyone.
 
 ### III. Test Coverage for Core Flows, Not Every Line
-A plugin's collect/expose paths and Redis Streams indexing MUST have test
-coverage equivalent to existing plugins (unit for services/validation,
-integration for endpoints, contract tests for `.docs` shapes) before it is
-considered done. Tests target core user/device flows and contract shapes —
-MUST NOT be written for every intermediate step during development, and
-non-critical edge cases/error states MAY be deferred to a dedicated
-follow-up rather than blocking the feature. Tests assert behavior (what the
-endpoint/plugin does), not implementation detail.
 
-**Rationale**: the repo already tests ingestion, storage indexing, and
-UI-facing endpoints (see `src/test/kotlin/...RoutesTest.kt`,
-`StatsCollectorServiceTest.kt`); the plugin migration must preserve that bar
-without over-testing coverage that isn't load-bearing.
+Ingestion (per channel), mapping, record storage, query/aggregation and
+access control MUST have test coverage before a feature is done: unit tests
+for mapping and aggregation rules, integration tests for endpoints, contract
+tests for published shapes (including the legacy device payloads). Tests
+target core user/device flows and contract shapes — MUST NOT be written for
+every intermediate step, and non-critical edge cases MAY be deferred to a
+follow-up rather than blocking the feature. Tests assert behavior, not
+implementation detail.
+
+**Rationale**: the generic model concentrates all risk in a few shared paths
+(mapping, query, access); covering those well protects every domain at once
+without over-testing what isn't load-bearing.
 
 ### IV. Local-First, Minimal-Ops Simplicity
-Default to local, low-friction deployment (Docker Compose, Redis) over
-speculative infrastructure. Do not build multi-tenant, SSO/RBAC, k8s
-orchestration, or analytics-store migrations (ClickHouse/PostgreSQL), auth,
-or rate limiting until a concrete, confirmed need exists — these are
-explicitly the Backlog in `user-roadmap.md`, not phased/planned work. Follow
-YAGNI: minimal implementations, no premature abstractions beyond the plugin
-contract itself (e.g. no loader/marketplace machinery for out-of-process
-plugins until 3rd-party plugins are a real need).
 
-**Rationale**: `user-roadmap.md` explicitly separates the phased plugin-
-platform roadmap (Phases 1-5) from its Backlog (auth, rate limiting,
-exports, SSO/RBAC, k8s) — building ahead of a concrete trigger wastes work
-and adds unneeded complexity for the target hobbyist/local-network user.
+Default to self-hosted, low-friction deployment (Docker Compose) at home-lab
+scale. In scope: platform-managed accounts, sign-in, roles admin / editor /
+viewer, dashboard sharing, user preferences. v1 serves exactly one
+organization, but every owned definition and user MUST belong to it
+explicitly so multiple organizations can be added later without changing
+existing definitions, exports or contracts. Do not build single sign-on,
+multi-organization, alerting, push-to-browser streaming, data export,
+k8s/multi-host orchestration or analytics-store migrations until a concrete,
+confirmed need exists. A new ingestion channel (pull, Kafka, gRPC) is built
+only when a real producer for it exists. Follow YAGNI: no abstraction beyond
+what the generic source → dataset → query → widget model itself needs.
+
+**Rationale**: a user panel is now an explicit requirement (spec 004 US4), so
+auth leaves the backlog; everything else stays deferred because building ahead
+of a trigger wastes effort on a single-owner, home-lab product.
 
 ### V. Storage & API Modularity
-Storage backends (Redis today; PostgreSQL/ClickHouse as future options) and
-transport (HTTP REST, optional WebSocket) MUST remain swappable without
-breaking published contracts. Redis key/stream structures MUST be built
-through the shared repository layer, keyed per plugin id via one generic key
-builder (`ApplicationConstants.getKey(pluginId, deviceId, runId?)` per
-`user-roadmap.md` F1.3), not duplicated per-domain.
 
-**Rationale**: `user-roadmap.md` explicitly reserves the option to migrate
-storage without breaking clients; duplicated per-domain storage code blocks
-that migration path.
+All records MUST go through one record store abstraction (write records,
+query by dataset/time/dimensions/bucket, list dimension values) — no
+per-domain storage code or keys. The storage backend MUST remain swappable
+without breaking published contracts; direction is PostgreSQL for both
+definitions and records (confirmed in `/speckit-plan`), with a time-series
+extension only when volume requires it. The existing Redis data MUST be left
+untouched as a read-only archive: not migrated, not deleted, not read by the
+new platform.
+
+**Rationale**: generic queries need server-side aggregation over arbitrary
+fields and the user panel needs relational data; one store keeps operations
+minimal, and the abstraction keeps the later upgrade path open.
 
 ## Technology & Architecture Constraints
 
-- Backend: Kotlin + Ktor (HTTP + WebSocket server), Gradle Kotlin DSL builds —
-  multi-module: core (`src`) plus one Gradle subproject per plugin under
-  `/plugin` (`:plugin:plugin-api`, `:plugin:rpi_temperature_api`,
-  `:plugin:rpi_epidemic_api`, `:plugin:home_assistant_api`), per
-  `user-roadmap.md` Phase 2.5.
-- Storage: Redis (Streams) for ingestion/time-series storage — domain-agnostic
-  (`StatsRepository`), reused unchanged by every plugin; PostgreSQL/ClickHouse
-  reserved for future analytics needs, not current scope.
-- Contracts: JSON over HTTP; DTOs documented as contracts in `.docs/`;
-  WebSocket only for optional live feeds (Backlog, no current driver).
-- API shape: RESTful, resource-based, plural-noun, versioned via URL path
-  (already `/api/v1/...`); generic plugin routes per `user-roadmap.md`
-  Phase 2 — `POST /api/v1/stats/collect/{pluginId}`,
-  `GET /api/v1/stats/expose/{pluginId}/**` — replace hardcoded per-domain
-  routes; nesting depth capped at 2-3 levels; filtering/sorting/pagination
-  via query params, not new endpoints.
-- Data layer: no relational schema/migrations (Redis, not SQL) — discipline
-  instead applies to key/stream design: one generic key builder per plugin
-  id (not per-domain builders), stable key strings across refactors so no
-  data migration is ever needed, index only fields actually queried
-  (set/sorted-set indices per run/device).
-- Validation: plugin-owned — each plugin validates its own payload inside
-  `collect()` (per `user-roadmap.md` "Adding a new plugin" step 2), not a
-  shared DTO-keyed validation block; server-side always, never trust
-  device/client input.
-- Local dev/deploy: Docker Compose for Redis + RedisInsight
-  (`.devops/redis-compose`); backend runs directly, no compose/k8s service
-  for it yet; Minikube/k8s out of scope until a real multi-host need appears.
-- Testing: JUnit unit + integration tests against the Redis contract.
+- Backend: Kotlin + Ktor, Gradle Kotlin DSL — single application module;
+  `/plugin/*` modules, `StatsRepositoryRedisImpl` and Redis wiring are
+  removed at cutover (spec 004 research §3).
+- Frontend: separate repo `Statistics-UI`, Kotlin Multiplatform Compose (web
+  + desktop); only generic widget renderers, dashboard viewer and definition
+  editors — no domain DTOs, clients or screens. Talks to the backend only
+  through published contracts.
+- Storage: one record store (PostgreSQL direction) for definitions, users and
+  records; Redis kept only as untouched archive.
+- Contracts: JSON over HTTP; generic APIs versioned under `/api/v2/...`;
+  legacy `POST /api/v1/stats/collect/{temperature|epidemic}` kept as aliases
+  of their source definitions. RESTful, plural nouns, nesting ≤ 3 levels,
+  filtering/sorting/pagination via query params or query body, not new
+  endpoints.
+- Ingestion: HTTP push is the baseline channel; HTTP pull, Kafka and gRPC use
+  the same mapping model and are added only when a producer exists. A record
+  is acknowledged only after it is durably stored.
+- Validation: declarative, per source mapping, always server-side; never
+  trust device/client input. Every source has its own rotatable credential
+  unless an admin explicitly marks it open for trusted local devices.
+- Local dev/deploy: Docker Compose; no k8s until a real multi-host need.
+- Testing: JUnit + Kotest assertions, Testcontainers for storage-backed
+  integration tests.
 - CI: GitHub Actions for build and test.
 
 ## Development Workflow
 
-- New or changed endpoints MUST update `.docs` contracts in the same change.
-- Plugin migrations (collapsing hardcoded per-domain services into
-  `StatPlugin` implementations, or extracting plugin classes out of core
-  `src` into their own Gradle module) MUST NOT change observable behavior
-  unless explicitly scoped to do so — see `user-roadmap.md` Ground Rules.
-- Tests MUST accompany contract or storage-indexing changes; a change that
-  touches `StatsRepository`, collect/expose routes, or plugin registration
-  without corresponding test updates fails review — scoped to core flows
-  per Principle III, not exhaustive edge cases.
-- Product direction, phase status, and backlog live solely in
-  `user-roadmap.md`. `agent-os/` and `.copilot/` are legacy/frozen and MUST
-  NOT be treated as a source of truth once removed from the repo.
+- New or changed contracts (APIs, ingest envelope, definition format) MUST
+  update OpenAPI/`.docs` in the same change.
+- Cutover work MUST keep legacy device ingestion responding identically
+  (contract-tested against `.docs/RPI_*_Contract.md`) at every step.
+- Tests MUST accompany changes to ingestion, mapping, record store, query or
+  access control; such a change without test updates fails review — scoped
+  to core flows per Principle III.
+- Product direction lives in `specs/004-universal-stats-platform/spec.md`
+  and later specs; `user-roadmap.md` is superseded and frozen. `agent-os/` and
+  `.copilot/` are legacy/frozen and MUST NOT be treated as a source of truth.
 - **Agent tooling**: every Claude Code skill invocation on this project MUST
   run with the `ponytail` and `caveman` skills active (lazy/minimal-diff
   implementation, terse output), plus `i-have-adhd` when that plugin is
@@ -166,4 +171,4 @@ clarification), and (3) propagation check against
 verify compliance with Core Principles; deviations MUST be justified in the
 plan's Complexity Tracking section or rejected.
 
-**Version**: 1.3.0 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-07-30
+**Version**: 2.0.0 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-10-27
