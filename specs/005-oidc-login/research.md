@@ -31,8 +31,9 @@ one (kept server side), and the frontends never handle IdP tokens.
   issuers inside Docker networks would then be unprotected. Rejected — keep
   the signature check (FR-003).
 
-**Library**: `ktor-server-auth-jwt` (one catalog line, Ktor's version; brings
-`com.auth0:java-jwt` + `jwks-rsa` as API deps). Use `JwkProviderBuilder`
+**Library**: `com.auth0:java-jwt` + `com.auth0:jwks-rsa`, declared directly
+(the same libraries `ktor-server-auth-jwt` wraps; no unused Ktor plugin, no
+reliance on transitive deps). Use `JwkProviderBuilder`
 (cached, rate-limited, refetches on unknown `kid`) and `JWT.require(...)`;
 the `jwt {}` auth provider is not installed. RS256 only — mandatory for every
 OIDC provider and Authelia's default (`// ponytail: RS256 only, add ES256
@@ -131,7 +132,8 @@ admin (FR-005).
 
 On `POST /auth/oidc`, in one transaction:
 1. user with (`oidc_issuer`, `oidc_subject`) exists → sign in.
-2. else user with the same email exists → link if `email_verified`, else 401.
+2. else user with the same (normalized) email exists → link if `email_verified`
+   and the account has no provider identity yet, else 401 (no silent relink).
 3. else create: role `admin` if `email_verified` and email = `ADMIN_EMAIL`,
    otherwise `viewer`; no password.
 

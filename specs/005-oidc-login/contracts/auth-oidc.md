@@ -9,7 +9,7 @@ bump: nothing existing changes shape except one added field.
 |---------------|------|-------|
 | `GET /auth/config` | public | `{"local": true, "oidc": {"name": "Authelia"}}`; `oidc` is `null` when no provider is configured. No secrets, no URLs |
 | `POST /auth/oidc/start` | public | `{redirectUri}` → `{authorizationUrl, state, codeVerifier}`; no provider configured → 404; provider unreachable → 503 (code `unavailable`); shares the login rate limit (5/min per IP) |
-| `POST /auth/oidc` | public | `{code, codeVerifier, redirectUri}` → `{token, user}` (same as `POST /auth/login`); refused by provider, invalid/expired/foreign ID token, no email, or unverified email of an existing account → 401 with a short reason; provider unreachable → 503; login rate limit |
+| `POST /auth/oidc` | public | `{code, codeVerifier, redirectUri}` → `{token, user}` (same as `POST /auth/login`); no provider configured → 404; refused by provider, invalid/expired/foreign ID token, no email, unverified email of an existing account, or an account already linked to another identity → 401 with a short reason; provider unreachable → 503; login rate limit |
 | `POST /auth/login` | public | unchanged; local sign-in off → 403 "Password sign-in is disabled" |
 | `PUT /me/password` | signed in | unchanged; local sign-in off or user has no password → 403 |
 | `GET /me`, `GET /users`, … | — | user objects gain `hasPassword: boolean` |

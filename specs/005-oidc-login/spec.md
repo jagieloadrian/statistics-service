@@ -146,6 +146,9 @@ the system browser and confirm the app shows the user's dashboards.
   but it is never linked to an existing account and never made admin.
 - Email belongs to an existing account but is not verified by the provider:
   sign-in refused (no takeover of an existing account).
+- Email belongs to an account already linked to a different provider identity
+  (e.g. the user was re-created at the provider): sign-in refused; an admin
+  deletes the old account to allow a fresh one.
 - Admin deletes a provider user: their sessions end; their next provider
   sign-in creates a fresh viewer account. Removing a user at the provider
   blocks new sign-ins only; to end running sessions now, the admin also
@@ -174,8 +177,10 @@ the system browser and confirm the app shows the user's dashboards.
 - **FR-005**: First sign-in with a verified email equal to the configured
   admin email MUST create an admin account.
 - **FR-006**: First sign-in with a verified email that matches an existing
-  account MUST link the provider identity to that account (role kept); an
-  unverified matching email MUST be refused.
+  account without a provider identity MUST link the provider identity to that
+  account (role kept); an unverified matching email, or a matching account
+  already linked to another identity, MUST be refused. Emails are compared
+  trimmed and case-insensitively.
 - **FR-007**: Roles MUST stay platform-managed: admins change provider users'
   roles in the existing user panel; provider data never changes a role.
 - **FR-008**: After provider sign-in the user MUST hold the same kind of

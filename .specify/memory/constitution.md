@@ -1,6 +1,8 @@
 <!--
 Sync Impact Report
-Version change: 2.1.0 → 2.2.0 (MINOR, 2026-10-27) — principle IV: OpenID Connect
+Version change: 2.2.0 → 2.2.1 (PATCH, 2026-10-27) — Development Workflow no longer
+  names deleted files (user-roadmap.md, agent-os/, .copilot/).
+Previous: 2.1.0 → 2.2.0 (MINOR, 2026-10-27) — principle IV: OpenID Connect
   sign-in moved from deferred to in scope (spec 005), alongside local accounts.
   Materially expanded guidance; no principle removed or redefined and deployments
   without an IdP keep working, so not MAJOR.
@@ -17,7 +19,6 @@ Templates requiring updates:
   - .specify/templates/tasks-template.md ✅ no change needed
 Follow-up TODOs:
   - "i-have-adhd" still not installed — Agent Tooling rule unchanged.
-  - agent-os/ and .copilot/ deletion still not performed (carried over).
 -->
 
 # StatisticsService Constitution
@@ -146,8 +147,7 @@ minimal, and the abstraction keeps the later upgrade path open.
   access control; such a change without test updates fails review — scoped
   to core flows per Principle III.
 - Product direction lives in `specs/004-universal-stats-platform/spec.md`
-  and later specs; `user-roadmap.md` is superseded and frozen. `agent-os/` and
-  `.copilot/` are legacy/frozen and MUST NOT be treated as a source of truth.
+  and later specs.
 - **Agent tooling**: every Claude Code skill invocation on this project MUST
   run with the `ponytail` and `caveman` skills active (lazy/minimal-diff
   implementation, terse output), plus `i-have-adhd` when that plugin is
@@ -166,4 +166,4 @@ clarification), and (3) propagation check against
 verify compliance with Core Principles; deviations MUST be justified in the
 plan's Complexity Tracking section or rejected.
 
-**Version**: 2.2.0 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-10-27
+**Version**: 2.2.1 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-10-27

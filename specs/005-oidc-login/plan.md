@@ -23,8 +23,8 @@ is the dev reference; tests use an in-test fake provider. Decisions:
 Multiplatform — wasmJs, js, JVM desktop (frontend)
 
 **Primary Dependencies**: backend — Ktor 3.6.0 (existing server stack incl.
-`ktor-server-auth`, rate-limit); NEW `ktor-server-auth-jwt` only for its
-`java-jwt` + `jwks-rsa` (ID-token verification); JDK `HttpClient` for
+`ktor-server-auth`, rate-limit); NEW `com.auth0:java-jwt` + `jwks-rsa`
+(ID-token verification); JDK `HttpClient` for
 discovery/token/userinfo. Frontend — no new deps (JDK `HttpServer` +
 `java.awt.Desktop` on desktop, browser `window`/`sessionStorage` on web).
 
@@ -34,7 +34,7 @@ discovery/token/userinfo. Frontend — no new deps (JDK `HttpServer` +
 **Testing**: Kotest FunSpec + `ktor-server-test-host` + Testcontainers
 Postgres (existing); NEW `testutils/FakeOidcProvider` (JDK `HttpServer`,
 in-test RSA key, java-jwt signing) — no Authelia, offline. Frontend:
-`commonTest` for the callback-query parser only.
+`commonTest` for the callback-query parser, `jvmTest` for the loopback receiver.
 
 **Target Platform**: Linux server; browsers (wasm/js) and desktop JVM
 
@@ -95,7 +95,7 @@ specs/005-oidc-login/
 .devops/authelia-compose/                      # NEW compose.yaml, configuration.yml, users_database.yml,
                                                #   README.md (hosts entry, secret/cert/truststore generation);
                                                #   secrets/ git-ignored
-gradle/libs.versions.toml, build.gradle.kts    # MODIFIED + ktor-server-auth-jwt
+gradle/libs.versions.toml, build.gradle.kts    # MODIFIED + java-jwt, jwks-rsa
 src/main/resources/application.yaml            # MODIFIED ktor.auth.local, ktor.auth.oidc.{issuer,clientId,clientSecret,name}
 src/main/resources/db/migration/V2__oidc.sql   # NEW
 src/main/kotlin/com/anjo/statisticservice/

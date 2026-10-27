@@ -32,8 +32,9 @@ publicly only as `{local, oidc: {name} | null}`.
 
 ```text
 (iss, sub) known ─────────────────────────────▶ sign in
-unknown, email matches account, verified ─────▶ link (set iss, sub) ▶ sign in
+unknown, email matches unlinked account, verified ▶ link (set iss, sub) ▶ sign in
 unknown, email matches account, not verified ─▶ 401
+unknown, email matches account linked elsewhere ▶ 401
 unknown, no match, verified email = ADMIN_EMAIL ▶ create admin ▶ sign in
 unknown, no match ────────────────────────────▶ create viewer ▶ sign in
 no email ─────────────────────────────────────▶ 401
