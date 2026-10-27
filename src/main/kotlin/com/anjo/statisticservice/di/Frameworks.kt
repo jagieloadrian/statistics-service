@@ -1,9 +1,9 @@
 package com.anjo.statisticservice.di
 
+import com.anjo.statisticservice.model.definitionJson
 import dev.hayden.KHealth
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
-import com.anjo.statisticservice.definitions.definitionJson
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.install

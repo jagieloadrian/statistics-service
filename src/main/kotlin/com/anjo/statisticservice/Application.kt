@@ -1,12 +1,12 @@
 package com.anjo.statisticservice
 
-import com.anjo.statisticservice.definitions.Dataset
-import com.anjo.statisticservice.definitions.DefinitionStore
-import com.anjo.statisticservice.definitions.Kind
+import com.anjo.statisticservice.controller.configureRouting
 import com.anjo.statisticservice.di.configureDI
 import com.anjo.statisticservice.di.configureFrameworks
-import com.anjo.statisticservice.records.RecordStore
-import com.anjo.statisticservice.routing.configureRouting
+import com.anjo.statisticservice.model.Dataset
+import com.anjo.statisticservice.model.Kind
+import com.anjo.statisticservice.service.DefinitionService
+import com.anjo.statisticservice.service.RecordService
 import io.ktor.server.application.Application
 import io.ktor.server.application.log
 import io.ktor.server.netty.EngineMain.main
@@ -28,8 +28,8 @@ fun Application.module() {
 }
 
 private fun Application.launchRetention() {
-    val defs: DefinitionStore by dependencies
-    val records: RecordStore by dependencies
+    val defs: DefinitionService by dependencies
+    val records: RecordService by dependencies
     launch {
         while (isActive) {
             runCatching { records.purgeRetention(defs.list(Kind.DATASET, Dataset.serializer())) }

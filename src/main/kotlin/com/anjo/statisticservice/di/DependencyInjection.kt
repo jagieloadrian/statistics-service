@@ -1,10 +1,12 @@
 package com.anjo.statisticservice.di
 
-import com.anjo.statisticservice.auth.AuthStore
 import com.anjo.statisticservice.db.Db
-import com.anjo.statisticservice.definitions.DefinitionStore
-import com.anjo.statisticservice.ingest.SourceStatus
-import com.anjo.statisticservice.records.RecordStore
+import com.anjo.statisticservice.service.AuthService
+import com.anjo.statisticservice.service.DefinitionService
+import com.anjo.statisticservice.service.IngestService
+import com.anjo.statisticservice.service.RecordService
+import com.anjo.statisticservice.service.SourceStatusService
+import com.anjo.statisticservice.service.UserService
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationStopped
 import io.ktor.server.application.log
@@ -19,16 +21,20 @@ fun Application.configureDI() {
         password = cfg.property("ktor.db.password").getString(),
     ).also { it.init() }
     monitor.subscribe(ApplicationStopped) { db.close() }
-    val auth = AuthStore(db)
+    val auth = AuthService(db)
     val adminEmail = cfg.propertyOrNull("ktor.auth.adminEmail")?.getString().orEmpty()
     val adminPassword = cfg.propertyOrNull("ktor.auth.adminPassword")?.getString().orEmpty()
     if (runBlocking { auth.bootstrapAdmin(adminEmail, adminPassword) }) log.info("Created admin $adminEmail")
 
+    val status = SourceStatusService()
+    val definitions = DefinitionService(db, status)
+    val records = RecordService(db)
     dependencies {
-        provide { db }
-        provide { DefinitionStore(db) }
-        provide { RecordStore(db) }
-        provide { SourceStatus() }
         provide { auth }
+        provide { UserService(db) }
+        provide { definitions }
+        provide { records }
+        provide { status }
+        provide { IngestService(definitions, records, status) }
     }
 }

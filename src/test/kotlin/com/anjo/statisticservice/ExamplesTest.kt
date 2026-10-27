@@ -1,11 +1,11 @@
 package com.anjo.statisticservice
 
-import com.anjo.statisticservice.definitions.Bundle
-import com.anjo.statisticservice.definitions.Dashboard
-import com.anjo.statisticservice.definitions.Dataset
-import com.anjo.statisticservice.definitions.Query
-import com.anjo.statisticservice.definitions.Source
-import com.anjo.statisticservice.definitions.definitionJson
+import com.anjo.statisticservice.model.Bundle
+import com.anjo.statisticservice.model.Dashboard
+import com.anjo.statisticservice.model.Dataset
+import com.anjo.statisticservice.model.Query
+import com.anjo.statisticservice.model.Source
+import com.anjo.statisticservice.model.definitionJson
 import com.anjo.statisticservice.testutils.Pg
 import com.anjo.statisticservice.testutils.json
 import com.anjo.statisticservice.testutils.postJson
