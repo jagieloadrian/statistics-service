@@ -23,22 +23,39 @@ object UserRepository {
 
     fun list(): List<User> = Users.selectAll().where { Users.orgId eq Db.ORG }.orderBy(Users.id).map(::toUser)
 
-    /** Id and password hash of the user with this (normalized) email. */
-    fun credentials(email: String): Pair<Long, String>? =
+    /** Id and password hash (null = provider-only) of the user with this (normalized) email. */
+    fun credentials(email: String): Pair<Long, String?>? =
         Users.select(Users.id, Users.passwordHash).where { (Users.orgId eq Db.ORG) and (Users.email eq email) }.singleOrNull()
             ?.let { it[Users.id] to it[Users.passwordHash] }
 
-    fun passwordHash(id: Long): String = Users.select(Users.passwordHash).where { Users.id eq id }.single()[Users.passwordHash]
+    fun passwordHash(id: Long): String? = Users.select(Users.passwordHash).where { Users.id eq id }.single()[Users.passwordHash]
+
+    fun findByOidc(issuer: String, subject: String): Long? =
+        Users.select(Users.id).where { (Users.oidcIssuer eq issuer) and (Users.oidcSubject eq subject) }.singleOrNull()?.get(Users.id)
+
+    /** Id of the user with this (normalized) email and whether a provider identity is linked to it. */
+    fun findByEmail(email: String): Pair<Long, Boolean>? =
+        Users.select(Users.id, Users.oidcSubject).where { Users.email eq email }.singleOrNull()
+            ?.let { it[Users.id] to (it[Users.oidcSubject] != null) }
+
+    fun linkOidc(id: Long, issuer: String, subject: String) {
+        Users.update({ Users.id eq id }) {
+            it[oidcIssuer] = issuer
+            it[oidcSubject] = subject
+        }
+    }
 
     fun emailTaken(email: String): Boolean = !Users.selectAll().where { Users.email eq email }.empty()
 
-    fun insert(email: String, name: String, role: String, passwordHash: String): Long =
+    fun insert(email: String, name: String, role: String, passwordHash: String?, oidcIssuer: String? = null, oidcSubject: String? = null): Long =
         Users.insert {
             it[orgId] = Db.ORG
             it[this.email] = email
             it[this.name] = name
             it[this.passwordHash] = passwordHash
             it[this.role] = role
+            it[this.oidcIssuer] = oidcIssuer
+            it[this.oidcSubject] = oidcSubject
         }[Users.id]
 
     fun update(id: Long, name: String, role: String) {
@@ -60,5 +77,6 @@ object UserRepository {
         Users.deleteWhere { Users.id eq id }
     }
 
-    private fun toUser(r: ResultRow) = User(r[Users.id], r[Users.email], r[Users.name], r[Users.role], r[Users.prefs])
+    private fun toUser(r: ResultRow) =
+        User(r[Users.id], r[Users.email], r[Users.name], r[Users.role], r[Users.prefs], hasPassword = r[Users.passwordHash] != null)
 }

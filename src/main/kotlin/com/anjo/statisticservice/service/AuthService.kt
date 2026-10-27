@@ -6,13 +6,18 @@ import com.anjo.statisticservice.exception.notFound
 import com.anjo.statisticservice.exception.unauthorized
 import com.anjo.statisticservice.model.ADMIN
 import com.anjo.statisticservice.model.UserPrincipal
+import com.anjo.statisticservice.model.dto.AuthConfig
 import com.anjo.statisticservice.model.dto.LoginResponse
+import com.anjo.statisticservice.model.dto.OidcInfo
 import com.anjo.statisticservice.repository.TokenRepository
 import com.anjo.statisticservice.repository.UserRepository
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
 
-class AuthService(private val db: Db) {
+/** [local] = password sign-in on; [oidc] = the sign-in provider, if configured. */
+class AuthService(private val db: Db, private val local: Boolean = true, private val adminEmail: String = "", private val oidc: Oidc? = null) {
+
+    val config = AuthConfig(local, oidc?.let { OidcInfo(it.name) })
 
     /** Creates the first admin from config, only while there are no users at all. */
     suspend fun bootstrapAdmin(email: String, password: String): Boolean {
@@ -27,10 +32,14 @@ class AuthService(private val db: Db) {
     suspend fun login(email: String, password: String): LoginResponse {
         val row = db.tx { UserRepository.credentials(normalizeEmail(email)) }
         if (!Passwords.verify(password, row?.second) || row == null) throw unauthorized("Wrong email or password")
+        return issueSession(row.first)
+    }
+
+    private suspend fun issueSession(userId: Long): LoginResponse {
         val token = newToken()
         val user = db.tx {
-            TokenRepository.insert(sha256(token), row.first)
-            UserRepository.find(row.first) ?: throw notFound("Unknown user ${row.first}")
+            TokenRepository.insert(sha256(token), userId)
+            UserRepository.find(userId) ?: throw notFound("Unknown user $userId")
         }
         return LoginResponse(token, user)
     }

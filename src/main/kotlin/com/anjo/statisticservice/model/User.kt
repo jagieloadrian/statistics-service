@@ -17,6 +17,13 @@ data class Prefs(
 )
 
 @Serializable
-data class User(val id: Long, val email: String, val name: String, val role: String, val prefs: Prefs = Prefs())
+data class User(
+    val id: Long,
+    val email: String,
+    val name: String,
+    val role: String,
+    val prefs: Prefs = Prefs(),
+    val hasPassword: Boolean = true,
+)
 
 data class UserPrincipal(val id: Long, val role: String, val token: String)

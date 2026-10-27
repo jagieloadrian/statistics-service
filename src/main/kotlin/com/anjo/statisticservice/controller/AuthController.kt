@@ -18,11 +18,15 @@ import io.ktor.server.routing.put
 
 val LOGIN = RateLimitName("login")
 
-fun Route.loginRoute(auth: AuthService) = rateLimit(LOGIN) {
-    post("/auth/login") {
-        val req = call.receive<LoginRequest>()
-        call.respond(auth.login(req.email, req.password))
-    }.describe { summary = "Sign in; returns a bearer token (5 attempts/min per client)" }
+fun Route.signInRoutes(auth: AuthService) {
+    get("/auth/config") { call.respond(auth.config) }
+        .describe { summary = "Enabled sign-in methods: local passwords and/or the sign-in provider's name" }
+    rateLimit(LOGIN) {
+        post("/auth/login") {
+            val req = call.receive<LoginRequest>()
+            call.respond(auth.login(req.email, req.password))
+        }.describe { summary = "Sign in; returns a bearer token (5 attempts/min per client)" }
+    }
 }
 
 fun Route.accountRoutes(auth: AuthService, users: UserService) {

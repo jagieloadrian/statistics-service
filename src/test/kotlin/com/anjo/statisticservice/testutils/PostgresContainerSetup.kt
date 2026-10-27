@@ -75,10 +75,13 @@ class TestApp(private val builder: ApplicationTestBuilder, val client: HttpClien
     }
 }
 
-fun testApp(block: suspend TestApp.() -> Unit) = testApplication {
-    environment { config = ApplicationConfig("application-test.yaml").mergeWith(Pg.config()) }
+/** [extraConfig] overrides config keys; with local sign-in off or no admin password [TestApp.client] is anonymous. */
+fun testApp(extraConfig: Map<String, String> = emptyMap(), block: suspend TestApp.() -> Unit) = testApplication {
+    val cfg = ApplicationConfig("application-test.yaml").mergeWith(Pg.config()).mergeWith(MapApplicationConfig(extraConfig.toList()))
+    environment { config = cfg }
     startApplication()
-    TestApp(this, client).run { TestApp(this@testApplication, login(ADMIN_EMAIL, ADMIN_PASSWORD)).block() }
+    val admin = cfg.property("ktor.auth.local").getString() != "false" && cfg.property("ktor.auth.adminPassword").getString().isNotBlank()
+    TestApp(this, client).run { TestApp(this@testApplication, if (admin) login(ADMIN_EMAIL, ADMIN_PASSWORD) else anonymous).block() }
 }
 
 private fun HttpRequestBuilder.json(body: String, token: String?) {

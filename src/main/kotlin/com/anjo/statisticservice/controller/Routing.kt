@@ -47,7 +47,7 @@ fun Application.configureRouting() {
         swaggerEndpoint()
         ingestRoutes(ingest)
         route(API_V2) {
-            loginRoute(auth)
+            signInRoutes(auth)
             authenticate("user") {
                 accountRoutes(auth, users)
                 userRoutes(users)
