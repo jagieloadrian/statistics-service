@@ -98,11 +98,14 @@ ordered by `lastSeen` desc.
 
 | Method + path | Role | Notes |
 |---------------|------|-------|
-| `POST /auth/login` | public | `{email, password}` → `{token, user}`; 401 with one generic message; 5 attempts/min per IP |
+| `GET /auth/config` | public | enabled sign-in methods: `{"local": true, "oidc": {"name": "Authelia"}}`; `oidc` omitted (null) when no provider is configured. No secrets, no URLs |
+| `POST /auth/login` | public | `{email, password}` → `{token, user}`; 401 with one generic message; 5 attempts/min per IP; local sign-in off (`AUTH_LOCAL=false`) → 403 |
+| `POST /auth/oidc/start` | public | `{redirectUri}` → `{authorizationUrl, state, codeVerifier}`; the client keeps `state` + `codeVerifier` and sends the user to `authorizationUrl` (provider `authorization_endpoint` with `response_type=code`, `client_id`, `redirect_uri`, `scope=openid email profile`, `state`, `code_challenge`, `code_challenge_method=S256`); no provider → 404; provider unreachable → 503 (`unavailable`); shares the login limit |
+| `POST /auth/oidc` | public | `{code, codeVerifier, redirectUri}` → `{token, user}` like `/auth/login`. Known provider identity → that account; else the account with the same email is linked if the provider verified the email and it has no other identity; else a new account (admin when the verified email is `ADMIN_EMAIL`, otherwise viewer; no password). Code refused, invalid/expired/foreign ID token, no email, unverified email of an existing account, account linked to another identity → 401; no provider → 404; provider unreachable → 503; shares the login limit |
 | `POST /auth/logout` | signed in | deletes current token → 204 |
-| `GET /me` | signed in | `{id, email, name, role, prefs}` |
+| `GET /me` | signed in | `{id, email, name, role, prefs, hasPassword}`; `hasPassword` false for provider-only accounts |
 | `PUT /me/prefs` | signed in | `{timeZone, units, theme, homeDashboard, favourites}` |
-| `PUT /me/password` | signed in | `{current, new}` → 204; wrong `current` → 400; other tokens of the user revoked |
-| `GET /users` | admin, editor (share picker) | `[{id, email, name, role, prefs}]` |
+| `PUT /me/password` | signed in | `{current, new}` → 204; wrong `current` → 400; other tokens of the user revoked; local sign-in off or no password → 403 |
+| `GET /users` | admin, editor (share picker) | `[{id, email, name, role, prefs, hasPassword}]` |
 | `POST /users` | admin | `{email, name?, role, password}` → 201 user; create = invite with initial password (no email sending); password < 10 chars → 400 (also on `PUT /me/password`); email in use → 409 |
 | `PUT /users/{id}`, `DELETE /users/{id}` | admin | `{name?, role?}`; delete → 204; last admin cannot be demoted or deleted (409) |

@@ -16,10 +16,35 @@ ADMIN_EMAIL=admin@local ADMIN_PASSWORD='change-me-now' ./gradlew run
 | Env | Default | Meaning |
 |-----|---------|---------|
 | `DB_URL`, `DB_USER`, `DB_PASSWORD` | `jdbc:postgresql://localhost:5432/stats`, `stats`, `stats` | database; the schema is created on start |
-| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | empty | first admin, created only while there are no users |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | empty | first admin, created only while there are no users; see sign-in methods |
 | `CORS_HOSTS` | `localhost:8081` | comma-separated frontend hosts |
 
 API: `http://localhost:8080/api/v2`, Swagger UI at `/api/v2/swagger`.
+
+## Sign-in methods / OIDC
+
+Users sign in with a password, through one OpenID Connect provider, or both.
+Either way they get the same session token; roles stay managed in the app, and
+devices keep using source tokens.
+
+| Env | Default | Meaning |
+|-----|---------|---------|
+| `AUTH_LOCAL` | `true` | password sign-in; `false` = provider only (start fails without a provider) |
+| `OIDC_ISSUER` | empty | provider issuer URL, e.g. `https://auth.example.com:9091`; provider on when issuer and client id are set |
+| `OIDC_CLIENT_ID` | empty | client registered at the provider |
+| `OIDC_CLIENT_SECRET` | empty | only for confidential clients (sent as HTTP Basic) |
+| `OIDC_NAME` | `SSO` | button label: "Sign in with …" |
+
+- Register the client with PKCE (S256) and the redirect URIs of the frontends:
+  the web UI's origin + `/` (dev: `http://localhost:8081/`) and
+  `http://127.0.0.1/callback` for the desktop app (any port).
+- First provider sign-in creates a viewer. An existing account with the same
+  email is linked only if the provider marks the email verified.
+- `ADMIN_EMAIL` without `ADMIN_PASSWORD`: no local admin; the first sign-in
+  through the provider with that (verified) email becomes admin.
+- A self-signed provider certificate needs a JVM truststore
+  (`-Djavax.net.ssl.trustStore=…`).
+- Dev provider: [.devops/authelia-compose/README.md](.devops/authelia-compose/README.md).
 
 ## Load the example definitions
 

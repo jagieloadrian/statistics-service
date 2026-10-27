@@ -118,7 +118,7 @@ that can be demoed on its own. Approval required before implementation.
 ### Implementation for User Story 3
 
 - [X] T027 [US3] In `StatisticsService/src/main/kotlin/com/anjo/statisticservice/service/AuthService.kt` make `login()` and `changePassword()` throw `forbidden("Password sign-in is disabled")` when `local` is off, and `changePassword()` throw `forbidden("Account has no password")` when the stored hash is null
-- [ ] T028 [P] [US3] In `Statistics-UI/composeApp/src/commonMain/kotlin/com/anjo/statisticsui/ui/account/AccountScreen.kt` hide the password section when `!session.user.hasPassword` or `api.authConfig().local == false`
+- [X] T028 [P] [US3] In `Statistics-UI/composeApp/src/commonMain/kotlin/com/anjo/statisticsui/ui/account/AccountScreen.kt` hide the password section when `!session.user.hasPassword` or `api.authConfig().local == false`
 
 **Checkpoint**: all backend tests green; quickstart §1, §4, §5.
 
@@ -132,10 +132,10 @@ that can be demoed on its own. Approval required before implementation.
 
 ### Implementation for User Story 4
 
-- [ ] T029 [P] [US4] Add `modules("jdk.httpserver")` to `nativeDistributions` in `Statistics-UI/composeApp/build.gradle.kts`
-- [ ] T030 [US4] Implement `Statistics-UI/composeApp/src/jvmMain/kotlin/com/anjo/statisticsui/auth/ProviderSignIn.jvm.kt` per research §2: `HttpServer.create(InetSocketAddress(InetAddress.getLoopbackAddress(), 0))`, `redirectUri = "http://127.0.0.1:<port>/callback"`, `api.oidcStart`, `Desktop.getDesktop().browse(URI(authorizationUrl))`, await one `/callback` via `CompletableDeferred` with `withTimeout(5.minutes)`, reply a small HTML "Signed in — you can close this window" (or the error), check `state`, `api.oidcLogin`; `server.stop(0)` in `finally` so cancellation frees the port; `// ponytail: ephemeral port, fixed port if a provider requires exact match`
-- [ ] T036 [US4] Make the loopback receiver in `ProviderSignIn.jvm.kt` a small internal function (`awaitCallback(server, expectedState)`) and cover it in `Statistics-UI/composeApp/src/jvmTest/kotlin/com/anjo/statisticsui/auth/LoopbackTest.kt` (Kotest): `/callback?code&state` → code; wrong state → error; provider `error` → its message; timeout → error and port released
-- [ ] T031 [US4] In `Statistics-UI/composeApp/src/commonMain/kotlin/com/anjo/statisticsui/ui/login/LoginScreen.kt` show "Waiting for the browser…" with a Cancel button while `providerSignIn` runs (cancel the coroutine job; back to the sign-in form)
+- [X] T029 [P] [US4] Add `modules("jdk.httpserver")` to `nativeDistributions` in `Statistics-UI/composeApp/build.gradle.kts`
+- [X] T030 [US4] Implement `Statistics-UI/composeApp/src/jvmMain/kotlin/com/anjo/statisticsui/auth/ProviderSignIn.jvm.kt` per research §2: `HttpServer.create(InetSocketAddress(InetAddress.getLoopbackAddress(), 0))`, `redirectUri = "http://127.0.0.1:<port>/callback"`, `api.oidcStart`, `Desktop.getDesktop().browse(URI(authorizationUrl))`, await one `/callback` via `CompletableDeferred` with `withTimeout(5.minutes)`, reply a small HTML "Signed in — you can close this window" (or the error), check `state`, `api.oidcLogin`; `server.stop(0)` in `finally` so cancellation frees the port; `// ponytail: ephemeral port, fixed port if a provider requires exact match`
+- [X] T036 [US4] Make the loopback receiver in `ProviderSignIn.jvm.kt` a small internal function (`awaitCallback(server, expectedState)`) and cover it in `Statistics-UI/composeApp/src/jvmTest/kotlin/com/anjo/statisticsui/auth/LoopbackTest.kt` (Kotest): `/callback?code&state` → code; wrong state → error; provider `error` → its message; timeout → error and port released
+- [X] T031 [US4] In `Statistics-UI/composeApp/src/commonMain/kotlin/com/anjo/statisticsui/ui/login/LoginScreen.kt` show "Waiting for the browser…" with a Cancel button while `providerSignIn` runs (cancel the coroutine job; back to the sign-in form)
 
 **Checkpoint**: quickstart §3 on desktop.
 
@@ -143,9 +143,9 @@ that can be demoed on its own. Approval required before implementation.
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T032 [P] Merge contracts/auth-oidc.md into the "Auth & user panel" table of `StatisticsService/specs/004-universal-stats-platform/contracts/api-v2.md` (FR-015) and confirm `StatisticsService/src/test/kotlin/com/anjo/statisticservice/controller/OpenApiTest.kt` still passes with the new routes
-- [ ] T033 [P] Add a "Sign-in methods / OIDC" section to `StatisticsService/README.md` (env vars `AUTH_LOCAL`, `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_NAME`, `ADMIN_EMAIL` rules, link to `.devops/authelia-compose/README.md`) and update "Sign in" in `Statistics-UI/README.md` (provider button, desktop browser flow, redirect URIs to register)
-- [ ] T034 Run `./gradlew test` in `StatisticsService/` (Authelia stopped, SC-006) and `./gradlew :composeApp:jvmTest :composeApp:jvmJar` in `Statistics-UI/`, then walk quickstart §1–§6 against Authelia
+- [X] T032 [P] Merge contracts/auth-oidc.md into the "Auth & user panel" table of `StatisticsService/specs/004-universal-stats-platform/contracts/api-v2.md` (FR-015) and confirm `StatisticsService/src/test/kotlin/com/anjo/statisticservice/controller/OpenApiTest.kt` still passes with the new routes
+- [X] T033 [P] Add a "Sign-in methods / OIDC" section to `StatisticsService/README.md` (env vars `AUTH_LOCAL`, `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_NAME`, `ADMIN_EMAIL` rules, link to `.devops/authelia-compose/README.md`) and update "Sign in" in `Statistics-UI/README.md` (provider button, desktop browser flow, redirect URIs to register)
+- [ ] T034 Run `./gradlew test` in `StatisticsService/` (Authelia stopped, SC-006) and `./gradlew :composeApp:jvmTest :composeApp:jvmJar` in `Statistics-UI/`, then walk quickstart §1–§6 against Authelia — automated part done (backend `./gradlew build` 65 tests, UI jvmTest 20 tests + js/wasm compile + jvmJar, Authelia config validated); quickstart walk-through left to the user (needs hosts entry; desktop app not run)
 - [ ] T035 Update `StatisticsService/PROJECT-STATUS.md` (completed work, decisions: code exchange → opaque session, backend-generated PKCE, RS256 via JWKS, no refresh tokens; next steps)
 
 ---
