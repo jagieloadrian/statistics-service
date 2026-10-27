@@ -7,6 +7,8 @@ import com.anjo.statisticservice.definitions.Dataset
 import com.anjo.statisticservice.definitions.MeasureType
 import com.anjo.statisticservice.definitions.Query
 import com.anjo.statisticservice.definitions.QueryMeasure
+import com.anjo.statisticservice.definitions.numberMeasures
+import com.anjo.statisticservice.mapping.Expr
 import com.anjo.statisticservice.mapping.Record
 import com.anjo.statisticservice.routing.badRequest
 import kotlinx.serialization.Serializable
@@ -125,17 +127,14 @@ class RecordStore(private val db: Db) {
     }
 
     private fun measureSql(m: QueryMeasure, ds: Dataset, raw: Boolean): String {
-        val type = if (m.field == "ts") null else ds.measures.firstOrNull { it.name == m.field }?.type
-            ?: throw badRequest("Unknown measure '${m.field}'")
-        val x = valueSql(m.field, type)
+        val (x, type) = field(ds, m.field)
         if (raw) return x
         val agg = m.agg ?: when (type) {
             null -> "max"
             MeasureType.number -> "avg"
             else -> "last"
         }
-        val numericOnly = setOf("sum", "avg")
-        if (agg in numericOnly && type != MeasureType.number) throw badRequest("agg '$agg' needs a number measure: '${m.field}'")
+        if (agg in setOf("sum", "avg") && type != MeasureType.number) throw badRequest("agg '$agg' needs a number measure: '${m.field}'")
         if (type == null && agg !in setOf("min", "max", "first", "last", "count")) throw badRequest("agg '$agg' not allowed on ts")
         return when (agg) {
             "count" -> "count($x)"
@@ -143,20 +142,23 @@ class RecordStore(private val db: Db) {
             "first" -> "(array_agg($x ORDER BY ts))[1]"
             "last" -> "(array_agg($x ORDER BY ts DESC))[1]"
             "at_max", "at_min" -> {
-                val by = m.by ?: throw badRequest("agg '$agg' needs 'by'")
-                if (ds.measures.firstOrNull { it.name == by }?.type != MeasureType.number) throw badRequest("'by' must be a number measure: '$by'")
-                "(array_agg($x ORDER BY ${valueSql(by, MeasureType.number)} ${if (agg == "at_max") "DESC" else "ASC"} NULLS LAST))[1]"
+                val (by, byType) = field(ds, m.by ?: throw badRequest("agg '$agg' needs 'by'"))
+                if (byType != MeasureType.number) throw badRequest("'by' must be a number measure: '${m.by}'")
+                "(array_agg($x ORDER BY $by ${if (agg == "at_max") "DESC" else "ASC"} NULLS LAST))[1]"
             }
             else -> throw badRequest("agg: count | sum | avg | min | max | first | last | at_max | at_min")
         }
     }
 
-    // names are validated against the dataset before being inlined (research D7)
-    private fun valueSql(field: String, type: MeasureType?): String = when (type) {
-        null -> "ts"
-        MeasureType.number -> "(vals->>'$field')::float8"
-        MeasureType.boolean -> "(vals->>'$field')::boolean"
-        MeasureType.text -> "(vals->>'$field')"
+    /** SQL value and type of `ts`, a declared or a calculated measure; names validated before being inlined (research D7). */
+    private fun field(ds: Dataset, name: String): Pair<String, MeasureType?> {
+        if (name == "ts") return "ts" to null
+        ds.calculated[name]?.let { return Expr.toSql(it, ds.numberMeasures()) to MeasureType.number }
+        return when (ds.measures.firstOrNull { it.name == name }?.type ?: throw badRequest("Unknown measure '$name'")) {
+            MeasureType.number -> "(vals->>'$name')::float8" to MeasureType.number
+            MeasureType.boolean -> "(vals->>'$name')::boolean" to MeasureType.boolean
+            MeasureType.text -> "(vals->>'$name')" to MeasureType.text
+        }
     }
 
     private fun defaultAlias(m: QueryMeasure, raw: Boolean) = if (raw || m.agg == null) m.field else "${m.field}_${m.agg}"

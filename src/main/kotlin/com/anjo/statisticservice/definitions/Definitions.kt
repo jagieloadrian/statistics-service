@@ -1,6 +1,7 @@
 package com.anjo.statisticservice.definitions
 
 import com.anjo.statisticservice.db.Db
+import com.anjo.statisticservice.mapping.Expr
 import com.anjo.statisticservice.db.query
 import com.anjo.statisticservice.db.update
 import com.anjo.statisticservice.routing.badRequest
@@ -38,6 +39,8 @@ data class Dataset(
 )
 
 // ponytail: push only; pull/kafka/grpc settings land with their channel (US5)
+fun Dataset.numberMeasures() = measures.filter { it.type == MeasureType.number }.map { it.name }.toSet()
+
 @Serializable
 data class Channel(val type: String = "push")
 
@@ -272,6 +275,9 @@ fun validateDataset(d: Dataset) {
     names.groupBy { it }.filter { it.value.size > 1 }.keys.forEach { r += "name: '$it' is declared more than once" }
     ensure("ts" !in names, r) { "name: 'ts' is reserved" }
     ensure(d.retentionDays == null || d.retentionDays > 0, r) { "retentionDays: must be > 0" }
+    d.calculated.forEach { (name, expr) ->
+        runCatching { Expr.toSql(expr, d.numberMeasures()) }.onFailure { r += "calculated.$name: ${it.message}" }
+    }
     throwIfAny("dataset", r)
 }
 

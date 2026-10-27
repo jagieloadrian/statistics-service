@@ -29,7 +29,10 @@ class RecordStoreTest {
     private val store = RecordStore(db)
     private val base = Instant.parse("2026-10-27T10:00:00Z")
     private val now = Instant.parse("2026-10-27T12:00:00Z")
-    private val ds = Dataset(id = "t", measures = listOf(Measure("temp")), dimensions = listOf(Dimension("device")), retentionDays = 1)
+    private val ds = Dataset(
+        id = "t", measures = listOf(Measure("temp"), Measure("gen")), dimensions = listOf(Dimension("device")),
+        calculated = mapOf("ratio" to "temp / gen"), retentionDays = 1,
+    )
 
     @BeforeEach
     fun clean() = Pg.truncateAll()
@@ -138,5 +141,33 @@ class RecordStoreTest {
         store.insert(listOf(rec(0, "a", 1.0, ts = real - 2.days), rec(0, "a", 2.0, ts = real)))
         store.purgeRetention(listOf(ds, ds.copy(id = "other", retentionDays = null)))
         db.tx { c -> c.query("SELECT count(*) FROM records") { it.getLong(1) } }.single() shouldBe 1L
+    }
+
+    @Test
+    fun `at_max and at_min pick by another measure, ts takes min and max`() = runBlocking<Unit> {
+        store.insert(
+            listOf(1.0 to 10.0, 2.0 to 30.0, 3.0 to 20.0).mapIndexed { i, (gen, temp) ->
+                Record("t", base + (i * 10).seconds, false, mapOf("device" to "a"), mapOf("gen" to JsonPrimitive(gen), "temp" to JsonPrimitive(temp)), null)
+            },
+        )
+        q(
+            "none",
+            QueryMeasure("gen", "at_max", by = "temp", alias = "peakGen"), QueryMeasure("gen", "at_min", by = "temp", alias = "lowGen"),
+            QueryMeasure("ts", "min", alias = "from"), QueryMeasure("ts", "max", alias = "to"),
+        ).cells() shouldBe listOf(listOf(listOf("2.0", "1.0", "2026-10-27T10:00:00Z", "2026-10-27T10:00:20Z")))
+        assertThrows<ApiException> { q("none", QueryMeasure("gen", "at_max")) }
+        assertThrows<ApiException> { q("none", QueryMeasure("ts", "avg")) }
+    }
+
+    @Test
+    fun `calculated measure works raw and bucketed, division by zero is null`() = runBlocking<Unit> {
+        store.insert(
+            listOf(10.0 to 2.0, 9.0 to 0.0).mapIndexed { i, (temp, gen) ->
+                Record("t", base + (i * 10).seconds, false, mapOf("device" to "a"), mapOf("gen" to JsonPrimitive(gen), "temp" to JsonPrimitive(temp)), null)
+            },
+        )
+        val raw = q("raw", QueryMeasure("ratio"))
+        raw.series.single().rows.map { it[1].toString() } shouldBe listOf("5.0", "null")
+        q("1h", QueryMeasure("ratio", "max")).cells() shouldBe listOf(listOf(listOf("2026-10-27T10:00:00Z", "5.0")))
     }
 }

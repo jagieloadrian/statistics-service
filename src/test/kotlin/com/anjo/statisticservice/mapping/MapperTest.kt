@@ -1,5 +1,6 @@
 package com.anjo.statisticservice.mapping
 
+import com.anjo.statisticservice.definitions.Bundle
 import com.anjo.statisticservice.definitions.Dataset
 import com.anjo.statisticservice.definitions.Dimension
 import com.anjo.statisticservice.definitions.FieldSpec
@@ -114,5 +115,18 @@ class MapperTest {
         map("""{"dims":{"device":"x"},"vals":{"temperature":20}}""", native).size shouldBe 1
         reasons("""{"dims":{"device":"x","room":"k"},"vals":{"pressure":1}}""", native) shouldContainExactlyInAnyOrder
             listOf("[0].dims.room: not declared in dataset", "[0].vals.pressure: not declared in dataset")
+    }
+
+    @Test
+    fun `epidemic sample payload gives total plus one record per byType entry`() {
+        val bundle = Json.decodeFromString(Bundle.serializer(), java.io.File("definitions/epidemic.json").readText())
+        val payload = Json.parseToJsonElement(javaClass.getResource("/payloads/epidemic.json")!!.readText())
+        val recs = Mapper.map(bundle.sources.single(), bundle.datasets.single(), payload, now)
+        recs.map { it.dims["type"] } shouldBe listOf("total", "0", "1", "2")
+        recs.map { it.ident } shouldBe listOf("RPI_Pico_2w_1|5|32", "RPI_Pico_2w_1|5|32|0", "RPI_Pico_2w_1|5|32|1", "RPI_Pico_2w_1|5|32|2")
+        recs[0].vals["population"] shouldBe JsonPrimitive(263.0)
+        recs[0].vals["lockdown"] shouldBe JsonPrimitive(false)
+        recs[2].vals["dead"] shouldBe JsonPrimitive(1.0)
+        recs.all { it.dims["run"] == "5" && it.ts == Instant.parse("2026-01-05T15:38:14Z") } shouldBe true
     }
 }
