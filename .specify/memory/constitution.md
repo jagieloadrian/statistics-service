@@ -1,30 +1,20 @@
 <!--
 Sync Impact Report
-Version change: 2.0.0 → 2.1.0 (MINOR, 2026-10-27) — principle II: transitional legacy
-  device-ingestion clause removed (old API has no consumers, RPi software can change);
-  Tech Constraints/Workflow legacy alias + cutover rules and "open source" exception
-  removed. Principle intent unchanged, so not MAJOR.
-Previous: 1.3.0 → 2.0.0 (MAJOR — principles I, II, IV redefined; plugin-per-domain
-  model removed)
+Version change: 2.1.0 → 2.2.0 (MINOR, 2026-10-27) — principle IV: OpenID Connect
+  sign-in moved from deferred to in scope (spec 005), alongside local accounts.
+  Materially expanded guidance; no principle removed or redefined and deployments
+  without an IdP keep working, so not MAJOR.
+Previous: 2.0.0 → 2.1.0 (MINOR — legacy device-ingestion clause removed)
 Modified principles:
-  - I. Plugin Contract First → I. Configuration Over Code
-  - II. Contract-Compliant Ingestion & Exposition → II. Generic, Versioned Contracts
-  - III. Test Coverage for Core Flows, Not Every Line — kept; scope wording moved from
-    plugin collect/expose to ingestion/mapping/query/access paths
-  - IV. Local-First, Minimal-Ops Simplicity — kept name; auth, user panel and roles
-    moved from deferred to in scope; single organization extensible to multi-org
-  - V. Storage & API Modularity — one record store; PostgreSQL direction; Redis =
-    untouched archive; per-plugin key builder rule removed
+  - IV. Local-First, Minimal-Ops Simplicity — OIDC sign-in in scope (generic, optional,
+    IdP authenticates only); deferred list now names IdP-managed roles / provisioning
+    instead of single sign-on. Other deferrals unchanged.
 Added sections: none
-Removed sections: none (Technology & Architecture Constraints and Development
-  Workflow rewritten for spec 004)
+Removed sections: none
 Templates requiring updates:
   - .specify/templates/plan-template.md ✅ no change needed (generic Constitution Check)
   - .specify/templates/spec-template.md ✅ no change needed
   - .specify/templates/tasks-template.md ✅ no change needed
-  - user-roadmap.md ✅ marked superseded by specs/004-universal-stats-platform
-  - CLAUDE.md ⚠ pending — still points at specs/003 plan; refreshed by
-    /speckit-agent-context-update after /speckit-plan for spec 004
 Follow-up TODOs:
   - "i-have-adhd" still not installed — Agent Tooling rule unchanged.
   - agent-os/ and .copilot/ deletion still not performed (carried over).
@@ -86,19 +76,26 @@ without over-testing what isn't load-bearing.
 
 Default to self-hosted, low-friction deployment (Docker Compose) at home-lab
 scale. In scope: platform-managed accounts, sign-in, roles admin / editor /
-viewer, dashboard sharing, user preferences. v1 serves exactly one
-organization, but every owned definition and user MUST belong to it
-explicitly so multiple organizations can be added later without changing
-existing definitions, exports or contracts. Do not build single sign-on,
-multi-organization, alerting, push-to-browser streaming, data export,
-k8s/multi-host orchestration or analytics-store migrations until a concrete,
-confirmed need exists. A new ingestion channel (pull, Kafka, gRPC) is built
-only when a real producer for it exists. Follow YAGNI: no abstraction beyond
-what the generic source → dataset → query → widget model itself needs.
+viewer, dashboard sharing, user preferences, and sign-in through any OpenID
+Connect provider (generic: issuer + client id) next to local password
+accounts. Local accounts MAY be switched off by config; the app MUST work with
+no IdP configured; the IdP only authenticates — roles stay managed in the app;
+device/collector source credentials stay separate from user sign-in. v1 serves
+exactly one organization, but every owned definition and user MUST belong to
+it explicitly so multiple organizations can be added later without changing
+existing definitions, exports or contracts. Do not build provider-specific IdP
+code, IdP-managed roles or user provisioning, multi-organization, alerting,
+push-to-browser streaming, data export, k8s/multi-host orchestration or
+analytics-store migrations until a concrete, confirmed need exists. A new
+ingestion channel (pull, Kafka, gRPC) is built only when a real producer for
+it exists. Follow YAGNI: no abstraction beyond what the generic source →
+dataset → query → widget model itself needs.
 
 **Rationale**: a user panel is now an explicit requirement (spec 004 US4), so
-auth leaves the backlog; everything else stays deferred because building ahead
-of a trigger wastes effort on a single-owner, home-lab product.
+auth leaves the backlog; OIDC sign-in (spec 005) lets users sign in through a
+lightweight IAM provider instead of app passwords, without vendor lock-in.
+Everything else stays deferred because building ahead of a trigger wastes
+effort on a single-owner, home-lab product.
 
 ### V. Storage & API Modularity
 
@@ -169,4 +166,4 @@ clarification), and (3) propagation check against
 verify compliance with Core Principles; deviations MUST be justified in the
 plan's Complexity Tracking section or rejected.
 
-**Version**: 2.1.0 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-10-27
+**Version**: 2.2.0 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-10-27
