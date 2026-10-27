@@ -58,9 +58,10 @@ const val ADMIN_PASSWORD = "admin-password"
 class TestApp(private val builder: ApplicationTestBuilder, val client: HttpClient) {
     val anonymous get() = builder.client
 
-    suspend fun login(email: String, password: String): HttpClient {
-        val token = anonymous.postJson("/api/v2/auth/login", """{"email":"$email","password":"$password"}""")
-            .json().jsonObject["token"]!!.jsonPrimitive.content
+    suspend fun login(email: String, password: String): HttpClient =
+        withToken(anonymous.postJson("/api/v2/auth/login", """{"email":"$email","password":"$password"}""").json().jsonObject["token"]!!.jsonPrimitive.content)
+
+    fun withToken(token: String): HttpClient {
         // a request's own Authorization (e.g. a source token) wins over the user token
         val bearer = createClientPlugin("userToken") {
             onRequest { req, _ -> if (HttpHeaders.Authorization !in req.headers) req.headers[HttpHeaders.Authorization] = "Bearer $token" }

@@ -2,6 +2,8 @@ package com.anjo.statisticservice.controller
 
 import com.anjo.statisticservice.model.Prefs
 import com.anjo.statisticservice.model.dto.LoginRequest
+import com.anjo.statisticservice.model.dto.OidcLoginRequest
+import com.anjo.statisticservice.model.dto.OidcStartRequest
 import com.anjo.statisticservice.model.dto.PasswordChange
 import com.anjo.statisticservice.service.AuthService
 import com.anjo.statisticservice.service.UserService
@@ -26,6 +28,13 @@ fun Route.signInRoutes(auth: AuthService) {
             val req = call.receive<LoginRequest>()
             call.respond(auth.login(req.email, req.password))
         }.describe { summary = "Sign in; returns a bearer token (5 attempts/min per client)" }
+        post("/auth/oidc/start") {
+            call.respond(auth.oidcStart(call.receive<OidcStartRequest>().redirectUri))
+        }.describe { summary = "Start provider sign-in; returns the provider URL plus state and PKCE verifier for the client to keep" }
+        post("/auth/oidc") {
+            val req = call.receive<OidcLoginRequest>()
+            call.respond(auth.oidcLogin(req.code, req.codeVerifier, req.redirectUri))
+        }.describe { summary = "Finish provider sign-in with the authorization code; returns a bearer token like /auth/login" }
     }
 }
 

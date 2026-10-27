@@ -5,6 +5,7 @@ import com.anjo.statisticservice.exception.badRequest
 import com.anjo.statisticservice.exception.notFound
 import com.anjo.statisticservice.exception.unauthorized
 import com.anjo.statisticservice.model.ADMIN
+import com.anjo.statisticservice.model.VIEWER
 import com.anjo.statisticservice.model.UserPrincipal
 import com.anjo.statisticservice.model.dto.AuthConfig
 import com.anjo.statisticservice.model.dto.LoginResponse
@@ -34,6 +35,25 @@ class AuthService(private val db: Db, private val local: Boolean = true, private
         if (!Passwords.verify(password, row?.second) || row == null) throw unauthorized("Wrong email or password")
         return issueSession(row.first)
     }
+
+    suspend fun oidcStart(redirectUri: String) = provider().start(redirectUri)
+
+    /** Redeems the provider's [code]: signs in the account linked to that identity, or creates a viewer. */
+    suspend fun oidcLogin(code: String, codeVerifier: String, redirectUri: String): LoginResponse {
+        val p = provider()
+        val c = p.redeem(code, codeVerifier, redirectUri)
+        val email = c.email?.takeIf { it.isNotBlank() }?.let(::normalizeEmail) ?: throw unauthorized("Provider sent no email")
+        val id = db.tx {
+            UserRepository.findByOidc(p.issuer, c.subject) ?: run {
+                if (UserRepository.findByEmail(email) != null) throw unauthorized("Email is used by another account")
+                // ponytail: email/name not synced after creation
+                UserRepository.insert(email, c.name ?: email, VIEWER, null, p.issuer, c.subject)
+            }
+        }
+        return issueSession(id)
+    }
+
+    private fun provider() = oidc ?: throw notFound("No sign-in provider configured")
 
     private suspend fun issueSession(userId: Long): LoginResponse {
         val token = newToken()

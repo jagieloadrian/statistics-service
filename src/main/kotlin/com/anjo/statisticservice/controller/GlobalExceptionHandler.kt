@@ -18,7 +18,7 @@ private val logger = KotlinLogging.logger {}
 fun Application.validatorExceptionHandler() {
     install(StatusPages) {
         exception<ApiException> { call, e ->
-            // only a paused source answers 503
+            // only a paused source or an unreachable sign-in provider answers 503
             if (e.status == HttpStatusCode.ServiceUnavailable) call.response.header(HttpHeaders.RetryAfter, "60")
             call.respond(e.status, ApiError(e.code, e.message, e.details))
         }
