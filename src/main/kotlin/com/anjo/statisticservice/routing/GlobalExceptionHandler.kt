@@ -1,28 +1,49 @@
 package com.anjo.statisticservice.routing
 
-import com.anjo.statisticservice.exception.EmptyDataException
-import com.anjo.statisticservice.exception.EmptyParamException
-import com.anjo.statisticservice.exception.PluginValidationException
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
-import io.ktor.server.plugins.requestvalidation.RequestValidationException
+import io.ktor.server.plugins.BadRequestException
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.response.respond
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.Serializable
+
+private val logger = KotlinLogging.logger {}
+
+class ApiException(
+    val status: HttpStatusCode,
+    val code: String,
+    override val message: String,
+    val details: List<String> = emptyList(),
+) : RuntimeException(message)
+
+@Serializable
+data class ApiError(val error: String, val message: String, val details: List<String> = emptyList())
+
+fun badRequest(message: String, details: List<String> = emptyList()) =
+    ApiException(HttpStatusCode.BadRequest, "bad_request", message, details)
+
+fun notFound(message: String) = ApiException(HttpStatusCode.NotFound, "not_found", message)
 
 fun Application.validatorExceptionHandler() {
     install(StatusPages) {
-        exception<RequestValidationException> { call, cause ->
-            call.respond(HttpStatusCode.BadRequest, cause.reasons)
+        exception<ApiException> { call, e ->
+            call.respond(e.status, ApiError(e.code, e.message, e.details))
         }
-        exception<EmptyParamException> { call, cause ->
-            call.respond(status = HttpStatusCode.BadRequest, message = cause.message ?: cause.localizedMessage)
+        exception<BadRequestException> { call, e ->
+            call.respond(HttpStatusCode.BadRequest, ApiError("bad_request", e.cause?.message ?: e.message ?: "Bad request"))
         }
-        exception<EmptyDataException> { call, cause ->
-            call.respond(status = HttpStatusCode.NotFound, message = cause.message ?: cause.localizedMessage)
+        exception<SerializationException> { call, e ->
+            call.respond(HttpStatusCode.BadRequest, ApiError("bad_request", e.message ?: "Malformed JSON"))
         }
-        exception<PluginValidationException> { call, cause ->
-            call.respond(HttpStatusCode.BadRequest, cause.reasons)
+        exception<IllegalArgumentException> { call, e ->
+            call.respond(HttpStatusCode.BadRequest, ApiError("bad_request", e.message ?: "Bad request"))
+        }
+        exception<Throwable> { call, e ->
+            logger.error(e) { "Unhandled error on ${call.request.local.uri}" }
+            call.respond(HttpStatusCode.InternalServerError, ApiError("internal", "Internal error"))
         }
     }
 }

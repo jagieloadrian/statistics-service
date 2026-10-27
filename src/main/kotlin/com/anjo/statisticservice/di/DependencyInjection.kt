@@ -1,48 +1,9 @@
 package com.anjo.statisticservice.di
 
-import com.anjo.statisticservice.configuration.RedisClientProvider
-import com.anjo.statisticservice.model.RedisConfig
-import com.anjo.statisticservice.plugin.EpidemicPlugin
-import com.anjo.statisticservice.plugin.HomeAssistantPlugin
-import com.anjo.statisticservice.plugin.PluginRegistry
-import com.anjo.statisticservice.plugin.TemperaturePlugin
-import com.anjo.statisticservice.repository.StatsRepositoryRedisImpl
-import com.anjo.statisticservice.service.EpidemicStatsCollectorService
-import com.anjo.statisticservice.service.TemperatureStatsCollectorService
-import com.anjo.statisticservice.service.exposer.EpidemicStatsExposerService
-import com.anjo.statisticservice.service.exposer.TemperatureStatsExposerService
 import io.ktor.server.application.Application
-import io.ktor.server.plugins.di.DependencyKey
 import io.ktor.server.plugins.di.dependencies
 
 fun Application.configureDI() {
-    val appEnv = environment
     dependencies {
-        provide<RedisConfig> {
-            return@provide RedisConfig(
-                host = appEnv.config.property("ktor.redis.host").getString(),
-                port = appEnv.config.property("ktor.redis.port").getString().toInt(),
-                password = appEnv.config.property("ktor.redis.password").getString(),
-                timeout = appEnv.config.property("ktor.redis.timeout").getString().toLong(),
-                clientName = appEnv.config.property("ktor.redis.client-name").getString(),
-                ssl = appEnv.config.property("ktor.redis.ssl").getString().toBoolean(),
-            )
-        }
-        provide { RedisClientProvider(get(DependencyKey<RedisConfig>())) }
-        provide { StatsRepositoryRedisImpl(get(DependencyKey<RedisClientProvider>())) }
-        provide { EpidemicStatsCollectorService(get(DependencyKey<StatsRepositoryRedisImpl>())) }
-        provide { TemperatureStatsCollectorService(get(DependencyKey<StatsRepositoryRedisImpl>())) }
-        provide { EpidemicStatsExposerService(get(DependencyKey<StatsRepositoryRedisImpl>())) }
-        provide { TemperatureStatsExposerService(get(DependencyKey<StatsRepositoryRedisImpl>())) }
-        provide {
-            EpidemicPlugin(get(DependencyKey<EpidemicStatsCollectorService>()), get(DependencyKey<EpidemicStatsExposerService>()))
-        }
-        provide {
-            TemperaturePlugin(get(DependencyKey<TemperatureStatsCollectorService>()), get(DependencyKey<TemperatureStatsExposerService>()))
-        }
-        provide { HomeAssistantPlugin() }
-        provide {
-            PluginRegistry(listOf(get(DependencyKey<EpidemicPlugin>()), get(DependencyKey<TemperaturePlugin>()), get(DependencyKey<HomeAssistantPlugin>())))
-        }
     }
 }

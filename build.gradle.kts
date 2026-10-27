@@ -17,11 +17,6 @@ application {
 }
 
 dependencies {
-    //Plugins
-    implementation(project(":plugin:plugin-api"))
-    implementation(project(":plugin:rpi_epidemic_api"))
-    implementation(project(":plugin:rpi_temperature_api"))
-    implementation(project(":plugin:home_assistant_api"))
 
     //Headers
     implementation("io.ktor:ktor-server-default-headers")
@@ -38,9 +33,6 @@ dependencies {
     implementation("io.ktor:ktor-server-request-validation")
     implementation("io.github.oshai:kotlin-logging-jvm:7.0.14")
 
-    //CACHE
-    implementation("com.ucasoft.ktor:ktor-simple-cache:0.55.3")
-    implementation("com.ucasoft.ktor:ktor-simple-redis-cache:0.55.3")
 
     //METRICS
     implementation("dev.hayden:khealth:3.0.2")
@@ -52,13 +44,16 @@ dependencies {
     implementation("io.ktor:ktor-server-host-common")
     implementation("io.ktor:ktor-server-status-pages")
 
-    //Redis
-    implementation("io.lettuce:lettuce-core:7.2.1.RELEASE")
 
+    //DB
+    implementation("org.postgresql:postgresql:42.7.4")
+    implementation("com.zaxxer:HikariCP:6.2.1")
+    //AUTH
+    implementation("io.ktor:ktor-server-auth")
+    implementation("io.ktor:ktor-server-rate-limit")
     //COROUTINES
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.10.2")
     testImplementation("org.junit.jupiter:junit-jupiter:5.14.0")
-    runtimeOnly("org.jetbrains.kotlinx:kotlinx-coroutines-reactive:1.10.2")
 
     //SZWAGIER
     implementation("io.ktor:ktor-server-swagger:${ktor_version}")
@@ -72,12 +67,11 @@ dependencies {
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version")
     testImplementation("org.junit.platform:junit-platform-launcher:1.14.1")
     testImplementation("io.ktor:ktor-client-content-negotiation:${ktor_version}")
-    testImplementation("redis.clients:jedis:7.2.0")
 
     //TEST CONTAINERS
     testImplementation("org.testcontainers:testcontainers:1.20.3")
     testImplementation("org.testcontainers:junit-jupiter:1.20.3")
-    testImplementation("com.redis:testcontainers-redis:2.2.4")
+    testImplementation("org.testcontainers:postgresql:1.20.3")
 }
 
 jacoco {

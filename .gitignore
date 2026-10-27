@@ -34,3 +34,8 @@ out/
 
 ### VS Code ###
 .vscode/
+### Local data ###
+.kotlin/
+.devops/postgres-compose/pg-data/
+.devops/redis-compose/redis-data/
+.devops/redis-compose/redisinsight-data/

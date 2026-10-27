@@ -1,7 +1,5 @@
 package com.anjo.statisticservice.di
 
-import com.ucasoft.ktor.simpleCache.SimpleCache
-import com.ucasoft.ktor.simpleRedisCache.redisCache
 import dev.hayden.KHealth
 import io.ktor.http.HttpHeaders
 import io.ktor.serialization.kotlinx.json.json
@@ -15,7 +13,6 @@ import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.plugins.defaultheaders.DefaultHeaders
 import io.ktor.server.routing.openapi.hide
 import io.ktor.utils.io.ExperimentalKtorApi
-import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalKtorApi::class)
 fun Application.configureFrameworks() {
@@ -25,13 +22,6 @@ fun Application.configureFrameworks() {
     install(CORS) {
         anyHost()
         allowHeader(HttpHeaders.ContentType)
-    }
-    install(SimpleCache) {
-        redisCache {
-            invalidateAt = 10.seconds
-            host = "localhost"
-            port = 6379
-        }
     }
     install(CallId) {
         header(HttpHeaders.XRequestId)
