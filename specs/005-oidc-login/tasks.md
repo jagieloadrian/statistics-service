@@ -146,7 +146,7 @@ that can be demoed on its own. Approval required before implementation.
 - [X] T032 [P] Merge contracts/auth-oidc.md into the "Auth & user panel" table of `StatisticsService/specs/004-universal-stats-platform/contracts/api-v2.md` (FR-015) and confirm `StatisticsService/src/test/kotlin/com/anjo/statisticservice/controller/OpenApiTest.kt` still passes with the new routes
 - [X] T033 [P] Add a "Sign-in methods / OIDC" section to `StatisticsService/README.md` (env vars `AUTH_LOCAL`, `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_NAME`, `ADMIN_EMAIL` rules, link to `.devops/authelia-compose/README.md`) and update "Sign in" in `Statistics-UI/README.md` (provider button, desktop browser flow, redirect URIs to register)
 - [ ] T034 Run `./gradlew test` in `StatisticsService/` (Authelia stopped, SC-006) and `./gradlew :composeApp:jvmTest :composeApp:jvmJar` in `Statistics-UI/`, then walk quickstart §1–§6 against Authelia — automated part done (backend `./gradlew build` 65 tests, UI jvmTest 20 tests + js/wasm compile + jvmJar, Authelia config validated); quickstart walk-through left to the user (needs hosts entry; desktop app not run)
-- [ ] T035 Update `StatisticsService/PROJECT-STATUS.md` (completed work, decisions: code exchange → opaque session, backend-generated PKCE, RS256 via JWKS, no refresh tokens; next steps)
+- [X] T035 Update `StatisticsService/PROJECT-STATUS.md` (completed work, decisions: code exchange → opaque session, backend-generated PKCE, RS256 via JWKS, no refresh tokens; next steps)
 
 ---
 

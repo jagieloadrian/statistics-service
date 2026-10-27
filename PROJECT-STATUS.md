@@ -1,7 +1,8 @@
 # Project Status
 
-Updated 2026-10-27. Feature: [spec 004 universal stats platform](specs/004-universal-stats-platform/spec.md)
-(tasks: [tasks.md](specs/004-universal-stats-platform/tasks.md)).
+Updated 2026-10-27. Features: [spec 004 universal stats platform](specs/004-universal-stats-platform/spec.md)
+(tasks: [tasks.md](specs/004-universal-stats-platform/tasks.md)), [spec 005 OIDC sign-in](specs/005-oidc-login/spec.md)
+(tasks: [tasks.md](specs/005-oidc-login/tasks.md)).
 
 ## Completed
 
@@ -29,6 +30,21 @@ US3 156efe4, US4 0a3d3d2, README 9c7679b, deps f4dc599, layered packages + `mode
 Kotest b8e061e, dead code removed + logic out of screens 7e55873. `jvmTest` (13) green;
 js/wasm compile again.
 
+OIDC sign-in (spec 005, branch `005-oidc-login` in both repos):
+
+| Slice | Backend | Frontend | Content |
+|-------|---------|----------|---------|
+| Setup | 0039e89 | — | java-jwt + jwks-rsa, `AUTH_LOCAL` / `OIDC_*` keys, Authelia dev compose |
+| Foundation | 1211cf9 | — | V2 migration (nullable password, oidc issuer/subject), `GET /auth/config`, fake provider for tests |
+| US1 | 4db2aa7 | 031b6b2 | start + code exchange, ID-token check, viewer on first sign-in; web redirect flow |
+| US2 | f025860 | — | link by verified email, admin via `ADMIN_EMAIL` without `ADMIN_PASSWORD` |
+| US3 | f8fbaa9 | c7fd89b | `AUTH_LOCAL=false` → 403 on password routes; Account hides password change |
+| US4 | — | bbe632b | desktop loopback sign-in (system browser, Cancel), `jdk.httpserver` module |
+| Docs | 498aedd | 4277c10 | README sections, merged into 004 `api-v2.md` |
+
+Backend `./gradlew build` green, 65 tests (18 new in `OidcAuthTest`, offline against an in-test
+provider). Frontend `jvmTest` 20 green (callback parser, loopback receiver); js/wasm compile; `jvmJar` builds.
+
 ## Decisions
 
 - Old v1 API dropped entirely; RPi devices get the new URL + source token (`.docs/Device_Ingest.md`).
@@ -44,6 +60,14 @@ js/wasm compile again.
 - Services own transactions (`db.tx`), repositories run inside them; models only in `model/`.
 - KHealth no longer wraps its routes in `hide()`: in Ktor 3.6 that hid the whole routing root
   from OpenAPI.
+- OIDC: the backend redeems the code and answers the existing opaque session token, so every route,
+  expiry and logout stay as they were; IdP tokens are discarded, no refresh tokens, no RP logout.
+  PKCE verifier + state are made by the backend and kept by the client (no crypto in KMP).
+  ID token: RS256 via JWKS (`ponytail:` ES256 when needed), issuer/audience/expiry checked, no nonce.
+  Email from userinfo when the token lacks it. Email/name are not synced after creation.
+- `GET /auth/config` omits `oidc` when no provider is set (API-wide `explicitNulls = false`).
+- Desktop loopback uses an ephemeral port; Authelia (its oauth2-provider) accepts any port for a
+  registered `http://127.0.0.1/callback` (RFC 8252 §7.3).
 
 ## Measured
 
@@ -54,6 +78,9 @@ Details: research.md D4. Not a release gate.
 
 ## Next steps
 
+0. OIDC manual checks (spec 005 quickstart §1–§6, T034): `/etc/hosts` entry `127.0.0.1 auth.example.com`,
+   generate Authelia secrets (`.devops/authelia-compose/README.md`), then web sign-in as admin/alice,
+   role change, cancel at Authelia, `AUTH_LOCAL=false`, provider down, and the desktop browser flow.
 1. Manual UI run of quickstart §4/§5 in the desktop app against a live backend (T078). The sign-in,
    prefs, users and shares screens have not been exercised end to end yet.
 2. Follow-up spec for query speed (SC-004): hourly pre-aggregation or TimescaleDB continuous aggregates.
