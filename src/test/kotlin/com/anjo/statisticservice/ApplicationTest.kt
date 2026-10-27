@@ -1,54 +1,26 @@
 package com.anjo.statisticservice
 
-import com.redis.testcontainers.RedisContainer
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
 import io.ktor.client.request.get
 import io.ktor.http.HttpStatusCode
-import io.ktor.server.config.ApplicationConfig
-import io.ktor.server.config.MapApplicationConfig
-import io.ktor.server.config.mergeWith
-import io.ktor.server.testing.testApplication
-import org.junit.jupiter.api.Test
-import org.testcontainers.junit.jupiter.Container
-import org.testcontainers.junit.jupiter.Testcontainers
-import kotlin.test.assertEquals
+import com.anjo.statisticservice.testutils.testApp
 
-@Testcontainers
-class ApplicationTest {
+class ApplicationTest : FunSpec({
 
-    companion object {
-        @Container
-        @JvmStatic
-        val redis: RedisContainer = RedisContainer(RedisContainer.DEFAULT_IMAGE_NAME.withTag(RedisContainer.DEFAULT_TAG))
-            .withReuse(true)
-    }
-
-    @Test
-    fun shouldReturnOkWhenTestHealthEndpoint() = testApplication {
-        val redisContainerProps = MapApplicationConfig(
-            "ktor.redis.host" to redis.host,
-            "ktor.redis.port" to redis.redisPort.toString(),
-        )
-        environment {
-            config = ApplicationConfig("application-test.yaml").mergeWith(redisContainerProps)
-        }
-        //Application module started by application-test.yaml
-        client.get("/health").apply {
-            assertEquals(HttpStatusCode.OK, status)
+    test("shouldReturnOkWhenTestHealthEndpoint") {
+        testApp {
+            client.get("/health").apply {
+                status shouldBe HttpStatusCode.OK
+            }
         }
     }
 
-    @Test
-    fun shouldReturnOkWhenTestReadyEndpoint() = testApplication {
-        val redisContainerProps = MapApplicationConfig(
-            "ktor.redis.host" to redis.host,
-            "ktor.redis.port" to redis.redisPort.toString(),
-        )
-        environment {
-            config = ApplicationConfig("application-test.yaml").mergeWith(redisContainerProps)
-        }
-        //Application module started by application-test.yaml
-        client.get("/ready").apply {
-            assertEquals(HttpStatusCode.OK, status)
+    test("shouldReturnOkWhenTestReadyEndpoint") {
+        testApp {
+            client.get("/ready").apply {
+                status shouldBe HttpStatusCode.OK
+            }
         }
     }
-}
+})

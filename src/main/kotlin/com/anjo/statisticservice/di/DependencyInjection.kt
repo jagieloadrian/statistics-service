@@ -1,35 +1,47 @@
 package com.anjo.statisticservice.di
 
-import com.anjo.statisticservice.configuration.RedisClientProvider
-import com.anjo.statisticservice.model.RedisConfig
-import com.anjo.statisticservice.repository.StatsRepositoryRedisImpl
-import com.anjo.statisticservice.service.StatsCollectorService
-import com.anjo.statisticservice.service.exposer.EpidemicStatsExposerService
-import com.anjo.statisticservice.service.exposer.StatsExposerFacade
-import com.anjo.statisticservice.service.exposer.TemperatureStatsExposerService
+import com.anjo.statisticservice.db.Db
+import com.anjo.statisticservice.service.AuthService
+import com.anjo.statisticservice.service.DefinitionService
+import com.anjo.statisticservice.service.IngestService
+import com.anjo.statisticservice.service.Oidc
+import com.anjo.statisticservice.service.RecordService
+import com.anjo.statisticservice.service.SourceStatusService
+import com.anjo.statisticservice.service.UserService
 import io.ktor.server.application.Application
-import io.ktor.server.plugins.di.DependencyKey
+import io.ktor.server.application.ApplicationStopped
+import io.ktor.server.application.log
 import io.ktor.server.plugins.di.dependencies
+import kotlinx.coroutines.runBlocking
 
 fun Application.configureDI() {
-    val appEnv = environment
+    val cfg = environment.config
+    fun setting(key: String) = cfg.propertyOrNull("ktor.auth.$key")?.getString().orEmpty()
+    val local = setting("local").ifBlank { "true" }.toBoolean()
+    val oidc = if (setting("oidc.issuer").isNotBlank() && setting("oidc.clientId").isNotBlank()) {
+        Oidc(setting("oidc.issuer"), setting("oidc.clientId"), setting("oidc.clientSecret"), setting("oidc.name").ifBlank { "SSO" })
+    } else null
+    require(local || oidc != null) { "Enable local sign-in or configure OIDC_ISSUER + OIDC_CLIENT_ID" }
+
+    val db = Db(
+        url = cfg.property("ktor.db.url").getString(),
+        user = cfg.property("ktor.db.user").getString(),
+        password = cfg.property("ktor.db.password").getString(),
+    )
+    monitor.subscribe(ApplicationStopped) { db.close() }
+    val adminEmail = setting("adminEmail")
+    val auth = AuthService(db, local, adminEmail, oidc)
+    if (runBlocking { auth.bootstrapAdmin(adminEmail, setting("adminPassword")) }) log.info("Created admin $adminEmail")
+
+    val status = SourceStatusService()
+    val definitions = DefinitionService(db, status)
+    val records = RecordService(db)
     dependencies {
-        provide<RedisConfig> {
-            return@provide RedisConfig(
-                host = appEnv.config.property("ktor.redis.host").getString(),
-                port = appEnv.config.property("ktor.redis.port").getString().toInt(),
-                password = appEnv.config.property("ktor.redis.password").getString(),
-                timeout = appEnv.config.property("ktor.redis.timeout").getString().toLong(),
-                clientName = appEnv.config.property("ktor.redis.client-name").getString(),
-                ssl = appEnv.config.property("ktor.redis.ssl").getString().toBoolean(),
-            )
-        }
-        provide { RedisClientProvider(get(DependencyKey<RedisConfig>())) }
-        provide { StatsRepositoryRedisImpl(get(DependencyKey<RedisClientProvider>())) }
-        provide { StatsCollectorService(get(DependencyKey<StatsRepositoryRedisImpl>())) }
-        provide { EpidemicStatsExposerService(get(DependencyKey<StatsRepositoryRedisImpl>())) }
-        provide { TemperatureStatsExposerService(get(DependencyKey<StatsRepositoryRedisImpl>())) }
-        provide { StatsExposerFacade(get(DependencyKey<EpidemicStatsExposerService>()),
-            get(DependencyKey<TemperatureStatsExposerService>())) }
+        provide { auth }
+        provide { UserService(db) }
+        provide { definitions }
+        provide { records }
+        provide { status }
+        provide { IngestService(definitions, records, status) }
     }
 }

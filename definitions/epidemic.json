@@ -1,0 +1,329 @@
+{
+  "version": 1,
+  "datasets": [
+    {
+      "version": 1,
+      "kind": "dataset",
+      "id": "epidemic",
+      "label": "Epidemic simulation",
+      "measures": [
+        {
+          "name": "generation",
+          "type": "number"
+        },
+        {
+          "name": "susceptible",
+          "type": "number"
+        },
+        {
+          "name": "exposed",
+          "type": "number"
+        },
+        {
+          "name": "infected",
+          "type": "number"
+        },
+        {
+          "name": "recovered",
+          "type": "number"
+        },
+        {
+          "name": "dead",
+          "type": "number"
+        },
+        {
+          "name": "population",
+          "type": "number"
+        },
+        {
+          "name": "lockdown",
+          "type": "boolean"
+        },
+        {
+          "name": "mobility",
+          "type": "number"
+        }
+      ],
+      "dimensions": [
+        {
+          "name": "device"
+        },
+        {
+          "name": "run"
+        },
+        {
+          "name": "type"
+        }
+      ],
+      "calculated": {
+        "attackRate": "(recovered + dead) / population"
+      }
+    }
+  ],
+  "sources": [
+    {
+      "version": 1,
+      "kind": "source",
+      "id": "epidemic",
+      "channel": {
+        "type": "push"
+      },
+      "dataset": "epidemic",
+      "mapping": [
+        {
+          "timestamp": {
+            "path": "meta.timestamp",
+            "format": "iso"
+          },
+          "identity": [
+            "meta.deviceId",
+            "meta.runId",
+            "meta.generation"
+          ],
+          "const": {
+            "type": "total"
+          },
+          "dims": {
+            "device": {
+              "path": "meta.deviceId"
+            },
+            "run": {
+              "path": "meta.runId"
+            }
+          },
+          "vals": {
+            "generation": {
+              "path": "meta.generation"
+            },
+            "susceptible": {
+              "path": "state.susceptible"
+            },
+            "exposed": {
+              "path": "state.exposed"
+            },
+            "infected": {
+              "path": "state.infected"
+            },
+            "recovered": {
+              "path": "state.recovered"
+            },
+            "dead": {
+              "path": "state.dead"
+            },
+            "population": {
+              "path": "state.population"
+            },
+            "lockdown": {
+              "path": "state.lockdown"
+            },
+            "mobility": {
+              "path": "state.mobilityMul",
+              "required": false
+            }
+          }
+        },
+        {
+          "each": "state.byType",
+          "timestamp": {
+            "path": "meta.timestamp",
+            "format": "iso"
+          },
+          "identity": [
+            "meta.deviceId",
+            "meta.runId",
+            "meta.generation"
+          ],
+          "dims": {
+            "device": {
+              "path": "meta.deviceId"
+            },
+            "run": {
+              "path": "meta.runId"
+            },
+            "type": {
+              "path": "@key"
+            }
+          },
+          "vals": {
+            "generation": {
+              "path": "meta.generation"
+            },
+            "susceptible": {
+              "path": "@.susceptible"
+            },
+            "exposed": {
+              "path": "@.exposed"
+            },
+            "infected": {
+              "path": "@.infected"
+            },
+            "recovered": {
+              "path": "@.recovered"
+            },
+            "dead": {
+              "path": "@.dead"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "dashboards": [
+    {
+      "version": 1,
+      "kind": "dashboard",
+      "id": "epidemic-runs",
+      "title": "Epidemic runs",
+      "visibility": "all",
+      "refreshSeconds": 30,
+      "defaultRange": {
+        "last": "P30D"
+      },
+      "variables": [
+        {
+          "name": "run",
+          "type": "dimension",
+          "dataset": "epidemic",
+          "dimension": "run"
+        },
+        {
+          "name": "range",
+          "type": "timeRange"
+        }
+      ],
+      "widgets": [
+        {
+          "id": "runs",
+          "title": "Runs",
+          "type": "table",
+          "w": 12,
+          "h": 4,
+          "query": {
+            "dataset": "epidemic",
+            "filter": {
+              "type": [
+                "total"
+              ]
+            },
+            "groupBy": [
+              "run",
+              "device"
+            ],
+            "bucket": "none",
+            "measures": [
+              {
+                "field": "ts",
+                "agg": "min",
+                "as": "startedAt"
+              },
+              {
+                "field": "ts",
+                "agg": "max",
+                "as": "endedAt"
+              },
+              {
+                "field": "population",
+                "agg": "last"
+              },
+              {
+                "field": "generation",
+                "agg": "max",
+                "as": "duration"
+              },
+              {
+                "field": "infected",
+                "agg": "max",
+                "as": "peakInfected"
+              }
+            ]
+          }
+        },
+        {
+          "id": "timeline",
+          "title": "Run $run",
+          "type": "line",
+          "w": 8,
+          "h": 4,
+          "options": {
+            "x": "generation"
+          },
+          "query": {
+            "dataset": "epidemic",
+            "filter": {
+              "run": [
+                "$run"
+              ],
+              "type": [
+                "total"
+              ]
+            },
+            "bucket": "raw",
+            "measures": [
+              {
+                "field": "generation"
+              },
+              {
+                "field": "susceptible"
+              },
+              {
+                "field": "infected"
+              },
+              {
+                "field": "recovered"
+              },
+              {
+                "field": "dead"
+              }
+            ]
+          }
+        },
+        {
+          "id": "summary",
+          "title": "Summary",
+          "type": "stat",
+          "w": 4,
+          "h": 4,
+          "query": {
+            "dataset": "epidemic",
+            "filter": {
+              "run": [
+                "$run"
+              ],
+              "type": [
+                "total"
+              ]
+            },
+            "bucket": "none",
+            "measures": [
+              {
+                "field": "infected",
+                "agg": "max",
+                "as": "peakInfected"
+              },
+              {
+                "field": "generation",
+                "agg": "at_max",
+                "by": "infected",
+                "as": "timeToPeak"
+              },
+              {
+                "field": "recovered",
+                "agg": "last",
+                "as": "finalRecovered"
+              },
+              {
+                "field": "dead",
+                "agg": "last",
+                "as": "finalDead"
+              },
+              {
+                "field": "attackRate",
+                "agg": "last"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,93 @@
+package com.anjo.statisticservice.testutils
+
+import com.auth0.jwt.JWT
+import com.auth0.jwt.algorithms.Algorithm
+import com.sun.net.httpserver.HttpExchange
+import com.sun.net.httpserver.HttpServer
+import java.math.BigInteger
+import java.net.InetSocketAddress
+import java.net.URLDecoder
+import java.security.KeyPair
+import java.security.KeyPairGenerator
+import java.security.interfaces.RSAPrivateKey
+import java.security.interfaces.RSAPublicKey
+import java.time.Instant
+import java.util.Base64
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+
+/** In-test OpenID Connect provider (discovery, JWKS, token, userinfo); the knobs shape or break the next answer. */
+class FakeOidcProvider(val clientId: String = "statistics-ui") {
+    private val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+    val issuer = "http://127.0.0.1:${server.address.port}"
+
+    /** Claims of the next ID token; userinfo answers [userinfoClaims], or these when null. */
+    var claims: Map<String, Any> = user("alice-sub", "alice@test.local", name = "Alice")
+    var userinfoClaims: Map<String, Any>? = null
+    var signWithOtherKey = false
+    var tokenIssuer: String? = null
+    var audience = clientId
+    var expiresAt: Instant? = null
+    var failToken = false
+
+    /** Form fields of the last token request. */
+    var lastTokenRequest: Map<String, String> = emptyMap()
+        private set
+
+    private val key = rsa()
+    private val otherKey = rsa()
+
+    init {
+        server.createContext("/.well-known/openid-configuration") {
+            it.reply(200, """{"issuer":"$issuer","authorization_endpoint":"$issuer/authorize","token_endpoint":"$issuer/token",""" +
+                    """"userinfo_endpoint":"$issuer/userinfo","jwks_uri":"$issuer/jwks"}""")
+        }
+        server.createContext("/jwks") {
+            val pub = key.public as RSAPublicKey
+            it.reply(200, """{"keys":[{"kty":"RSA","kid":"k1","use":"sig","alg":"RS256","n":"${b64(pub.modulus)}","e":"${b64(pub.publicExponent)}"}]}""")
+        }
+        server.createContext("/token") {
+            lastTokenRequest = it.requestBody.readAllBytes().decodeToString().split('&').filter(String::isNotEmpty)
+                .associate { p -> decode(p.substringBefore('=')) to decode(p.substringAfter('=', "")) }
+            if (failToken) it.reply(400, """{"error":"invalid_grant"}""")
+            else it.reply(200, """{"access_token":"at-1","token_type":"Bearer","id_token":"${idToken()}"}""")
+        }
+        server.createContext("/userinfo") {
+            if (it.requestHeaders.getFirst("Authorization") != "Bearer at-1") it.reply(401, "{}")
+            else it.reply(200, JsonObject((userinfoClaims ?: claims).mapValues { (_, v) -> if (v is Boolean) JsonPrimitive(v) else JsonPrimitive("$v") }).toString())
+        }
+        server.start()
+    }
+
+    fun stop() = server.stop(0)
+
+    private fun idToken(): String {
+        val k = if (signWithOtherKey) otherKey else key
+        val now = Instant.now()
+        return JWT.create().withKeyId("k1").withIssuer(tokenIssuer ?: issuer).withAudience(audience).withIssuedAt(now)
+            .withExpiresAt(expiresAt ?: now.plusSeconds(300)).withPayload(claims)
+            .sign(Algorithm.RSA256(k.public as RSAPublicKey, k.private as RSAPrivateKey))
+    }
+
+    companion object {
+        fun user(sub: String, email: String?, verified: Boolean = true, name: String? = null): Map<String, Any> = buildMap {
+            put("sub", sub)
+            email?.let { put("email", it) }
+            put("email_verified", verified)
+            name?.let { put("name", it) }
+        }
+    }
+}
+
+private fun rsa(): KeyPair = KeyPairGenerator.getInstance("RSA").apply { initialize(2048) }.generateKeyPair()
+
+private fun b64(n: BigInteger) = Base64.getUrlEncoder().withoutPadding().encodeToString(n.toByteArray().dropWhile { it == 0.toByte() }.toByteArray())
+
+private fun decode(s: String) = URLDecoder.decode(s, Charsets.UTF_8)
+
+private fun HttpExchange.reply(status: Int, body: String) {
+    val bytes = body.toByteArray()
+    responseHeaders.add("Content-Type", "application/json")
+    sendResponseHeaders(status, bytes.size.toLong())
+    responseBody.use { it.write(bytes) }
+}

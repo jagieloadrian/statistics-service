@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "datasets": [
+    {
+      "version": 1, "kind": "dataset", "id": "temperature", "label": "Temperature",
+      "measures": [
+        { "name": "temperature", "type": "number", "unit": "°C", "label": "Temperature" },
+        { "name": "humidity", "type": "number", "unit": "%", "label": "Humidity" }
+      ],
+      "dimensions": [ { "name": "device", "label": "Device" } ]
+    }
+  ],
+  "sources": [
+    {
+      "version": 1, "kind": "source", "id": "temperature", "label": "RPi temperature",
+      "channel": { "type": "push" },
+      "dataset": "temperature",
+      "mapping": [
+        {
+          "timestamp": { "path": "timestamp", "format": "iso", "maxAgeHours": 24 },
+          "identity": ["deviceId", "timestamp"],
+          "dims": { "device": { "path": "deviceId" } },
+          "vals": {
+            "temperature": { "path": "temperature" },
+            "humidity": { "path": "humidity", "required": false }
+          }
+        }
+      ]
+    }
+  ],
+  "dashboards": [
+    {
+      "version": 1, "kind": "dashboard", "id": "temperature", "title": "Temperature",
+      "visibility": "all", "refreshSeconds": 60, "defaultRange": { "last": "P1D" },
+      "variables": [
+        { "name": "device", "type": "dimension", "dataset": "temperature", "dimension": "device" },
+        { "name": "range", "type": "timeRange", "default": "P1D" },
+        { "name": "bucket", "type": "bucket", "options": ["raw", "1m", "1h", "1d"], "default": "1h" }
+      ],
+      "widgets": [
+        {
+          "id": "devices", "title": "Devices", "type": "table", "w": 12, "h": 3,
+          "query": {
+            "dataset": "temperature", "groupBy": ["device"], "bucket": "none",
+            "measures": [
+              { "field": "ts", "agg": "min", "as": "firstSeen" },
+              { "field": "ts", "agg": "max", "as": "lastSeen" },
+              { "field": "temperature", "agg": "last", "as": "temperature" }
+            ]
+          }
+        },
+        {
+          "id": "climate", "title": "Device $device", "type": "line", "w": 8, "h": 4,
+          "query": {
+            "dataset": "temperature", "filter": { "device": ["$device"] }, "bucket": "$bucket",
+            "measures": [
+              { "field": "temperature", "agg": "avg", "as": "temperature" },
+              { "field": "humidity", "agg": "avg", "as": "humidity" }
+            ]
+          }
+        },
+        {
+          "id": "summary", "title": "Summary", "type": "stat", "w": 4, "h": 4,
+          "options": { "decimals": 1 },
+          "query": {
+            "dataset": "temperature", "filter": { "device": ["$device"] }, "bucket": "none",
+            "measures": [
+              { "field": "temperature", "agg": "min", "as": "min" },
+              { "field": "temperature", "agg": "avg", "as": "avg" },
+              { "field": "temperature", "agg": "max", "as": "max" }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

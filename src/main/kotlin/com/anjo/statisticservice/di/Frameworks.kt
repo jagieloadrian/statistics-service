@@ -1,9 +1,9 @@
 package com.anjo.statisticservice.di
 
-import com.ucasoft.ktor.simpleCache.SimpleCache
-import com.ucasoft.ktor.simpleRedisCache.redisCache
+import com.anjo.statisticservice.model.definitionJson
 import dev.hayden.KHealth
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpMethod
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
@@ -13,22 +13,21 @@ import io.ktor.server.plugins.calllogging.CallLogging
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.plugins.defaultheaders.DefaultHeaders
-import kotlin.time.Duration.Companion.seconds
+import io.ktor.utils.io.ExperimentalKtorApi
 
+@OptIn(ExperimentalKtorApi::class)
 fun Application.configureFrameworks() {
     install(DefaultHeaders) {
         header("X-Engine", "Ktor")
     }
+    val corsHosts = environment.config.property("ktor.cors.hosts").getString()
+        .split(',').map { it.trim() }.filter { it.isNotEmpty() }
     install(CORS) {
-        anyHost()
+        corsHosts.forEach { allowHost(it, schemes = listOf("http", "https")) }
         allowHeader(HttpHeaders.ContentType)
-    }
-    install(SimpleCache) {
-        redisCache {
-            invalidateAt = 10.seconds
-            host = "localhost"
-            port = 6379
-        }
+        allowHeader(HttpHeaders.Authorization)
+        allowMethod(HttpMethod.Put)
+        allowMethod(HttpMethod.Delete)
     }
     install(CallId) {
         header(HttpHeaders.XRequestId)
@@ -36,14 +35,11 @@ fun Application.configureFrameworks() {
             callId.isNotEmpty()
         }
     }
-    install(KHealth) {
-        readyCheckPath = "/ready"
-        healthCheckPath = "/health"
-    }
+    install(KHealth)
     install(CallLogging) {
         callIdMdc("call-id")
     }
     install(ContentNegotiation) {
-        json()
+        json(definitionJson)
     }
 }

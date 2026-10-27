@@ -4,10 +4,18 @@ ktor:
       - com.anjo.statisticservice.ApplicationKt.module
   deployment:
     port: 8080
-  redis:
-    port: ${REDIS_PORT:6379}
-    host: localhost
-    password: "${REDIS_PASSWORD:default}"
-    timeout: 10
-    client-name: statistic-service
-    ssl: false
+  db:
+    url: "${DB_URL:jdbc:postgresql://localhost:5432/stats}"
+    user: "${DB_USER:stats}"
+    password: "${DB_PASSWORD:stats}"
+  auth:
+    adminEmail: "${ADMIN_EMAIL:}"
+    adminPassword: "${ADMIN_PASSWORD:}"
+    local: "${AUTH_LOCAL:true}"
+    oidc:
+      issuer: "${OIDC_ISSUER:}"
+      clientId: "${OIDC_CLIENT_ID:}"
+      clientSecret: "${OIDC_CLIENT_SECRET:}"
+      name: "${OIDC_NAME:SSO}"
+  cors:
+    hosts: "${CORS_HOSTS:localhost:8081}"
