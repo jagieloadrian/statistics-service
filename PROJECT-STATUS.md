@@ -32,7 +32,8 @@ js/wasm compile again.
 ## Decisions
 
 - Old v1 API dropped entirely; RPi devices get the new URL + source token (`.docs/Device_Ingest.md`).
-- One organisation (`org_id = 1`), built for multi-org; Redis kept only as an untouched archive.
+- One organisation (`org_id = 1`), built for multi-org. Redis compose removed; the old Redis data
+  stays on disk only (`.devops/redis-compose/redis-data`, git-ignored, root-owned).
 - No in-process plugins: custom logic lives in collector apps over the ingest API.
 - Contract additions during US4: editors read datasets and `/users` (widget builder, share picker);
   `GET /dashboards/{id}/shares`; viewers query only datasets of dashboards they can see.
