@@ -54,7 +54,7 @@ Rejections (400) are also recorded in source status.
 | `groupBy` | dimensions; one series per distinct combination |
 | `from`/`to` | ISO-8601 instants; or `"range": {"last": "P1D"}` (relative to now). Widget definitions never store these — the frontend fills them from the dashboard time range |
 | `bucket` | `raw` (no aggregation), `none` (one row per series), `auto`, or `1m` `5m` `10m` `30m` `1h` `6h` `1d`; buckets aligned to UTC |
-| `maxPoints` | used by `auto` (default 1000); `raw` returns at most 10 000 rows per series |
+| `maxPoints` | used by `auto` (default 1000); `raw` returns at most 10 000 rows per query (cut → `truncated: true`) |
 
 Response:
 

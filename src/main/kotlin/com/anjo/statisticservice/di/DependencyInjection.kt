@@ -2,6 +2,8 @@ package com.anjo.statisticservice.di
 
 import com.anjo.statisticservice.db.Db
 import com.anjo.statisticservice.definitions.DefinitionStore
+import com.anjo.statisticservice.ingest.SourceStatus
+import com.anjo.statisticservice.records.RecordStore
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationStopped
 import io.ktor.server.plugins.di.dependencies
@@ -18,5 +20,7 @@ fun Application.configureDI() {
     dependencies {
         provide { db }
         provide { DefinitionStore(db) }
+        provide { RecordStore(db) }
+        provide { SourceStatus() }
     }
 }
