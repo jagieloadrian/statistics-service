@@ -25,6 +25,10 @@
 - Q: Collector apps only, or also in-platform extensions? → A: separate
   collector apps only, feeding the platform over the supported channels; no
   in-platform extension mechanism (FR-024).
+- Q: Do performance targets SC-004/005 block closing the feature? → A: no;
+  measured targets, a miss becomes a follow-up feature.
+- Q: Unit preference only °C/°F? → A: broader — metric/imperial conversion
+  for temperature, length, mass, speed, volume, pressure (FR-022).
 - Q: Keep the old `/api/v1/stats/**` API for existing devices and screens? →
   A: no. It is not in real use and the RPi software can be changed; the old
   API, plugins and screens are removed outright, devices are reprogrammed to
@@ -322,7 +326,10 @@ source as silent.
 - **FR-021**: Dashboards MUST have visibility private, shared with chosen
   users, or shared with all signed-in users.
 - **FR-022**: Each user MUST be able to set favourites, a home dashboard,
-  time zone, unit preference and theme.
+  time zone, unit system (metric / imperial) and theme. Values whose declared
+  unit is in the platform's unit table (temperature, length, mass, speed,
+  volume, pressure — see contracts/definition-format.md) MUST be displayed
+  converted to the chosen system; other units are shown as declared.
 
 **Legacy**
 
@@ -379,6 +386,8 @@ source as silent.
   of loads.
 - **SC-005**: Sustained 500 records/second ingestion across all sources with
   no loss and records queryable within 5 seconds.
+- SC-004 and SC-005 are measured targets, not release gates: a miss is
+  recorded and handled as a follow-up feature (clarified 2026-10-27).
 - **SC-006**: A rejected payload is visible on the source status page with its
   reason within 1 minute.
 - **SC-007**: Export → import onto an empty installation reproduces every

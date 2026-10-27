@@ -195,6 +195,24 @@ Rejection reasons are human-readable, one per failed constraint, e.g.
 | `query` | [Query request](./api-v2.md#query) without `from`/`to`/`range` (the dashboard time range is applied to every widget at view time); `$variable` placeholders allowed in `filter` values and `bucket` |
 | `options` | `x` (measure for x-axis, default `ts`), `unit`, `colors` (per series/measure), `min`, `max`, `thresholds` `[{value, color}]`, `decimals` |
 
+### Unit table (display conversion, spec FR-022)
+
+A measure's `unit` matching one of these strings is converted for display to
+the user's unit system; any other unit is shown as declared. Stored values are
+never converted.
+
+| Family | Metric | Imperial |
+|--------|--------|----------|
+| temperature | `°C` | `°F` |
+| length | `mm`, `cm`, `m`, `km` | `in`, `ft`, `mi` (mm/cm → in, m → ft, km → mi) |
+| mass | `g`, `kg` | `oz`, `lb` (g → oz, kg → lb) |
+| speed | `m/s`, `km/h` | `mph` |
+| volume | `ml`, `l` | `fl oz`, `gal` (US) |
+| pressure | `hPa`, `kPa` | `inHg`, `psi` (hPa → inHg, kPa → psi) |
+
+Conversions are linear (`value × factor + offset`) and work in both
+directions (an imperial unit shown to a metric user is converted back).
+
 ### Variable
 
 | `type` | Fields | Substitutes |
