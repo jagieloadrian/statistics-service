@@ -113,11 +113,11 @@ that can be demoed on its own. Approval required before implementation.
 
 ### Tests for User Story 3
 
-- [ ] T026 [US3] Add mode tests to `StatisticsService/src/test/kotlin/com/anjo/statisticservice/controller/OidcAuthTest.kt`: `/auth/config` for no provider / both / provider only; with `AUTH_LOCAL=false` `POST /auth/login` → 403 and `PUT /me/password` (provider user) → 403; provider-only user with local on: `PUT /me/password` → 403; `local=false` without provider → app start throws; with provider configured and local off, `POST /ingest/{id}` with the source token → 200 and with a user session token → 401 (FR-012)
+- [X] T026 [US3] Add mode tests to `StatisticsService/src/test/kotlin/com/anjo/statisticservice/controller/OidcAuthTest.kt`: `/auth/config` for no provider / both / provider only; with `AUTH_LOCAL=false` `POST /auth/login` → 403 and `PUT /me/password` (provider user) → 403; provider-only user with local on: `PUT /me/password` → 403; `local=false` without provider → app start throws; with provider configured and local off, `POST /ingest/{id}` with the source token → 200 and with a user session token → 401 (FR-012)
 
 ### Implementation for User Story 3
 
-- [ ] T027 [US3] In `StatisticsService/src/main/kotlin/com/anjo/statisticservice/service/AuthService.kt` make `login()` and `changePassword()` throw `forbidden("Password sign-in is disabled")` when `local` is off, and `changePassword()` throw `forbidden("Account has no password")` when the stored hash is null
+- [X] T027 [US3] In `StatisticsService/src/main/kotlin/com/anjo/statisticservice/service/AuthService.kt` make `login()` and `changePassword()` throw `forbidden("Password sign-in is disabled")` when `local` is off, and `changePassword()` throw `forbidden("Account has no password")` when the stored hash is null
 - [ ] T028 [P] [US3] In `Statistics-UI/composeApp/src/commonMain/kotlin/com/anjo/statisticsui/ui/account/AccountScreen.kt` hide the password section when `!session.user.hasPassword` or `api.authConfig().local == false`
 
 **Checkpoint**: all backend tests green; quickstart §1, §4, §5.

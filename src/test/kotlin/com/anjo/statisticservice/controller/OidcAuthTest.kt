@@ -4,6 +4,8 @@ import com.anjo.statisticservice.db.Db
 import com.anjo.statisticservice.repository.UserRepository
 import com.anjo.statisticservice.service.AuthService
 import com.anjo.statisticservice.testutils.FakeOidcProvider
+import com.anjo.statisticservice.testutils.ADMIN_EMAIL
+import com.anjo.statisticservice.testutils.ADMIN_PASSWORD
 import com.anjo.statisticservice.testutils.FakeOidcProvider.Companion.user
 import com.anjo.statisticservice.testutils.Pg
 import com.anjo.statisticservice.testutils.TestApp
@@ -11,10 +13,12 @@ import com.anjo.statisticservice.testutils.json
 import com.anjo.statisticservice.testutils.postJson
 import com.anjo.statisticservice.testutils.putJson
 import com.anjo.statisticservice.testutils.testApp
+import io.kotest.assertions.throwables.shouldThrowAny
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.string.shouldContain
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.post
@@ -53,6 +57,8 @@ private suspend fun HttpResponse.user() = json().jsonObject["user"]!!.jsonObject
 /** No local admin: the first verified provider sign-in with ADMIN_EMAIL becomes admin. */
 private val PROVIDER_ADMIN = mapOf("ktor.auth.adminEmail" to "Boss@Test.local", "ktor.auth.adminPassword" to "")
 
+private val LOCAL_OFF = mapOf("ktor.auth.local" to "false")
+
 class OidcAuthTest : FunSpec({
     beforeTest { Pg.truncateAll() }
 
@@ -65,7 +71,14 @@ class OidcAuthTest : FunSpec({
             (config["oidc"] ?: JsonNull) shouldBe JsonNull
         }
         oidcApp {
-            anonymous.get("/api/v2/auth/config").json().jsonObject["oidc"]!!.jsonObject.str("name") shouldBe "Fake"
+            val config = anonymous.get("/api/v2/auth/config").json().jsonObject
+            config.str("local") shouldBe "true"
+            config["oidc"]!!.jsonObject.str("name") shouldBe "Fake"
+        }
+        oidcApp(LOCAL_OFF) {
+            val config = anonymous.get("/api/v2/auth/config").json().jsonObject
+            config.str("local") shouldBe "false"
+            config["oidc"]!!.jsonObject.str("name") shouldBe "Fake"
         }
     }
 
@@ -217,6 +230,37 @@ class OidcAuthTest : FunSpec({
         Db(Pg.container.jdbcUrl, Pg.container.username, Pg.container.password).use { db ->
             AuthService(db).bootstrapAdmin("boss@test.local", "") shouldBe false
             db.tx { UserRepository.count() } shouldBe 0L
+        }
+    }
+
+    test("with local sign-in off password sign-in and password change are 403") {
+        oidcApp(LOCAL_OFF) {
+            anonymous.postJson("/api/v2/auth/login", """{"email":"$ADMIN_EMAIL","password":"$ADMIN_PASSWORD"}""").status shouldBe
+                    HttpStatusCode.Forbidden
+            val alice = withToken(oidcSignIn().json().jsonObject.str("token"))
+            alice.putJson("/api/v2/me/password", """{"current":"whatever-1","new":"long-enough-1"}""").status shouldBe HttpStatusCode.Forbidden
+        }
+    }
+
+    test("a provider-only user has no password to change") {
+        oidcApp {
+            val alice = withToken(oidcSignIn().json().jsonObject.str("token"))
+            alice.putJson("/api/v2/me/password", """{"current":"whatever-1","new":"long-enough-1"}""").status shouldBe HttpStatusCode.Forbidden
+        }
+    }
+
+    test("local sign-in off without a provider refuses to start") {
+        shouldThrowAny { testApp(LOCAL_OFF) {} }.message shouldContain "OIDC_ISSUER"
+    }
+
+    test("devices keep their source tokens when only the provider signs users in") {
+        oidcApp(PROVIDER_ADMIN + LOCAL_OFF) { idp ->
+            idp.claims = user("boss-sub", "boss@test.local")
+            val session = oidcSignIn().json().jsonObject.str("token")
+            val source = withToken(session).climateSource()
+            val payload = """{"deviceId":"pico-1","timestamp":"2099-01-01T00:00:00Z","temperature":21.5}"""
+            anonymous.postJson("/api/v2/ingest/climate", payload, source).status shouldBe HttpStatusCode.OK
+            anonymous.postJson("/api/v2/ingest/climate", payload, session).status shouldBe HttpStatusCode.Unauthorized
         }
     }
 

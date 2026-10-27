@@ -2,6 +2,7 @@ package com.anjo.statisticservice.service
 
 import com.anjo.statisticservice.db.Db
 import com.anjo.statisticservice.exception.badRequest
+import com.anjo.statisticservice.exception.forbidden
 import com.anjo.statisticservice.exception.notFound
 import com.anjo.statisticservice.exception.unauthorized
 import com.anjo.statisticservice.model.ADMIN
@@ -34,6 +35,7 @@ class AuthService(private val db: Db, private val local: Boolean = true, private
     }
 
     suspend fun login(email: String, password: String): LoginResponse {
+        requireLocal()
         val row = db.tx { UserRepository.credentials(normalizeEmail(email)) }
         if (!Passwords.verify(password, row?.second) || row == null) throw unauthorized("Wrong email or password")
         return issueSession(row.first)
@@ -66,6 +68,10 @@ class AuthService(private val db: Db, private val local: Boolean = true, private
 
     private fun provider() = oidc ?: throw notFound("No sign-in provider configured")
 
+    private fun requireLocal() {
+        if (!local) throw forbidden("Password sign-in is disabled")
+    }
+
     private suspend fun issueSession(userId: Long): LoginResponse {
         val token = newToken()
         val user = db.tx {
@@ -91,8 +97,9 @@ class AuthService(private val db: Db, private val local: Boolean = true, private
 
     /** Other tokens of the user are revoked; the one making the change stays valid. */
     suspend fun changePassword(u: UserPrincipal, current: String, new: String) {
+        requireLocal()
         requirePassword(new)
-        val stored = db.tx { UserRepository.passwordHash(u.id) }
+        val stored = db.tx { UserRepository.passwordHash(u.id) } ?: throw forbidden("Account has no password")
         if (!Passwords.verify(current, stored)) throw badRequest("current: wrong password")
         val hash = Passwords.hash(new)
         db.tx {
