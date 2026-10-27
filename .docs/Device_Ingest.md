@@ -41,3 +41,5 @@ Timestamps: ISO-8601 instant, or a local date-time read as UTC (`2026-01-05T15:3
 | 503 + `Retry-After` | source paused by an admin | retry later |
 
 Rejections are visible to admins in `GET /api/v2/sources/{sourceId}/status`.
+
+Data that needs fetching or custom logic before it can be sent: see [Collector_Apps.md](Collector_Apps.md).
