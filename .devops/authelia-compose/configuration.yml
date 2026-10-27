@@ -1,0 +1,56 @@
+# Dev-only: self-signed TLS, file users, notifications written to a file. Secrets come from ./secrets (README.md).
+server:
+  address: 'tcp://:9091'
+  tls:
+    certificate: /secrets/tls.crt
+    key: /secrets/tls.key
+
+log:
+  level: info
+
+authentication_backend:
+  file:
+    path: /config/users_database.yml
+
+access_control:
+  default_policy: one_factor
+
+session:
+  cookies:
+    - domain: example.com
+      authelia_url: https://auth.example.com:9091
+
+storage:
+  local:
+    path: /data/db.sqlite3
+
+notifier:
+  filesystem:
+    filename: /data/notification.txt
+
+identity_providers:
+  oidc:
+    jwks:
+      - key_id: dev
+        algorithm: RS256
+        use: sig
+        key: {{ secret "/secrets/oidc.key" | mindent 10 "|" | msquote }}
+    claims_policies:
+      id_token_claims:
+        id_token: [email, email_verified, name]
+    clients:
+      - client_id: statistics-ui
+        client_name: Statistics
+        public: true
+        require_pkce: true
+        pkce_challenge_method: S256
+        token_endpoint_auth_method: none
+        authorization_policy: one_factor
+        consent_mode: implicit
+        claims_policy: id_token_claims
+        scopes: [openid, email, profile]
+        grant_types: [authorization_code]
+        response_types: [code]
+        redirect_uris:
+          - http://localhost:8081/     # web UI dev server
+          - http://127.0.0.1/callback  # desktop app; any port (RFC 8252 loopback)

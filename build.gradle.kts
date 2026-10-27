@@ -49,6 +49,8 @@ dependencies {
     implementation(libs.exposed.java.time)
     implementation(libs.flyway.core)
     runtimeOnly(libs.flyway.postgresql)
+    implementation(libs.java.jwt)
+    implementation(libs.jwks.rsa)
 
     testImplementation(libs.ktor.server.test.host)
     testRuntimeOnly(libs.junit.platform.launcher)

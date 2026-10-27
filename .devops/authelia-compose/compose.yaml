@@ -1,0 +1,20 @@
+# Dev-only OIDC provider for trying provider sign-in; see README.md
+services:
+  authelia:
+    image: authelia/authelia:4.39.28
+    environment:
+      X_AUTHELIA_CONFIG_FILTERS: template
+      AUTHELIA_SESSION_SECRET_FILE: /secrets/session
+      AUTHELIA_STORAGE_ENCRYPTION_KEY_FILE: /secrets/storage
+      AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET_FILE: /secrets/jwt
+      AUTHELIA_IDENTITY_PROVIDERS_OIDC_HMAC_SECRET_FILE: /secrets/hmac
+    ports:
+      - "9091:9091"
+    volumes:
+      - ./configuration.yml:/config/configuration.yml:ro
+      - ./users_database.yml:/config/users_database.yml:ro
+      - ./secrets:/secrets:ro
+      - authelia-data:/data
+
+volumes:
+  authelia-data:

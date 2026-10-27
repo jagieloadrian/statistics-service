@@ -12,5 +12,11 @@ ktor:
   auth:
     adminEmail: "${ADMIN_EMAIL:}"
     adminPassword: "${ADMIN_PASSWORD:}"
+    local: "${AUTH_LOCAL:true}"
+    oidc:
+      issuer: "${OIDC_ISSUER:}"
+      clientId: "${OIDC_CLIENT_ID:}"
+      clientSecret: "${OIDC_CLIENT_SECRET:}"
+      name: "${OIDC_NAME:SSO}"
   cors:
     hosts: "${CORS_HOSTS:localhost:8081}"
