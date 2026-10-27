@@ -13,7 +13,6 @@ import io.ktor.server.plugins.calllogging.CallLogging
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.plugins.defaultheaders.DefaultHeaders
-import io.ktor.server.routing.openapi.hide
 import io.ktor.utils.io.ExperimentalKtorApi
 
 @OptIn(ExperimentalKtorApi::class)
@@ -24,7 +23,6 @@ fun Application.configureFrameworks() {
     val corsHosts = environment.config.property("ktor.cors.hosts").getString()
         .split(',').map { it.trim() }.filter { it.isNotEmpty() }
     install(CORS) {
-        // only the configured UI origins: the admin API has no auth until US4
         corsHosts.forEach { allowHost(it, schemes = listOf("http", "https")) }
         allowHeader(HttpHeaders.ContentType)
         allowHeader(HttpHeaders.Authorization)
@@ -37,12 +35,7 @@ fun Application.configureFrameworks() {
             callId.isNotEmpty()
         }
     }
-    install(KHealth) {
-        wrap { next ->
-            hide()
-            next()
-        }
-    }
+    install(KHealth)
     install(CallLogging) {
         callIdMdc("call-id")
     }

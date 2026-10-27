@@ -17,7 +17,7 @@ import io.ktor.server.config.MapApplicationConfig
 import io.ktor.server.config.mergeWith
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
-import org.testcontainers.containers.PostgreSQLContainer
+import org.testcontainers.postgresql.PostgreSQLContainer
 import java.sql.DriverManager
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -25,7 +25,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 object Pg {
-    val container: PostgreSQLContainer<Nothing> = PostgreSQLContainer<Nothing>("postgres:16").apply { start() }
+    val container: PostgreSQLContainer = PostgreSQLContainer("postgres:16").apply { start() }
 
     fun config() = MapApplicationConfig(
         "ktor.db.url" to container.jdbcUrl,

@@ -1,11 +1,8 @@
-val kotlin_version: String by project
-val logback_version: String by project
-val ktor_version: String by project
 
 plugins {
-    kotlin("jvm")
-    kotlin("plugin.serialization")
-    id("io.ktor.plugin")
+    alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.ktor)
     jacoco
 }
 
@@ -21,65 +18,42 @@ application {
 }
 
 dependencies {
+    implementation(libs.ktor.server.core)
+    implementation(libs.ktor.server.netty)
+    implementation(libs.ktor.server.config.yaml)
+    implementation(libs.ktor.server.di)
+    implementation(libs.ktor.server.host.common)
+    implementation(libs.ktor.server.default.headers)
+    implementation(libs.ktor.server.content.negotiation)
+    implementation(libs.ktor.serialization.kotlinx.json)
+    implementation(libs.ktor.server.request.validation)
+    implementation(libs.ktor.server.status.pages)
+    implementation(libs.ktor.server.cors)
+    implementation(libs.ktor.server.auth)
+    implementation(libs.ktor.server.rate.limit)
+    implementation(libs.ktor.server.swagger)
+    implementation(libs.ktor.server.routing.openapi)
+    implementation(libs.ktor.server.metrics)
+    implementation(libs.ktor.server.call.logging)
+    implementation(libs.ktor.server.call.id)
+    implementation(libs.khealth)
+    implementation(libs.logback.classic)
+    implementation(libs.kotlin.logging)
+    implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.kotlinx.datetime)
+    implementation(libs.postgresql)
+    implementation(libs.hikari)
 
-    //Headers
-    implementation("io.ktor:ktor-server-default-headers")
-    //Kotlinx date time
-    implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.7.1")
-
-    //Core
-    implementation("io.ktor:ktor-server-core")
-    implementation("io.ktor:ktor-server-netty")
-    implementation("io.ktor:ktor-serialization-kotlinx-json")
-    implementation("io.ktor:ktor-server-content-negotiation")
-    implementation("io.ktor:ktor-server-di")
-    implementation("io.ktor:ktor-server-config-yaml")
-    implementation("io.ktor:ktor-server-request-validation")
-    implementation("io.github.oshai:kotlin-logging-jvm:7.0.14")
-
-
-    //METRICS
-    implementation("dev.hayden:khealth:3.0.2")
-    implementation("io.ktor:ktor-server-metrics")
-    implementation("io.ktor:ktor-server-call-logging")
-    implementation("io.ktor:ktor-server-call-id")
-    implementation("ch.qos.logback:logback-classic:$logback_version")
-    implementation("io.ktor:ktor-server-cors")
-    implementation("io.ktor:ktor-server-host-common")
-    implementation("io.ktor:ktor-server-status-pages")
-
-
-    //DB
-    implementation("org.postgresql:postgresql:42.7.4")
-    implementation("com.zaxxer:HikariCP:6.2.1")
-    //AUTH
-    implementation("io.ktor:ktor-server-auth")
-    implementation("io.ktor:ktor-server-rate-limit")
-    //COROUTINES
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.10.2")
-    testImplementation("org.junit.jupiter:junit-jupiter:5.14.0")
-
-    //SZWAGIER
-    implementation("io.ktor:ktor-server-swagger:${ktor_version}")
-    // will be removed with ktor 3.4.1
-    implementation("io.ktor:ktor-server-routing-openapi:${ktor_version}")
-
-    //TESTS
-    testImplementation("io.kotest:kotest-assertions-core-jvm:6.0.7")
-    testImplementation("io.mockk:mockk-jvm:1.14.7")
-    testImplementation("io.ktor:ktor-server-test-host")
-    testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version")
-    testImplementation("org.junit.platform:junit-platform-launcher:1.14.1")
-    testImplementation("io.ktor:ktor-client-content-negotiation:${ktor_version}")
-
-    //TEST CONTAINERS
-    testImplementation("org.testcontainers:testcontainers:1.20.3")
-    testImplementation("org.testcontainers:junit-jupiter:1.20.3")
-    testImplementation("org.testcontainers:postgresql:1.20.3")
+    testImplementation(libs.ktor.server.test.host)
+    testImplementation(libs.kotlin.test.junit5)
+    testImplementation(libs.junit.jupiter)
+    testRuntimeOnly(libs.junit.platform.launcher)
+    testImplementation(libs.kotest.assertions)
+    testImplementation(libs.testcontainers.postgresql)
 }
 
 jacoco {
-    toolVersion = "0.8.14"
+    toolVersion = libs.versions.jacoco.get()
 }
 
 tasks.jacocoTestReport {
