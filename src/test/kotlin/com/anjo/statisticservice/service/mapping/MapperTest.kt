@@ -10,17 +10,17 @@ import com.anjo.statisticservice.model.MeasureType
 import com.anjo.statisticservice.model.Rule
 import com.anjo.statisticservice.model.Source
 import com.anjo.statisticservice.model.TimestampSpec
+import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertThrows
 import kotlin.time.Instant
 
-class MapperTest {
-    private val now = Instant.parse("2026-10-27T10:00:00Z")
-    private val ds = Dataset(
+class MapperTest : FunSpec({
+    val now = Instant.parse("2026-10-27T10:00:00Z")
+    val ds = Dataset(
         id = "climate",
         measures = listOf(
             Measure("temperature"), Measure("humidity"),
@@ -28,7 +28,7 @@ class MapperTest {
         ),
         dimensions = listOf(Dimension("device")),
     )
-    private val source = Source(
+    val source = Source(
         id = "climate", dataset = "climate",
         mapping = listOf(
             Rule(
@@ -45,11 +45,10 @@ class MapperTest {
         ),
     )
 
-    private fun map(json: String, src: Source = source) = Mapper.map(src, ds, Json.parseToJsonElement(json), now)
-    private fun reasons(json: String, src: Source = source) = assertThrows<MappingException> { map(json, src) }.reasons
+    fun map(json: String, src: Source = source) = Mapper.map(src, ds, Json.parseToJsonElement(json), now)
+    fun reasons(json: String, src: Source = source) = shouldThrow<MappingException> { map(json, src) }.reasons
 
-    @Test
-    fun `flat payload gives one cast record and ignores extra fields`() {
+    test("flat payload gives one cast record and ignores extra fields") {
         val r = map("""{"deviceId":"pico-1","timestamp":"2026-10-27T09:30:00Z","temperature":"21.5","humidity":0.4,"heating":"true","note":"ok","extra":1}""").single()
         r.ts shouldBe Instant.parse("2026-10-27T09:30:00Z")
         r.tsEstimated shouldBe false
@@ -61,8 +60,7 @@ class MapperTest {
         r.ident shouldBe "pico-1|2026-10-27T09:30:00Z"
     }
 
-    @Test
-    fun `local date-time is read as UTC and missing timestamp uses arrival time`() {
+    test("local date-time is read as UTC and missing timestamp uses arrival time") {
         map("""{"deviceId":"a","timestamp":"2026-10-27T09:00:00","temperature":1}""").single().ts shouldBe Instant.parse("2026-10-27T09:00:00Z")
         val r = map("""{"deviceId":"a","temperature":1}""", source.copy(mapping = listOf(source.mapping[0].copy(identity = emptyList())))).single()
         r.ts shouldBe now
@@ -70,16 +68,14 @@ class MapperTest {
         r.ident shouldBe null
     }
 
-    @Test
-    fun `epoch formats`() {
+    test("epoch formats") {
         val ms = source.copy(mapping = listOf(source.mapping[0].copy(timestamp = TimestampSpec("timestamp", "epoch_ms"))))
         val s = source.copy(mapping = listOf(source.mapping[0].copy(timestamp = TimestampSpec("timestamp", "epoch_s"))))
         map("""{"deviceId":"a","timestamp":1793091600000,"temperature":1}""", ms).single().ts shouldBe Instant.fromEpochSeconds(1793091600)
         map("""{"deviceId":"a","timestamp":1793091600,"temperature":1}""", s).single().ts shouldBe Instant.fromEpochSeconds(1793091600)
     }
 
-    @Test
-    fun `each failed constraint gives one reason`() {
+    test("each failed constraint gives one reason") {
         reasons("""{"deviceId":" ","timestamp":"2026-10-20T00:00:00Z","temperature":99,"heating":"maybe"}""") shouldContainExactlyInAnyOrder listOf(
             "dims.device: must not be blank",
             "timestamp: older than 24 h",
@@ -91,8 +87,7 @@ class MapperTest {
         reasons("""{"deviceId":"a","timestamp":"2026-10-27T09:00:00Z","temperature":"warm"}""") shouldBe listOf("vals.temperature: expected a number, got 'warm'")
     }
 
-    @Test
-    fun `each iterates object entries with key and item paths plus const dims`() {
+    test("each iterates object entries with key and item paths plus const dims") {
         val epiDs = Dataset(id = "epi", measures = listOf(Measure("infected")), dimensions = listOf(Dimension("run"), Dimension("type")))
         val epi = Source(
             id = "epi", dataset = "epi",
@@ -106,8 +101,7 @@ class MapperTest {
         recs.map { it.dims["run"] }.distinct() shouldBe listOf("r1")
     }
 
-    @Test
-    fun `native format accepts records and rejects undeclared keys`() {
+    test("native format accepts records and rejects undeclared keys") {
         val native = source.copy(mapping = emptyList())
         val recs = map("""[{"ts":"2026-10-27T09:00:00Z","dims":{"device":"x"},"vals":{"temperature":20}},{"dims":{"device":"y"},"vals":{"temperature":21}}]""", native)
         recs.size shouldBe 2
@@ -118,8 +112,7 @@ class MapperTest {
             listOf("[0].dims.room: not declared in dataset", "[0].vals.pressure: not declared in dataset")
     }
 
-    @Test
-    fun `epidemic sample payload gives total plus one record per byType entry`() {
+    test("epidemic sample payload gives total plus one record per byType entry") {
         val bundle = Json.decodeFromString(Bundle.serializer(), java.io.File("definitions/epidemic.json").readText())
         val payload = Json.parseToJsonElement(javaClass.getResource("/payloads/epidemic.json")!!.readText())
         val recs = Mapper.map(bundle.sources.single(), bundle.datasets.single(), payload, now)
@@ -130,4 +123,4 @@ class MapperTest {
         recs[2].vals["dead"] shouldBe JsonPrimitive(1.0)
         recs.all { it.dims["run"] == "5" && it.ts == Instant.parse("2026-01-05T15:38:14Z") } shouldBe true
     }
-}
+})

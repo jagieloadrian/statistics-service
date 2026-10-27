@@ -39,7 +39,7 @@ documents, records in one table with JSONB dims/vals, `date_bin()` buckets
 ([data-model.md](./data-model.md)). Redis stays running only as untouched
 archive.
 
-**Testing**: JUnit 5 + Kotest assertions + `ktor-server-test-host` +
+**Testing**: Kotest (FunSpec on the JUnit Platform, Kotest assertions) + `ktor-server-test-host` +
 Testcontainers PostgreSQL (backend); `kotlin-test` in `commonTest` for pure
 frontend logic (variable substitution, layout rows, unit conversion).
 
