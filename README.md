@@ -1,51 +1,49 @@
 # StatisticsService
 
-This project was created using the [Ktor Project Generator](https://start.ktor.io).
+Backend of the universal statistics platform (spec
+[004](specs/004-universal-stats-platform/spec.md)): sources push data, mappings
+turn it into records of a dataset, dashboards query them. Everything domain
+specific is configuration (JSON definitions), not code. Frontend: the
+`Statistics-UI` repo.
 
-Here are some useful links to get you started:
+## Run
 
-- [Ktor Documentation](https://ktor.io/docs/home.html)
-- [Ktor GitHub page](https://github.com/ktorio/ktor)
-- The [Ktor Slack chat](https://app.slack.com/client/T09229ZC6/C0A974TJ9). You'll need
-  to [request an invite](https://surveys.jetbrains.com/s3/kotlin-slack-sign-up) to join.
-
-## Features
-
-Here's a list of features included in this project:
-
-| Name                                                                   | Description                                                                        |
-|------------------------------------------------------------------------|------------------------------------------------------------------------------------|
-| [Default Headers](https://start.ktor.io/p/default-headers)             | Adds a default set of headers to HTTP responses                                    |
-| [Routing](https://start.ktor.io/p/routing)                             | Provides a structured routing DSL                                                  |
-| [Simple Cache](https://start.ktor.io/p/simple-cache)                   | Provides API for cache management                                                  |
-| [Simple Redis Cache](https://start.ktor.io/p/simple-redis-cache)       | Provides Redis cache for Simple Cache plugin                                       |
-| [Request Validation](https://start.ktor.io/p/request-validation)       | Adds validation for incoming requests                                              |
-| [Call Logging](https://start.ktor.io/p/call-logging)                   | Logs client requests                                                               |
-| [Call ID](https://start.ktor.io/p/callid)                              | Allows to identify a request/call.                                                 |
-| [KHealth](https://start.ktor.io/p/khealth)                             | A simple and customizable health plugin                                            |
-| [Metrics](https://start.ktor.io/p/metrics)                             | Adds supports for monitoring several metrics                                       |
-| [Content Negotiation](https://start.ktor.io/p/content-negotiation)     | Provides automatic content conversion according to Content-Type and Accept headers |
-| [kotlinx.serialization](https://start.ktor.io/p/kotlinx-serialization) | Handles JSON serialization using kotlinx.serialization library                     |
-| [Dependency Injection](https://start.ktor.io/p/ktor-di)                | Enables dependency injection for your server                                       |
-
-## Building & Running
-
-To build or run the project, use one of the following tasks:
-
-| Task                                    | Description                                                          |
-|-----------------------------------------|----------------------------------------------------------------------|
-| `./gradlew test`                        | Run the tests                                                        |
-| `./gradlew build`                       | Build everything                                                     |
-| `./gradlew buildFatJar`                 | Build an executable JAR of the server with all dependencies included |
-| `./gradlew buildImage`                  | Build the docker image to use with the fat JAR                       |
-| `./gradlew publishImageToLocalRegistry` | Publish the docker image locally                                     |
-| `./gradlew run`                         | Run the server                                                       |
-| `./gradlew runDocker`                   | Run using the local docker image                                     |
-
-If the server starts successfully, you'll see the following output:
-
-```
-2024-12-04 14:32:45.584 [main] INFO  Application - Application started in 0.303 seconds.
-2024-12-04 14:32:45.682 [main] INFO  Application - Responding at http://0.0.0.0:8080
+```bash
+docker compose -f .devops/postgres-compose/compose.yaml up -d   # PostgreSQL 16, db/user/password "stats"
+ADMIN_EMAIL=admin@local ADMIN_PASSWORD='change-me-now' ./gradlew run
 ```
 
+| Env | Default | Meaning |
+|-----|---------|---------|
+| `DB_URL`, `DB_USER`, `DB_PASSWORD` | `jdbc:postgresql://localhost:5432/stats`, `stats`, `stats` | database; the schema is created on start |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | empty | first admin, created only while there are no users |
+| `CORS_HOSTS` | `localhost:8081` | comma-separated frontend hosts |
+
+API: `http://localhost:8080/api/v2`, Swagger UI at `/api/v2/swagger`.
+
+## Load the example definitions
+
+```bash
+API=http://localhost:8080/api/v2
+TOKEN=$(curl -s $API/auth/login -H 'Content-Type: application/json' \
+  -d '{"email":"admin@local","password":"change-me-now"}' | jq -r .token)
+for f in definitions/*.json; do
+  curl -s -X POST $API/import -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d @$f; echo
+done
+curl -s -X POST $API/sources/temperature/credential -H "Authorization: Bearer $TOKEN"   # source token for the device
+```
+
+Devices and collector apps: [.docs/Device_Ingest.md](.docs/Device_Ingest.md),
+[.docs/Collector_Apps.md](.docs/Collector_Apps.md).
+
+## Build & test
+
+`./gradlew build` runs all tests; they start PostgreSQL through Testcontainers,
+so Docker must be running.
+
+## Docs
+
+- Spec, plan, contracts: [specs/004-universal-stats-platform/](specs/004-universal-stats-platform/)
+- API contract: [contracts/api-v2.md](specs/004-universal-stats-platform/contracts/api-v2.md)
+- Definition format: [contracts/definition-format.md](specs/004-universal-stats-platform/contracts/definition-format.md)
+- Old v1 contracts (removed API): [.docs/archive/](.docs/archive/)

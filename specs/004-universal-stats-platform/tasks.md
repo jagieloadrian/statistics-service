@@ -121,9 +121,9 @@ that can be demoed on its own.
 - [X] T044 [US2] `records/RecordStore.kt`: `at_max`/`at_min` (`(array_agg(field ORDER BY by DESC NULLS LAST))[1]`), `ts` as aggregatable field, calculated measures resolved through `Expr`
 - [X] T045 [P] [US2] `definitions/temperature.json`: bundle with dataset `temperature` (temperature °C, humidity %, dim `device`), push source `temperature` (mapping per definition-format example, payload shape from `.docs/archive/RPI_Temperature_Contract.md`), dashboard `temperature` (variables `device`, `range`, `bucket` options `raw,1m,1h,1d`; widgets: devices table with first/last seen, line temperature+humidity, stat min/avg/max)
 - [X] T046 [P] [US2] `definitions/epidemic.json`: bundle with dataset, source and dashboard `epidemic-runs` exactly as the epidemic example in contracts/definition-format.md
-- [ ] T047 [P] [US2] `Statistics-UI/composeApp/src/commonMain/kotlin/com/anjo/statisticsui/presentation/dashboard/Variables.kt`: pure `fun resolve(query: Query, values: Map<String, VariableValue>, range: TimeRange): Query` replacing `$name` in `filter` values and `bucket`, and setting `from`/`to` from the dashboard time range (`timeRange` variable, else `defaultRange`) + `VariableBar` composable (dimension picker from dimension values with search, bucket selector; a `timeRange` variable binds the dashboard time range selector from T036 instead of adding a second one)
-- [ ] T048 [P] [US2] `Statistics-UI/composeApp/src/commonTest/kotlin/com/anjo/statisticsui/VariablesTest.kt`: substitution in filter lists and bucket, `from`/`to` from `timeRange` variable and from `defaultRange`; unknown variable left as error
-- [ ] T049 [US2] `presentation/dashboard/Widgets.kt`: add `stat` (one value per column, label from `as`) and `bar`; `line` honours `options.x` (e.g. `generation`); `DashboardScreen.kt` shows `VariableBar` and re-queries all widgets on change without reload; show the applied bucket from the response
+- [X] T047 [P] [US2] `Statistics-UI/composeApp/src/commonMain/kotlin/com/anjo/statisticsui/presentation/dashboard/Variables.kt`: pure `fun resolve(query: Query, values: Map<String, VariableValue>, range: TimeRange): Query` replacing `$name` in `filter` values and `bucket`, and setting `from`/`to` from the dashboard time range (`timeRange` variable, else `defaultRange`) + `VariableBar` composable (dimension picker from dimension values with search, bucket selector; a `timeRange` variable binds the dashboard time range selector from T036 instead of adding a second one)
+- [X] T048 [P] [US2] `Statistics-UI/composeApp/src/commonTest/kotlin/com/anjo/statisticsui/VariablesTest.kt`: substitution in filter lists and bucket, `from`/`to` from `timeRange` variable and from `defaultRange`; unknown variable left as error
+- [X] T049 [US2] `presentation/dashboard/Widgets.kt`: add `stat` (one value per column, label from `as`) and `bar`; `line` honours `options.x` (e.g. `generation`); `DashboardScreen.kt` shows `VariableBar` and re-queries all widgets on change without reload; show the applied bucket from the response
 - [X] T050 [P] [US2] `.docs/Device_Ingest.md`: how a device sends to the platform — URL `/api/v2/ingest/{sourceId}`, header `Authorization: Bearer <source token>`, payload unchanged or native format, response codes (replaces the archived RPI contracts, constitution workflow)
 
 **Checkpoint**: temperature + epidemic dashboards work from definitions alone (SC-002).
@@ -139,15 +139,15 @@ that can be demoed on its own.
 ### Tests for US3
 
 - [X] T051 [P] [US3] `src/test/kotlin/com/anjo/statisticservice/routing/ImportExportTest.kt`: export → import into a truncated DB reproduces identical documents; credentials never exported; invalid bundle → nothing imported; dataset change removing a measure referenced by a widget → 409 listing widget refs, `?force=true` succeeds; deleting a dataset removes its records
-- [ ] T052 [P] [US3] `Statistics-UI/composeApp/src/commonTest/kotlin/com/anjo/statisticsui/LayoutTest.kt`: 12-column flow layout groups widgets into rows by `w`
+- [X] T052 [P] [US3] `Statistics-UI/composeApp/src/commonTest/kotlin/com/anjo/statisticsui/LayoutTest.kt`: 12-column flow layout groups widgets into rows by `w`
 
 ### Implementation for US3
 
 - [X] T053 [US3] `routing/ApiRoutes.kt` + `definitions/Definitions.kt`: `GET $API_V2/export`, `POST /import` (one transaction, all-or-nothing, `{created, updated, errors}`); reference guard on dataset/source PUT/DELETE → 409 with referencing widget ids unless `?force=true`; `describe {}` OpenAPI summaries on the new routes
-- [ ] T054 [P] [US3] `presentation/dashboard/Widgets.kt`: add `area` and `gauge` (Canvas arc with `min`/`max`/`thresholds`); apply `options.unit`, `colors`, `decimals`, `thresholds`; "missing data definition" state when the query returns 400 for an unknown dataset/field; "no data in range" state
-- [ ] T055 [US3] `presentation/dashboard/DashboardScreen.kt`: 12-column grid (`w` 1–12, `h` rows, rows filled left to right, function shared with LayoutTest); auto-refresh loop every `refreshSeconds` while the screen is visible
-- [ ] T056 [US3] `Statistics-UI/composeApp/src/commonMain/kotlin/com/anjo/statisticsui/presentation/dashboard/DashboardEditor.kt`: edit title, default range, refresh; add/edit/delete/reorder widgets with all fields from the Widget table in definition-format; variable editor (dimension, timeRange, bucket); save via PUT
-- [ ] T057 [US3] Export/import UI in `presentation/admin/SourcesScreen.kt` (or a small section on the home screen): export shows the bundle JSON in a copyable text area; import pastes JSON and shows `{created, updated, errors}`
+- [X] T054 [P] [US3] `presentation/dashboard/Widgets.kt`: add `area` and `gauge` (Canvas arc with `min`/`max`/`thresholds`); apply `options.unit`, `colors`, `decimals`, `thresholds`; "missing data definition" state when the query returns 400 for an unknown dataset/field; "no data in range" state
+- [X] T055 [US3] `presentation/dashboard/DashboardScreen.kt`: 12-column grid (`w` 1–12, `h` rows, rows filled left to right, function shared with LayoutTest); auto-refresh loop every `refreshSeconds` while the screen is visible
+- [X] T056 [US3] `Statistics-UI/composeApp/src/commonMain/kotlin/com/anjo/statisticsui/presentation/dashboard/DashboardEditor.kt`: edit title, default range, refresh; add/edit/delete/reorder widgets with all fields from the Widget table in definition-format; variable editor (dimension, timeRange, bucket); save via PUT
+- [X] T057 [US3] Export/import UI in `presentation/admin/SourcesScreen.kt` (or a small section on the home screen): export shows the bundle JSON in a copyable text area; import pastes JSON and shows `{created, updated, errors}`
 
 **Checkpoint**: dashboards fully built in the UI; export → import round-trips (SC-007).
 
@@ -187,9 +187,9 @@ that can be demoed on its own.
 
 **Gate**: build each channel only when a real producer for it exists (constitution IV, research D14). Each task pair is independent.
 
-- [ ] T069 [P] [US5] Pull channel: `src/main/kotlin/com/anjo/statisticservice/ingest/PullRunner.kt` — one coroutine per active `pull` source (`delay(intervalSeconds)` loop, Ktor HttpClient with configured headers, optional `itemsPath` → one payload per item, back-off on failure, error into `SourceStatus`, `identity` dedup), started/stopped on source PUT/DELETE/pause; test `src/test/kotlin/com/anjo/statisticservice/ingest/PullRunnerTest.kt` with a stub server (1 000 records, restart → no duplicates, unreachable → status error)
-- [ ] T070 [P] [US5] Kafka channel: dep `org.apache.kafka:kafka-clients`; `src/main/kotlin/com/anjo/statisticservice/ingest/KafkaRunner.kt` — consumer per `kafka` source, manual offset commit only after `RecordStore.insert` commit; test with Testcontainers Kafka in `src/test/kotlin/com/anjo/statisticservice/ingest/KafkaRunnerTest.kt` (restart mid-stream → no loss/duplicates)
-- [ ] T071 [P] [US5] gRPC channel: `src/main/proto/ingest.proto` (`Ingest.Write(stream Payload) returns (stream Ack)`, payload = source id + token + JSON bytes) with `grpc-kotlin`, or OTLP if the first producer already speaks OpenTelemetry; per-record accepted/rejected ack; test in `src/test/kotlin/com/anjo/statisticservice/ingest/GrpcIngestTest.kt`
+- [ ] T069 (gated: no pull producer yet) [P] [US5] Pull channel: `src/main/kotlin/com/anjo/statisticservice/ingest/PullRunner.kt` — one coroutine per active `pull` source (`delay(intervalSeconds)` loop, Ktor HttpClient with configured headers, optional `itemsPath` → one payload per item, back-off on failure, error into `SourceStatus`, `identity` dedup), started/stopped on source PUT/DELETE/pause; test `src/test/kotlin/com/anjo/statisticservice/ingest/PullRunnerTest.kt` with a stub server (1 000 records, restart → no duplicates, unreachable → status error)
+- [ ] T070 (gated: no Kafka producer yet) [P] [US5] Kafka channel: dep `org.apache.kafka:kafka-clients`; `src/main/kotlin/com/anjo/statisticservice/ingest/KafkaRunner.kt` — consumer per `kafka` source, manual offset commit only after `RecordStore.insert` commit; test with Testcontainers Kafka in `src/test/kotlin/com/anjo/statisticservice/ingest/KafkaRunnerTest.kt` (restart mid-stream → no loss/duplicates)
+- [ ] T071 (gated: no gRPC producer yet) [P] [US5] gRPC channel: `src/main/proto/ingest.proto` (`Ingest.Write(stream Payload) returns (stream Ack)`, payload = source id + token + JSON bytes) with `grpc-kotlin`, or OTLP if the first producer already speaks OpenTelemetry; per-record accepted/rejected ack; test in `src/test/kotlin/com/anjo/statisticservice/ingest/GrpcIngestTest.kt`
 - [ ] T072 [US5] Channel settings fields for `pull`/`kafka`/`grpc` in `Statistics-UI/composeApp/src/commonMain/kotlin/com/anjo/statisticsui/presentation/admin/SourcesScreen.kt` (only for channels built above)
 
 **Checkpoint**: each built channel passes quickstart §8.
@@ -198,8 +198,8 @@ that can be demoed on its own.
 
 ## Phase 8: User Story 6 — custom logic via collector apps (P3)
 
-- [ ] T073 [P] [US6] `examples/collector.py`: stdlib-only (`urllib`, `json`, `time`) script that polls a URL every N seconds and pushes native records to `/api/v2/ingest/{sourceId}` with a source token; env vars for URL, source id, token
-- [ ] T074 [US6] `.docs/Collector_Apps.md`: when to write a collector instead of a mapping, auth, native format, retry on 429/503; link from `.docs/Device_Ingest.md`
+- [X] T073 [P] [US6] `examples/collector.py`: stdlib-only (`urllib`, `json`, `time`) script that polls a URL every N seconds and pushes native records to `/api/v2/ingest/{sourceId}` with a source token; env vars for URL, source id, token
+- [X] T074 [US6] `.docs/Collector_Apps.md`: when to write a collector instead of a mapping, auth, native format, retry on 429/503; link from `.docs/Device_Ingest.md`
 
 **Checkpoint**: quickstart §8 collector check passes (killing it affects nothing else).
 
@@ -207,10 +207,10 @@ that can be demoed on its own.
 
 ## Phase 9: Polish & Cross-Cutting
 
-- [ ] T075 [P] OpenAPI review: open `$API_V2/swagger`, confirm every `/api/v2` route from contracts/api-v2.md is listed with its summary (added per story in T028, T029, T053, T061); fill any gap in `routing/ApiRoutes.kt` / `ingest/IngestRoutes.kt`
+- [X] T075 [P] OpenAPI review: open `$API_V2/swagger`, confirm every `/api/v2` route from contracts/api-v2.md is listed with its summary (added per story in T028, T029, T053, T061); fill any gap in `routing/ApiRoutes.kt` / `ingest/IngestRoutes.kt`
 - [ ] T076 [P] `README.md` (backend): run Postgres compose, env vars (`DB_*`, `ADMIN_*`), import example definitions; `Statistics-UI/README.md`: backend URL, login
-- [ ] T077 Performance check per quickstart §3 (5 M seeded records, 8 parallel 30-day `auto` queries < 2 s p95, SC-004) and 500 records/s ingest for 1 min (SC-005); record numbers under research.md D4; not a release gate (spec SC-004/005 note) — if missed, open a follow-up spec for the D4 upgrade path, the feature still closes
-- [ ] T078 Run quickstart §0–§7 end to end; fix gaps
+- [X] T077 Performance check per quickstart §3 (5 M seeded records, 8 parallel 30-day `auto` queries < 2 s p95, SC-004) and 500 records/s ingest for 1 min (SC-005); record numbers under research.md D4; not a release gate (spec SC-004/005 note) — if missed, open a follow-up spec for the D4 upgrade path, the feature still closes
+- [ ] T078 Run quickstart §0–§7 end to end; fix gaps — 2026-10-27: backend §0–§3, §5 export, §6, §7 and the §8 collector check pass against a real server; §4/§5 UI flows still need a manual run in the desktop app
 - [ ] T079 Update `PROJECT-STATUS.md` (completed work, decisions, next steps)
 
 ---

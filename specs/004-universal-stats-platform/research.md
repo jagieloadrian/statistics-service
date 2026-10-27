@@ -152,6 +152,14 @@ dedup via `ON CONFLICT DO NOTHING`.
 Ceiling: JSONB extraction cost on multi-million-row ranges may miss SC-004;
 upgrade = TimescaleDB hypertable + continuous aggregates, or expression
 indexes on hot dims. Measure in quickstart §3 before optimizing.
+Measured 2026-10-27 (T077, laptop, Postgres 16 in Docker, 5 M records over
+58 days, 10 devices; query = 30-day `auto` → `1h`, `groupBy device`, avg+max):
+one query 2.3 s; 8 in parallel p50 9.8 s, p95 12.0 s → **SC-004 missed**
+(target < 2 s p95). Ingest (SC-005): 60 s at 48 req/s × 10 native records =
+480 records/s, all 200, p95 8 ms → met with batches; one source is capped at
+50 requests/s, so the record rate is that times the batch size. SC-004 is
+not a release gate; follow-up spec: the upgrade path above (start with a
+pre-aggregated hourly table or Timescale continuous aggregates).
 Alternatives: table per dataset with typed columns (DDL at runtime), EAV
 narrow table (row explosion ×N measures).
 
