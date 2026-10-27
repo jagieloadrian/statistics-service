@@ -1,8 +1,8 @@
 package com.anjo.statisticservice.repository
 
 import com.anjo.statisticservice.db.Db
-import com.anjo.statisticservice.db.query
-import com.anjo.statisticservice.db.update
+import com.anjo.statisticservice.db.Records
+import com.anjo.statisticservice.db.toOffsetDateTime
 import com.anjo.statisticservice.exception.badRequest
 import com.anjo.statisticservice.model.Dataset
 import com.anjo.statisticservice.model.MeasureType
@@ -14,73 +14,88 @@ import com.anjo.statisticservice.model.numberMeasures
 import com.anjo.statisticservice.service.mapping.Expr
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import java.sql.Connection
+import org.jetbrains.exposed.v1.core.ComparisonOp
+import org.jetbrains.exposed.v1.core.Expression
+import org.jetbrains.exposed.v1.core.ExpressionWithColumnType
+import org.jetbrains.exposed.v1.core.QueryBuilder
+import org.jetbrains.exposed.v1.core.SortOrder
+import org.jetbrains.exposed.v1.core.TextColumnType
+import org.jetbrains.exposed.v1.core.and
+import org.jetbrains.exposed.v1.core.append
+import org.jetbrains.exposed.v1.core.count
+import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.greaterEq
+import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.isNotNull
+import org.jetbrains.exposed.v1.core.less
+import org.jetbrains.exposed.v1.core.max
+import org.jetbrains.exposed.v1.core.min
+import org.jetbrains.exposed.v1.core.stringParam
+import org.jetbrains.exposed.v1.jdbc.andWhere
+import org.jetbrains.exposed.v1.jdbc.deleteWhere
+import org.jetbrains.exposed.v1.jdbc.insertIgnore
+import org.jetbrains.exposed.v1.jdbc.select
 import java.time.OffsetDateTime
 import kotlin.time.Instant
 
 object RecordRepository {
 
     /** false = duplicate identity, nothing stored */
-    fun insert(c: Connection, r: Record): Boolean =
-        c.update(
-            """INSERT INTO records (org_id, dataset_id, ts, dims, vals, ident, ts_estimated)
-               VALUES (?, ?, ?, ?::jsonb, ?::jsonb, ?, ?) ON CONFLICT DO NOTHING""",
-            Db.ORG, r.datasetId, r.ts,
-            JsonObject(r.dims.mapValues { JsonPrimitive(it.value) }).toString(),
-            JsonObject(r.vals).toString(), r.ident, r.tsEstimated,
-        ) > 0
+    fun insert(r: Record): Boolean =
+        Records.insertIgnore {
+            it[orgId] = Db.ORG
+            it[datasetId] = r.datasetId
+            it[ts] = r.ts.toOffsetDateTime()
+            it[dims] = r.dims
+            it[vals] = r.vals
+            it[ident] = r.ident
+            it[tsEstimated] = r.tsEstimated
+        }.insertedCount > 0
 
-    fun deleteDataset(c: Connection, datasetId: String) {
-        c.update("DELETE FROM records WHERE org_id = ? AND dataset_id = ?", Db.ORG, datasetId)
+    fun deleteDataset(datasetId: String) {
+        Records.deleteWhere { of(datasetId) }
     }
 
-    fun deleteOlderThan(c: Connection, datasetId: String, days: Int) {
-        c.update("DELETE FROM records WHERE org_id = ? AND dataset_id = ? AND ts < now() - make_interval(days => ?)", Db.ORG, datasetId, days)
+    fun deleteBefore(datasetId: String, cutoff: Instant) {
+        Records.deleteWhere { of(datasetId) and (ts less cutoff.toOffsetDateTime()) }
     }
 
-    /** [dim] must be a dimension of the dataset; it is inlined. */
-    fun dimensionValues(c: Connection, datasetId: String, dim: String, search: String?, limit: Int, offset: Int): List<DimensionValue> {
-        val col = "dims->>'$dim'"
-        val params = mutableListOf<Any?>(Db.ORG, datasetId)
-        val where = if (search.isNullOrBlank()) "" else " AND $col ILIKE ?".also { params += "%$search%" }
-        params += limit
-        params += offset
-        return c.query(
-            """SELECT $col, min(ts), max(ts), count(*) FROM records
-               WHERE org_id = ? AND dataset_id = ? AND $col IS NOT NULL$where
-               GROUP BY 1 ORDER BY max(ts) DESC LIMIT ? OFFSET ?""",
-            *params.toTypedArray(),
-        ) { DimensionValue(it.getString(1), iso(it.getObject(2)), iso(it.getObject(3)), it.getLong(4)) }
+    /** [dim] must be a dimension of the dataset. */
+    fun dimensionValues(datasetId: String, dim: String, search: String?, limit: Int, offset: Int): List<DimensionValue> {
+        val value = DimText(dim)
+        val first = Records.ts.min()
+        val last = Records.ts.max()
+        val count = Records.ts.count()
+        return Records.select(value, first, last, count)
+            .where { of(datasetId) and value.isNotNull() }
+            .apply { if (!search.isNullOrBlank()) andWhere { ILike(value, "%$search%") } }
+            .groupBy(value).orderBy(last, SortOrder.DESC).limit(limit).offset(offset.toLong())
+            .map { DimensionValue(it[value]!!, iso(it[first]), iso(it[last]), it[count]) }
     }
 
     /**
      * Rows of `[time], groupBy values..., measures...` in [from, to): every record when [raw], else one row per
      * group and bucket of [bucketSeconds] (no time column when null). Group by and filter names must be dimensions.
      */
-    fun query(c: Connection, ds: Dataset, q: Query, from: Instant, to: Instant, raw: Boolean, bucketSeconds: Long?, limit: Int?): List<List<JsonElement>> {
+    fun query(ds: Dataset, q: Query, from: Instant, to: Instant, raw: Boolean, bucketSeconds: Long?, limit: Int?): List<List<JsonElement>> {
         val time = when {
-            raw -> "ts"
-            bucketSeconds != null -> "date_bin('$bucketSeconds seconds'::interval, ts, TIMESTAMPTZ '1970-01-01')"
+            raw -> Records.ts
+            bucketSeconds != null -> Sql("date_bin('$bucketSeconds seconds'::interval, ts, TIMESTAMPTZ '1970-01-01')")
             else -> null
         }
-        val select = listOfNotNull(time) + q.groupBy.map { "dims->>'$it'" } + q.measures.map { measureSql(it, ds, raw) }
-        val params = mutableListOf<Any?>(Db.ORG, ds.id, from, to)
-        val filters = q.filter.entries.joinToString("") { (k, v) -> params.add(v); " AND dims->>'$k' = ANY(?)" }
-        val tsCols = if (time == null) 0 else 1
-        val groupCols = q.groupBy.size
-        val groupBy = if (raw) "" else (1..tsCols + groupCols).joinToString(", ").let { if (it.isEmpty()) "" else " GROUP BY $it" }
-        val orderBy = ((tsCols + 1)..(tsCols + groupCols)).toList() + (if (tsCols == 1) listOf(1) else emptyList())
-        val sql = buildString {
-            append("SELECT ${select.joinToString(", ")} FROM records WHERE org_id = ? AND dataset_id = ? AND ts >= ? AND ts < ?")
-            append(filters).append(groupBy)
-            if (orderBy.isNotEmpty()) append(" ORDER BY ${orderBy.joinToString(", ")}")
-            if (limit != null) append(" LIMIT $limit")
-        }
-        return c.query(sql, *params.toTypedArray()) { rs -> (1..select.size).map { json(rs.getObject(it)) } }
+        val groups = q.groupBy.map(::DimText)
+        val select = listOfNotNull(time) + groups + q.measures.map { Sql(measureSql(it, ds, raw)) }
+        val query = Records.select(select)
+            .where { of(ds.id) and (Records.ts greaterEq from.toOffsetDateTime()) and (Records.ts less to.toOffsetDateTime()) }
+        q.filter.forEach { (k, v) -> query.andWhere { DimText(k) inList v } }
+        if (!raw && (time != null || groups.isNotEmpty())) query.groupBy(*(listOfNotNull(time) + groups).toTypedArray())
+        query.orderBy(*(groups + listOfNotNull(time)).map { it to SortOrder.ASC }.toTypedArray())
+        limit?.let(query::limit)
+        return query.map { row -> select.map { json(row[it]) } }
     }
 
+    // ponytail: measures stay SQL text (array_agg(... ORDER BY ...)[1], calculated Expr output); typed Exposed expressions if they get reused
     private fun measureSql(m: QueryMeasure, ds: Dataset, raw: Boolean): String {
         val (x, type) = field(ds, m.field)
         if (raw) return x
@@ -116,6 +131,8 @@ object RecordRepository {
         }
     }
 
+    private fun of(datasetId: String) = (Records.orgId eq Db.ORG) and (Records.datasetId eq datasetId)
+
     private fun json(v: Any?): JsonElement = when (v) {
         null -> JsonNull
         is Number -> JsonPrimitive(v)
@@ -130,3 +147,23 @@ object RecordRepository {
         else -> v.toString()
     }
 }
+
+/** SQL text built from names validated against the dataset. */
+private class Sql(private val sql: String) : Expression<Any?>() {
+    override fun toQueryBuilder(queryBuilder: QueryBuilder) {
+        queryBuilder.append(sql)
+    }
+}
+
+/**
+ * `dims->>'name'` with the name inlined; callers validate it. Exposed's extract() binds the path as a parameter,
+ * and a parameter in SELECT never matches the one in GROUP BY.
+ */
+private class DimText(private val name: String) : ExpressionWithColumnType<String?>() {
+    override val columnType = TextColumnType()
+    override fun toQueryBuilder(queryBuilder: QueryBuilder) {
+        queryBuilder.append(Records.dims, "->>'", name, "'")
+    }
+}
+
+private class ILike(expr: Expression<*>, pattern: String) : ComparisonOp(expr, stringParam(pattern), "ILIKE")

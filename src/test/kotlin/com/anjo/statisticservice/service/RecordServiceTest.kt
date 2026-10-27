@@ -1,8 +1,7 @@
 package com.anjo.statisticservice.service
 
 import com.anjo.statisticservice.db.Db
-import com.anjo.statisticservice.db.query
-import com.anjo.statisticservice.db.update
+import com.anjo.statisticservice.db.Records
 import com.anjo.statisticservice.exception.ApiException
 import com.anjo.statisticservice.model.Dataset
 import com.anjo.statisticservice.model.Dimension
@@ -18,6 +17,7 @@ import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonPrimitive
+import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -109,7 +109,7 @@ class RecordServiceTest {
     fun `raw over 10 000 rows is truncated`() {
         runBlocking {
             db.tx {
-                it.update(
+                exec(
                     """INSERT INTO records (org_id, dataset_id, ts, dims, vals, ident, ts_estimated)
                        SELECT 1, 't', TIMESTAMPTZ '2026-10-27T10:00:00Z' + (i || ' ms')::interval, '{"device":"a"}', jsonb_build_object('temp', i), NULL, false
                        FROM generate_series(1, 10001) i""",
@@ -143,7 +143,7 @@ class RecordServiceTest {
         val real = Clock.System.now()
         store.insert(listOf(rec(0, "a", 1.0, ts = real - 2.days), rec(0, "a", 2.0, ts = real)))
         store.purgeRetention(listOf(ds, ds.copy(id = "other", retentionDays = null)))
-        db.tx { c -> c.query("SELECT count(*) FROM records") { it.getLong(1) } }.single() shouldBe 1L
+        db.tx { Records.selectAll().count() } shouldBe 1L
     }
 
     @Test

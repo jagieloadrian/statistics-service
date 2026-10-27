@@ -43,6 +43,10 @@ dependencies {
     implementation(libs.kotlinx.datetime)
     implementation(libs.postgresql)
     implementation(libs.hikari)
+    implementation(libs.exposed.core)
+    implementation(libs.exposed.jdbc)
+    implementation(libs.exposed.json)
+    implementation(libs.exposed.java.time)
     implementation(libs.flyway.core)
     runtimeOnly(libs.flyway.postgresql)
 

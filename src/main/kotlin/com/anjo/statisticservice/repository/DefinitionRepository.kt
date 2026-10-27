@@ -1,63 +1,83 @@
 package com.anjo.statisticservice.repository
 
+import com.anjo.statisticservice.db.DashboardShares
 import com.anjo.statisticservice.db.Db
-import com.anjo.statisticservice.db.query
-import com.anjo.statisticservice.db.update
+import com.anjo.statisticservice.db.Definitions
 import com.anjo.statisticservice.model.ADMIN
 import com.anjo.statisticservice.model.Kind
 import com.anjo.statisticservice.model.UserPrincipal
 import com.anjo.statisticservice.model.definitionJson
 import com.anjo.statisticservice.model.dto.DefinitionSummary
 import kotlinx.serialization.KSerializer
-import java.sql.Connection
+import org.jetbrains.exposed.v1.core.Op
+import org.jetbrains.exposed.v1.core.TextColumnType
+import org.jetbrains.exposed.v1.core.and
+import org.jetbrains.exposed.v1.core.castTo
+import org.jetbrains.exposed.v1.core.coalesce
+import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.exists
+import org.jetbrains.exposed.v1.core.intLiteral
+import org.jetbrains.exposed.v1.core.or
+import org.jetbrains.exposed.v1.javatime.CurrentTimestampWithTimeZone
+import org.jetbrains.exposed.v1.jdbc.Query
+import org.jetbrains.exposed.v1.jdbc.andWhere
+import org.jetbrains.exposed.v1.jdbc.deleteWhere
+import org.jetbrains.exposed.v1.jdbc.select
+import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.upsert
+import org.jetbrains.exposed.v1.json.extract
 
 object DefinitionRepository {
+    private val label = coalesce(Definitions.body.extract<String>("label"), Definitions.body.extract<String>("title"))
+    private val updatedAtText = Definitions.updatedAt.castTo(TextColumnType())
 
     /** [visibleTo] limits dashboards to the ones that user may view; null = everything. */
-    fun <T> list(c: Connection, kind: Kind, ser: KSerializer<T>, visibleTo: UserPrincipal? = null): List<T> {
-        val (where, params) = visible(kind, visibleTo)
-        return c.query("SELECT body::text FROM definitions WHERE org_id = ? AND kind = ?$where ORDER BY id", Db.ORG, kind.key, *params) {
-            definitionJson.decodeFromString(ser, it.getString(1))
-        }
-    }
+    fun <T> list(kind: Kind, ser: KSerializer<T>, visibleTo: UserPrincipal? = null): List<T> =
+        Definitions.select(Definitions.body).where { key(kind) }.visibleTo(kind, visibleTo).orderBy(Definitions.id)
+            .map { definitionJson.decodeFromString(ser, it[Definitions.body]) }
 
-    fun summaries(c: Connection, kind: Kind, visibleTo: UserPrincipal? = null): List<DefinitionSummary> {
-        val (where, params) = visible(kind, visibleTo)
-        return c.query(
-            "SELECT id, coalesce(body->>'label', body->>'title'), updated_at::text FROM definitions WHERE org_id = ? AND kind = ?$where ORDER BY id",
-            Db.ORG, kind.key, *params,
-        ) { DefinitionSummary(it.getString(1), it.getString(2), it.getString(3)) }
-    }
+    fun summaries(kind: Kind, visibleTo: UserPrincipal? = null): List<DefinitionSummary> =
+        Definitions.select(Definitions.id, label, updatedAtText).where { key(kind) }.visibleTo(kind, visibleTo).orderBy(Definitions.id)
+            .map { DefinitionSummary(it[Definitions.id], it[label], it[updatedAtText]) }
 
-    fun isVisible(c: Connection, u: UserPrincipal, dashboardId: String): Boolean {
-        val (where, params) = visible(Kind.DASHBOARD, u)
-        return c.query("SELECT 1 FROM definitions WHERE org_id = ? AND kind = 'dashboard' AND id = ?$where", Db.ORG, dashboardId, *params) { 1 }.isNotEmpty()
-    }
+    fun isVisible(u: UserPrincipal, dashboardId: String): Boolean =
+        !Definitions.selectAll().where { key(Kind.DASHBOARD, dashboardId) }.visibleTo(Kind.DASHBOARD, u).empty()
 
-    fun ownerId(c: Connection, dashboardId: String): Long? =
-        c.query("SELECT owner_id FROM definitions WHERE org_id = ? AND kind = 'dashboard' AND id = ?", Db.ORG, dashboardId) { it.getObject(1) as Long? }
-            .singleOrNull()
+    fun ownerId(dashboardId: String): Long? =
+        Definitions.select(Definitions.ownerId).where { key(Kind.DASHBOARD, dashboardId) }.singleOrNull()?.get(Definitions.ownerId)
 
-    fun <T> get(c: Connection, kind: Kind, id: String, ser: KSerializer<T>): T? =
-        c.query("SELECT body::text FROM definitions WHERE org_id = ? AND kind = ? AND id = ?", Db.ORG, kind.key, id) {
-            definitionJson.decodeFromString(ser, it.getString(1))
-        }.firstOrNull()
+    fun <T> get(kind: Kind, id: String, ser: KSerializer<T>): T? =
+        Definitions.select(Definitions.body).where { key(kind, id) }.singleOrNull()
+            ?.let { definitionJson.decodeFromString(ser, it[Definitions.body]) }
 
     /** true = created, false = updated; owner is kept on update */
-    fun <T> upsert(c: Connection, kind: Kind, id: String, body: T, ser: KSerializer<T>, ownerId: Long?): Boolean =
-        c.query(
-            """INSERT INTO definitions (org_id, kind, id, body, owner_id, updated_at) VALUES (?, ?, ?, ?::jsonb, ?, now())
-               ON CONFLICT (org_id, kind, id) DO UPDATE SET body = EXCLUDED.body, updated_at = now()
-               RETURNING (xmax = 0)""",
-            Db.ORG, kind.key, id, definitionJson.encodeToString(ser, body), ownerId,
-        ) { it.getBoolean(1) }.first()
+    // ponytail: two racing creates both report created; RETURNING (xmax = 0) if import counts must be exact
+    fun <T> upsert(kind: Kind, id: String, body: T, ser: KSerializer<T>, ownerId: Long?): Boolean {
+        val created = Definitions.selectAll().where { key(kind, id) }.empty()
+        Definitions.upsert(onUpdateExclude = listOf(Definitions.ownerId)) {
+            it[orgId] = Db.ORG
+            it[this.kind] = kind.key
+            it[this.id] = id
+            it[this.body] = definitionJson.encodeToString(ser, body)
+            it[this.ownerId] = ownerId
+            it[updatedAt] = CurrentTimestampWithTimeZone
+        }
+        return created
+    }
 
-    fun delete(c: Connection, kind: Kind, id: String): Boolean =
-        c.update("DELETE FROM definitions WHERE org_id = ? AND kind = ? AND id = ?", Db.ORG, kind.key, id) > 0
+    fun delete(kind: Kind, id: String): Boolean = Definitions.deleteWhere { key(kind, id) } > 0
 
-    private fun visible(kind: Kind, u: UserPrincipal?): Pair<String, Array<Any?>> =
-        if (kind != Kind.DASHBOARD || u == null || u.role == ADMIN) "" to emptyArray()
-        else """ AND (body->>'visibility' = 'all' OR owner_id = ? OR (body->>'visibility' = 'users' AND EXISTS (
-                 SELECT 1 FROM dashboard_shares s WHERE s.org_id = definitions.org_id AND s.dashboard_id = definitions.id AND s.user_id = ?)))""" to
-            arrayOf(u.id, u.id)
+    private fun key(kind: Kind, id: String? = null): Op<Boolean> {
+        val k = (Definitions.orgId eq Db.ORG) and (Definitions.kind eq kind.key)
+        return if (id == null) k else k and (Definitions.id eq id)
+    }
+
+    private fun Query.visibleTo(kind: Kind, u: UserPrincipal?): Query {
+        if (kind != Kind.DASHBOARD || u == null || u.role == ADMIN) return this
+        val visibility = Definitions.body.extract<String>("visibility")
+        val shared = DashboardShares.select(intLiteral(1)).where {
+            (DashboardShares.orgId eq Definitions.orgId) and (DashboardShares.dashboardId eq Definitions.id) and (DashboardShares.userId eq u.id)
+        }
+        return andWhere { (visibility eq "all") or (Definitions.ownerId eq u.id) or ((visibility eq "users") and exists(shared)) }
+    }
 }

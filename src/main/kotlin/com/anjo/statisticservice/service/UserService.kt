@@ -9,17 +9,16 @@ import com.anjo.statisticservice.model.Prefs
 import com.anjo.statisticservice.model.ROLES
 import com.anjo.statisticservice.model.User
 import com.anjo.statisticservice.repository.UserRepository
-import java.sql.Connection
 
 class UserService(private val db: Db) {
 
-    suspend fun user(id: Long): User = db.tx { c -> UserRepository.find(c, id) } ?: throw notFound("Unknown user $id")
+    suspend fun user(id: Long): User = db.tx { UserRepository.find(id) } ?: throw notFound("Unknown user $id")
 
-    suspend fun users(): List<User> = db.tx { c -> UserRepository.list(c) }
+    suspend fun users(): List<User> = db.tx { UserRepository.list() }
 
     suspend fun setPrefs(id: Long, p: Prefs): User {
         validatePrefs(p)
-        db.tx { c -> UserRepository.setPrefs(c, id, p) }
+        db.tx { UserRepository.setPrefs(id, p) }
         return user(id)
     }
 
@@ -27,30 +26,30 @@ class UserService(private val db: Db) {
         requirePassword(password)
         if (role !in ROLES) throw badRequest("role: admin | editor | viewer")
         if (!email.contains('@')) throw badRequest("email: not an email address")
-        val id = db.tx { c ->
-            if (UserRepository.emailTaken(c, normalizeEmail(email))) throw conflict("email: already in use")
-            UserRepository.insert(c, normalizeEmail(email), name, role, Passwords.hash(password))
+        val id = db.tx {
+            if (UserRepository.emailTaken(normalizeEmail(email))) throw conflict("email: already in use")
+            UserRepository.insert(normalizeEmail(email), name, role, Passwords.hash(password))
         }
         return user(id)
     }
 
     suspend fun updateUser(id: Long, name: String?, role: String?): User {
         if (role != null && role !in ROLES) throw badRequest("role: admin | editor | viewer")
-        db.tx { c ->
-            val current = UserRepository.find(c, id) ?: throw notFound("Unknown user $id")
-            if (current.role == ADMIN && role != null && role != ADMIN) c.requireAnotherAdmin()
-            UserRepository.update(c, id, name ?: current.name, role ?: current.role)
+        db.tx {
+            val current = UserRepository.find(id) ?: throw notFound("Unknown user $id")
+            if (current.role == ADMIN && role != null && role != ADMIN) requireAnotherAdmin()
+            UserRepository.update(id, name ?: current.name, role ?: current.role)
         }
         return user(id)
     }
 
-    suspend fun deleteUser(id: Long) = db.tx { c ->
-        val current = UserRepository.find(c, id) ?: throw notFound("Unknown user $id")
-        if (current.role == ADMIN) c.requireAnotherAdmin()
-        UserRepository.delete(c, id)
+    suspend fun deleteUser(id: Long) = db.tx {
+        val current = UserRepository.find(id) ?: throw notFound("Unknown user $id")
+        if (current.role == ADMIN) requireAnotherAdmin()
+        UserRepository.delete(id)
     }
 
-    private fun Connection.requireAnotherAdmin() {
-        if (UserRepository.count(this, ADMIN) <= 1) throw conflict("The last admin cannot be demoted or deleted")
+    private fun requireAnotherAdmin() {
+        if (UserRepository.count(ADMIN) <= 1) throw conflict("The last admin cannot be demoted or deleted")
     }
 }

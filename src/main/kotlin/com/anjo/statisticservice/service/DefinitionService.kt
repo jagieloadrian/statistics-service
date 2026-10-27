@@ -26,17 +26,16 @@ import com.anjo.statisticservice.repository.SourceCredentialRepository
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.JsonElement
 import java.security.MessageDigest
-import java.sql.Connection
 
 /** Datasets, sources and dashboards: validation, references, access, import and export. */
 class DefinitionService(private val db: Db, private val status: SourceStatusService) {
 
     /** [visibleTo] limits dashboards to the ones that user may view; null = everything. */
     suspend fun <T> list(kind: Kind, ser: KSerializer<T>, visibleTo: UserPrincipal? = null): List<T> =
-        db.tx { c -> DefinitionRepository.list(c, kind, ser, visibleTo) }
+        db.tx { DefinitionRepository.list(kind, ser, visibleTo) }
 
     suspend fun summaries(kind: Kind, visibleTo: UserPrincipal? = null): List<DefinitionSummary> =
-        db.tx { c -> DefinitionRepository.summaries(c, kind, visibleTo) }
+        db.tx { DefinitionRepository.summaries(kind, visibleTo) }
 
     /** The stored document as is. */
     suspend fun json(kind: Kind, id: String): JsonElement? = get(kind, id, JsonElement.serializer())
@@ -45,7 +44,7 @@ class DefinitionService(private val db: Db, private val status: SourceStatusServ
     suspend fun source(id: String) = get(Kind.SOURCE, id, Source.serializer())
     suspend fun dashboard(id: String) = get(Kind.DASHBOARD, id, Dashboard.serializer())
 
-    private suspend fun <T> get(kind: Kind, id: String, ser: KSerializer<T>): T? = db.tx { c -> DefinitionRepository.get(c, kind, id, ser) }
+    private suspend fun <T> get(kind: Kind, id: String, ser: KSerializer<T>): T? = db.tx { DefinitionRepository.get(kind, id, ser) }
 
     /** Viewers only reach datasets used by a dashboard they can view. */
     suspend fun requireDatasetAccess(u: UserPrincipal, id: String) {
@@ -59,7 +58,7 @@ class DefinitionService(private val db: Db, private val status: SourceStatusServ
             val refs = references(d.id, removed)
             if (refs.isNotEmpty()) throw conflict("Removing $removed breaks references; add ?force=true to save anyway", refs)
         }
-        db.tx { c -> c.putDataset(d) }
+        db.tx { storeDataset(d) }
     }
 
     suspend fun deleteDataset(id: String, force: Boolean) {
@@ -71,7 +70,7 @@ class DefinitionService(private val db: Db, private val status: SourceStatusServ
     }
 
     suspend fun putSource(s: Source) {
-        db.tx { c -> c.putSource(s) }
+        db.tx { storeSource(s) }
     }
 
     suspend fun deleteSource(id: String) {
@@ -83,26 +82,26 @@ class DefinitionService(private val db: Db, private val status: SourceStatusServ
     suspend fun rotateCredential(sourceId: String): String {
         source(sourceId) ?: throw notFound("Unknown source '$sourceId'")
         val token = newToken()
-        db.tx { c -> SourceCredentialRepository.upsert(c, sourceId, sha256(token)) }
+        db.tx { SourceCredentialRepository.upsert(sourceId, sha256(token)) }
         return token
     }
 
     suspend fun verifyCredential(sourceId: String, token: String): Boolean {
-        val stored = db.tx { c -> SourceCredentialRepository.tokenHash(c, sourceId) } ?: return false
+        val stored = db.tx { SourceCredentialRepository.tokenHash(sourceId) } ?: return false
         return MessageDigest.isEqual(stored, sha256(token))
     }
 
     /** Fails unless the dashboard exists and [u] may view it. */
     suspend fun viewDashboard(u: UserPrincipal, id: String): JsonElement {
         val d = json(Kind.DASHBOARD, id) ?: throw notFound("Unknown dashboard '$id'")
-        if (!db.tx { c -> DefinitionRepository.isVisible(c, u, id) }) throw forbidden("Dashboard '$id' is not shared with you")
+        if (!db.tx { DefinitionRepository.isVisible(u, id) }) throw forbidden("Dashboard '$id' is not shared with you")
         return d
     }
 
     /** Creating sets [u] as owner; replacing needs [canEdit]. */
     suspend fun putDashboard(u: UserPrincipal, d: Dashboard) {
         if (dashboard(d.id) != null && !canEdit(u, d.id)) throw forbidden("Only the owner or an admin can change '${d.id}'")
-        db.tx { c -> c.putDashboard(d, u.id) }
+        db.tx { storeDashboard(d, u.id) }
     }
 
     suspend fun deleteDashboard(u: UserPrincipal, id: String) {
@@ -116,13 +115,13 @@ class DefinitionService(private val db: Db, private val status: SourceStatusServ
         if (!canEdit(u, id)) throw message?.let(::forbidden) ?: forbidden()
     }
 
-    suspend fun shares(dashboardId: String): List<Long> = db.tx { c -> DashboardShareRepository.userIds(c, dashboardId) }
+    suspend fun shares(dashboardId: String): List<Long> = db.tx { DashboardShareRepository.userIds(dashboardId) }
 
-    suspend fun setShares(dashboardId: String, userIds: List<Long>) = db.tx { c -> DashboardShareRepository.replace(c, dashboardId, userIds) }
+    suspend fun setShares(dashboardId: String, userIds: List<Long>) = db.tx { DashboardShareRepository.replace(dashboardId, userIds) }
 
     /** Admins and the owning editor may change a dashboard; imported ones (no owner) are admin-only. */
     private suspend fun canEdit(u: UserPrincipal, dashboardId: String): Boolean =
-        u.role == ADMIN || u.role == EDITOR && db.tx { c -> DefinitionRepository.ownerId(c, dashboardId) } == u.id
+        u.role == ADMIN || u.role == EDITOR && db.tx { DefinitionRepository.ownerId(dashboardId) } == u.id
 
     private suspend fun visibleDatasets(u: UserPrincipal): Set<String> =
         list(Kind.DASHBOARD, Dashboard.serializer(), u).flatMap { d -> d.widgets.map { it.query.dataset } + d.variables.mapNotNull { it.dataset } }.toSet()
@@ -143,7 +142,7 @@ class DefinitionService(private val db: Db, private val status: SourceStatusServ
 
     /** All-or-nothing upsert; on any invalid document nothing is stored and every error is returned. */
     // ponytail: no reference guard on import, it restores whole bundles
-    suspend fun import(b: Bundle): ImportResult = db.tx { c ->
+    suspend fun import(b: Bundle): ImportResult = db.tx {
         val errors = mutableListOf<String>()
         val created = mutableListOf<Boolean>()
         fun attempt(what: String, put: () -> Boolean) = try {
@@ -152,11 +151,11 @@ class DefinitionService(private val db: Db, private val status: SourceStatusServ
             errors += (listOf("$what: ${e.message}") + e.details).joinToString("; ")
         }
         if (b.version != 1) errors += "version: must be 1"
-        b.datasets.forEach { attempt("dataset ${it.id}") { c.putDataset(it) } }
-        b.sources.forEach { attempt("source ${it.id}") { c.putSource(it) } }
-        b.dashboards.forEach { attempt("dashboard ${it.id}") { c.putDashboard(it, null) } }
+        b.datasets.forEach { attempt("dataset ${it.id}") { storeDataset(it) } }
+        b.sources.forEach { attempt("source ${it.id}") { storeSource(it) } }
+        b.dashboards.forEach { attempt("dashboard ${it.id}") { storeDashboard(it, null) } }
         if (errors.isEmpty()) ImportResult(created.count { it }, created.count { !it })
-        else ImportResult(0, 0, errors).also { c.rollback() }
+        else ImportResult(0, 0, errors).also { rollback() }
     }
 
     /**
@@ -178,31 +177,31 @@ class DefinitionService(private val db: Db, private val status: SourceStatusServ
     private fun Widget.uses() = query.measures.flatMap { listOfNotNull(it.field, it.by) } + query.filter.keys + query.groupBy + listOfNotNull(options.x)
 
     /** Deletes the document and what hangs off it: records, the source credential or dashboard shares. */
-    private suspend fun delete(kind: Kind, id: String): Boolean = db.tx { c ->
+    private suspend fun delete(kind: Kind, id: String): Boolean = db.tx {
         when (kind) {
-            Kind.DATASET -> RecordRepository.deleteDataset(c, id)
-            Kind.SOURCE -> SourceCredentialRepository.delete(c, id)
-            Kind.DASHBOARD -> DashboardShareRepository.delete(c, id)
+            Kind.DATASET -> RecordRepository.deleteDataset(id)
+            Kind.SOURCE -> SourceCredentialRepository.delete(id)
+            Kind.DASHBOARD -> DashboardShareRepository.delete(id)
         }
-        DefinitionRepository.delete(c, kind, id)
+        DefinitionRepository.delete(kind, id)
     }
 
-    private fun Connection.putDataset(d: Dataset): Boolean {
+    private fun storeDataset(d: Dataset): Boolean {
         validateDataset(d)
-        return DefinitionRepository.upsert(this, Kind.DATASET, d.id, d, Dataset.serializer(), null)
+        return DefinitionRepository.upsert(Kind.DATASET, d.id, d, Dataset.serializer(), null)
     }
 
-    private fun Connection.putSource(s: Source): Boolean {
-        val dataset = DefinitionRepository.get(this, Kind.DATASET, s.dataset, Dataset.serializer())
+    private fun storeSource(s: Source): Boolean {
+        val dataset = DefinitionRepository.get(Kind.DATASET, s.dataset, Dataset.serializer())
             ?: throw badRequest("Unknown dataset '${s.dataset}'")
         validateSource(s, dataset)
-        return DefinitionRepository.upsert(this, Kind.SOURCE, s.id, s, Source.serializer(), null)
+        return DefinitionRepository.upsert(Kind.SOURCE, s.id, s, Source.serializer(), null)
     }
 
-    private fun Connection.putDashboard(d: Dashboard, ownerId: Long?): Boolean {
+    private fun storeDashboard(d: Dashboard, ownerId: Long?): Boolean {
         validateDashboard(d)
-        val missing = d.widgets.map { it.query.dataset }.distinct().filter { DefinitionRepository.get(this, Kind.DATASET, it, Dataset.serializer()) == null }
+        val missing = d.widgets.map { it.query.dataset }.distinct().filter { DefinitionRepository.get(Kind.DATASET, it, Dataset.serializer()) == null }
         if (missing.isNotEmpty()) throw badRequest("Unknown dataset(s) in widgets", missing)
-        return DefinitionRepository.upsert(this, Kind.DASHBOARD, d.id, d, Dashboard.serializer(), ownerId)
+        return DefinitionRepository.upsert(Kind.DASHBOARD, d.id, d, Dashboard.serializer(), ownerId)
     }
 }

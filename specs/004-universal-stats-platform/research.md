@@ -126,18 +126,20 @@ sample payloads from `RPI_*_Contract.md` reused as test fixtures.
 No NEEDS CLARIFICATION left in Technical Context; each choice below in
 Decision / Rationale / Alternatives form.
 
-**D1 — Storage: PostgreSQL 16, plain JDBC + HikariCP.**
-Rationale: dynamic aggregate SQL (bucket, group by arbitrary JSONB keys) is
-easiest as hand-built parameterized SQL; definitions are JSONB documents, so
-no ORM mapping is needed. `date_bin()` needs PG ≥ 14.
-Alternatives: Exposed / jOOQ (DSL adds little for dynamic JSONB queries),
+**D1 — Storage: PostgreSQL 16, Exposed DSL (JDBC) + HikariCP.**
+Rationale: typed table objects and DSL for the CRUD paths; the dynamic
+aggregate query uses the DSL for WHERE/GROUP BY/ORDER BY with small custom
+expressions for inlined JSONB keys, measures stay validated SQL text.
+Definitions are JSONB documents, so no ORM entities. `date_bin()` needs PG ≥ 14.
+(Started as plain JDBC; moved to Exposed with the layered refactor.)
+Alternatives: plain JDBC (first version), jOOQ (codegen step),
 R2DBC / vertx-pg-client (async gain irrelevant at this scale), TimescaleDB
 now (upgrade path, not needed yet), keep Redis (no server-side aggregation).
 
-**D2 — Schema management: one idempotent `schema.sql` run at startup.**
-Rationale: v1 schema is ~7 tables, all `CREATE … IF NOT EXISTS`.
-`ponytail:` add Flyway at the first `ALTER` after release.
-Alternatives: Flyway/Liquibase from day one (machinery before any migration exists).
+**D2 — Schema management: Flyway, `db/migration/V1__init.sql` onward.**
+Rationale: the startup `schema.sql` became V1; `baselineOnMigrate` marks
+databases created by it as V1, so later `ALTER`s are plain V2+ scripts.
+Alternatives: idempotent `schema.sql` (first version, no path for `ALTER`), Liquibase.
 
 **D3 — Definitions stored as JSONB documents in one table keyed (org, kind, id).**
 Rationale: export/import (FR-017) becomes a dump/upsert of rows; the
@@ -183,7 +185,8 @@ aggregation over the derived value), SQL expression column in definition
 **D7 — Query identifiers inlined only after whitelist validation; values always bound.**
 Dim/measure names must match the dataset declaration and
 `^[A-Za-z_][A-Za-z0-9_]{0,62}$`; filter values, time range and bucket go
-as JDBC parameters. `GROUP BY` uses ordinal positions.
+as bound parameters. `GROUP BY` repeats the inlined expressions (a bound
+JSON path in SELECT would not match the one in GROUP BY).
 
 **D8 — Auth: platform accounts, PBKDF2-HMAC-SHA256 (JDK, 600k iterations), opaque bearer tokens.**
 Token = 32 random bytes, stored as SHA-256 hash with `last_seen`; expires

@@ -27,7 +27,9 @@ Multiplatform — wasmJs, js, JVM desktop (frontend)
 **Primary Dependencies**: backend — Ktor 3.4.0 (existing: server-core,
 netty, di, content-negotiation, status-pages, cors, swagger, call-logging;
 NEW: `ktor-server-auth`, `ktor-server-rate-limit`), kotlinx.serialization,
-kotlinx-datetime, NEW `org.postgresql:postgresql` (JDBC) + `HikariCP`;
+kotlinx-datetime, NEW `org.postgresql:postgresql` + `HikariCP`, Exposed
+(core, jdbc, json, java-time) for SQL, Flyway (core + database-postgresql)
+for schema migrations;
 REMOVED in S0: lettuce, ktor-simple-(redis-)cache, jedis,
 testcontainers-redis, `:plugin:*`. Frontend — existing Compose MP,
 navigation-compose, Ktor client, Koin, charty; no new deps.
@@ -106,28 +108,29 @@ specs/004-universal-stats-platform/
 .devops/postgres-compose/compose.yaml          # NEW postgres:16
 definitions/temperature.json                   # NEW example domain as data (dataset+source+dashboard)
 definitions/epidemic.json                      # NEW
-src/main/resources/schema.sql                  # NEW CREATE TABLE IF NOT EXISTS …
+src/main/resources/db/migration/V1__init.sql   # Flyway; databases from the old startup schema are baselined at V1
 src/main/resources/application.yaml            # MODIFIED db url/user/pass, bootstrap admin, rate limit
 src/main/kotlin/com/anjo/statisticservice/
-├── Application.kt                             # MODIFIED wire db, auth, routes
-├── db/Db.kt                                   # NEW Hikari DataSource, schema init, tx/query helpers (Dispatchers.IO)
-├── definitions/Definitions.kt                 # NEW @Serializable Source/Dataset/Dashboard + DefinitionStore (CRUD, import/export)
-├── mapping/Mapper.kt                          # NEW payload → records + constraint checks
-├── mapping/Expr.kt                            # NEW calculated-measure expression → SQL fragment
-├── records/RecordStore.kt                     # NEW insert/dedup, query (buckets, aggs, at_max), dim values, retention purge
-├── ingest/IngestRoutes.kt                     # NEW /api/v2/ingest/{sourceId} (mapping or native format)
-├── ingest/SourceStatus.kt                     # NEW in-memory counters + last 50 rejections
-├── auth/Auth.kt                               # NEW users, PBKDF2, tokens, bearer provider, role guard, bootstrap admin
-├── routing/ApiRoutes.kt                       # NEW query, dims, definitions, status, users, me
-├── routing/Routing.kt                         # MODIFIED
-├── routing/GlobalExceptionHandler.kt          # MODIFIED MappingException/Forbidden → 400/403
-└── di/*                                       # MODIFIED drop Redis/plugin wiring (S0)
+├── Application.kt                             # module wiring + hourly retention purge
+├── controller/                                # routes per resource: Auth, User, Dataset, Source, Dashboard,
+│                                              #   Bundle (import/export), Query, Ingest; Routing, error handling,
+│                                              #   Swagger, CallHelpers (user/role/id). Parse input, call a service, respond.
+├── service/                                   # business rules + transaction boundaries: DefinitionService (CRUD,
+│                                              #   reference guard, dashboard access, import/export), RecordService,
+│                                              #   IngestService (ingest + mapping test), SourceStatusService (in memory),
+│                                              #   AuthService, UserService, Validation, Secrets (PBKDF2, tokens)
+├── service/mapping/                           # Mapper (payload → records), Expr (calculated measure → SQL)
+├── repository/                                # Exposed DSL per aggregate, run inside the caller's transaction:
+│                                              #   Definition, DashboardShare, SourceCredential, Record, User, Token
+├── db/                                        # Db (Hikari + Flyway migrate + Exposed connect, tx), Tables (Exposed objects)
+├── model/, model/dto/                         # domain types; request/response bodies
+├── exception/                                 # ApiException (+ helpers), MappingException
+└── di/                                        # Ktor DI registration, Frameworks
 src/test/kotlin/com/anjo/statisticservice/
-├── testutils/PostgresContainerSetup.kt        # NEW (replaces RedisContainerSetup)
-├── mapping/MapperTest.kt, ExprTest.kt         # NEW unit
-├── records/RecordStoreTest.kt                 # NEW integration (buckets, aggs, dedup, dims)
-├── ingest/IngestRoutesTest.kt                 # NEW v2 ingest with RPI_* sample payloads + native format
-└── routing/AccessControlTest.kt               # NEW role × endpoint matrix (SC-008)
+├── testutils/PostgresContainerSetup.kt        # shared Testcontainers Postgres, migrated once through Db
+├── service/mapping/MapperTest.kt, ExprTest.kt # unit
+├── service/RecordServiceTest.kt               # integration (buckets, aggs, dedup, dims)
+└── controller/*Test.kt                        # HTTP: ingest, auth, access matrix (SC-008), definitions, import/export, OpenAPI
 
 DELETED in S0: plugin/**, settings.gradle.kts plugin includes,
 plugin/PluginRegistry.kt, routing/PluginStatsRouting.kt,
@@ -160,7 +163,8 @@ presentation/configurationchart/**, presentation/details/**, .docs/*_UI_API_Cont
 
 **Structure Decision**: keep both existing repos and their Gradle layouts;
 backend collapses back to a single application module (plugin subprojects
-deleted in S0), packages by pipeline stage. Frontend stays one
+deleted in S0), packages by layer (controller → service → repository → db,
+plus model, exception, di). Frontend stays one
 `composeApp` module.
 
 ## Delivery Slices

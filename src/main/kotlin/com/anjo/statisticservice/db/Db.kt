@@ -5,9 +5,9 @@ import com.zaxxer.hikari.HikariDataSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.flywaydb.core.Flyway
-import java.sql.Connection
-import java.sql.PreparedStatement
-import java.sql.ResultSet
+import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
 import kotlin.time.Instant
@@ -21,22 +21,16 @@ class Db(url: String, user: String, password: String) : AutoCloseable {
         maximumPoolSize = 10
     })
 
+    private val database: Database
+
     init {
         // a database created before Flyway already has the V1 schema and is baselined there
         Flyway.configure().dataSource(ds).baselineOnMigrate(true).load().migrate()
+        database = Database.connect(ds)
     }
 
-    suspend fun <T> tx(block: (Connection) -> T): T = withContext(Dispatchers.IO) {
-        ds.connection.use { c ->
-            c.autoCommit = false
-            try {
-                block(c).also { c.commit() }
-            } catch (e: Throwable) {
-                c.rollback()
-                throw e
-            }
-        }
-    }
+    /** Runs [block] in one transaction; repositories called inside it share it. */
+    suspend fun <T> tx(block: JdbcTransaction.() -> T): T = withContext(Dispatchers.IO) { transaction(database) { block() } }
 
     override fun close() = ds.close()
 
@@ -45,24 +39,4 @@ class Db(url: String, user: String, password: String) : AutoCloseable {
     }
 }
 
-fun <T> Connection.query(sql: String, vararg params: Any?, map: (ResultSet) -> T): List<T> =
-    prepareStatement(sql).use { st ->
-        st.bind(params)
-        st.executeQuery().use { rs -> buildList { while (rs.next()) add(map(rs)) } }
-    }
-
-fun Connection.update(sql: String, vararg params: Any?): Int =
-    prepareStatement(sql).use { st ->
-        st.bind(params)
-        st.executeUpdate()
-    }
-
-private fun PreparedStatement.bind(params: Array<out Any?>) {
-    params.forEachIndexed { i, p ->
-        when (p) {
-            is Instant -> setObject(i + 1, OffsetDateTime.ofInstant(p.toJavaInstant(), ZoneOffset.UTC))
-            is List<*> -> setArray(i + 1, connection.createArrayOf("text", p.map { it.toString() }.toTypedArray()))
-            else -> setObject(i + 1, p)
-        }
-    }
-}
+fun Instant.toOffsetDateTime(): OffsetDateTime = OffsetDateTime.ofInstant(toJavaInstant(), ZoneOffset.UTC)

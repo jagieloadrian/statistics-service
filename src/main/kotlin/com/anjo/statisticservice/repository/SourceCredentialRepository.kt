@@ -1,24 +1,31 @@
 package com.anjo.statisticservice.repository
 
 import com.anjo.statisticservice.db.Db
-import com.anjo.statisticservice.db.query
-import com.anjo.statisticservice.db.update
-import java.sql.Connection
+import com.anjo.statisticservice.db.SourceCredentials
+import org.jetbrains.exposed.v1.core.and
+import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.javatime.CurrentTimestampWithTimeZone
+import org.jetbrains.exposed.v1.jdbc.deleteWhere
+import org.jetbrains.exposed.v1.jdbc.select
+import org.jetbrains.exposed.v1.jdbc.upsert
 
 object SourceCredentialRepository {
 
-    fun upsert(c: Connection, sourceId: String, tokenHash: ByteArray) {
-        c.update(
-            """INSERT INTO source_credentials (org_id, source_id, token_hash) VALUES (?, ?, ?)
-               ON CONFLICT (org_id, source_id) DO UPDATE SET token_hash = EXCLUDED.token_hash, created_at = now()""",
-            Db.ORG, sourceId, tokenHash,
-        )
+    fun upsert(sourceId: String, tokenHash: ByteArray) {
+        SourceCredentials.upsert {
+            it[orgId] = Db.ORG
+            it[this.sourceId] = sourceId
+            it[this.tokenHash] = tokenHash
+            it[createdAt] = CurrentTimestampWithTimeZone
+        }
     }
 
-    fun tokenHash(c: Connection, sourceId: String): ByteArray? =
-        c.query("SELECT token_hash FROM source_credentials WHERE org_id = ? AND source_id = ?", Db.ORG, sourceId) { it.getBytes(1) }.firstOrNull()
+    fun tokenHash(sourceId: String): ByteArray? =
+        SourceCredentials.select(SourceCredentials.tokenHash).where { of(sourceId) }.singleOrNull()?.get(SourceCredentials.tokenHash)
 
-    fun delete(c: Connection, sourceId: String) {
-        c.update("DELETE FROM source_credentials WHERE org_id = ? AND source_id = ?", Db.ORG, sourceId)
+    fun delete(sourceId: String) {
+        SourceCredentials.deleteWhere { of(sourceId) }
     }
+
+    private fun of(sourceId: String) = (SourceCredentials.orgId eq Db.ORG) and (SourceCredentials.sourceId eq sourceId)
 }

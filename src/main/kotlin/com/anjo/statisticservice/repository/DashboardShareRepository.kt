@@ -1,21 +1,32 @@
 package com.anjo.statisticservice.repository
 
+import com.anjo.statisticservice.db.DashboardShares
 import com.anjo.statisticservice.db.Db
-import com.anjo.statisticservice.db.query
-import com.anjo.statisticservice.db.update
-import java.sql.Connection
+import org.jetbrains.exposed.v1.core.and
+import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.jdbc.deleteWhere
+import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.select
 
 object DashboardShareRepository {
 
-    fun userIds(c: Connection, dashboardId: String): List<Long> =
-        c.query("SELECT user_id FROM dashboard_shares WHERE org_id = ? AND dashboard_id = ? ORDER BY user_id", Db.ORG, dashboardId) { it.getLong(1) }
+    fun userIds(dashboardId: String): List<Long> =
+        DashboardShares.select(DashboardShares.userId).where { of(dashboardId) }.orderBy(DashboardShares.userId).map { it[DashboardShares.userId] }
 
-    fun replace(c: Connection, dashboardId: String, userIds: List<Long>) {
-        delete(c, dashboardId)
-        userIds.distinct().forEach { c.update("INSERT INTO dashboard_shares (org_id, dashboard_id, user_id) VALUES (?, ?, ?)", Db.ORG, dashboardId, it) }
+    fun replace(dashboardId: String, userIds: List<Long>) {
+        delete(dashboardId)
+        userIds.distinct().forEach { u ->
+            DashboardShares.insert {
+                it[orgId] = Db.ORG
+                it[this.dashboardId] = dashboardId
+                it[userId] = u
+            }
+        }
     }
 
-    fun delete(c: Connection, dashboardId: String) {
-        c.update("DELETE FROM dashboard_shares WHERE org_id = ? AND dashboard_id = ?", Db.ORG, dashboardId)
+    fun delete(dashboardId: String) {
+        DashboardShares.deleteWhere { of(dashboardId) }
     }
+
+    private fun of(dashboardId: String) = (DashboardShares.orgId eq Db.ORG) and (DashboardShares.dashboardId eq dashboardId)
 }

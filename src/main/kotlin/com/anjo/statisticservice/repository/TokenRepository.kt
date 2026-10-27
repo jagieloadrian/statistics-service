@@ -1,32 +1,42 @@
 package com.anjo.statisticservice.repository
 
-import com.anjo.statisticservice.db.query
-import com.anjo.statisticservice.db.update
-import java.sql.Connection
+import com.anjo.statisticservice.db.AuthTokens
+import com.anjo.statisticservice.db.Users
+import org.jetbrains.exposed.v1.core.and
+import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.greater
+import org.jetbrains.exposed.v1.core.neq
+import org.jetbrains.exposed.v1.javatime.CurrentTimestampWithTimeZone
+import org.jetbrains.exposed.v1.jdbc.deleteWhere
+import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.select
+import org.jetbrains.exposed.v1.jdbc.update
+import java.time.OffsetDateTime
 
 object TokenRepository {
 
-    fun insert(c: Connection, tokenHash: ByteArray, userId: Long) {
-        c.update("INSERT INTO auth_tokens (token_hash, user_id) VALUES (?, ?)", tokenHash, userId)
+    fun insert(tokenHash: ByteArray, userId: Long) {
+        AuthTokens.insert {
+            it[this.tokenHash] = tokenHash
+            it[this.userId] = userId
+        }
     }
 
-    /** User id and role behind a token used within 7 days, and whether `last_seen` is over a minute old. */
-    fun find(c: Connection, tokenHash: ByteArray): Triple<Long, String, Boolean>? =
-        c.query(
-            """SELECT u.id, u.role, t.last_seen < now() - interval '1 minute' FROM auth_tokens t JOIN users u ON u.id = t.user_id
-               WHERE t.token_hash = ? AND t.last_seen > now() - interval '7 days'""",
-            tokenHash,
-        ) { Triple(it.getLong(1), it.getString(2), it.getBoolean(3)) }.firstOrNull()
+    /** User id, role and `last_seen` behind a token last used after [seenAfter]. */
+    fun find(tokenHash: ByteArray, seenAfter: OffsetDateTime): Triple<Long, String, OffsetDateTime>? =
+        (AuthTokens innerJoin Users).select(Users.id, Users.role, AuthTokens.lastSeen)
+            .where { (AuthTokens.tokenHash eq tokenHash) and (AuthTokens.lastSeen greater seenAfter) }
+            .singleOrNull()?.let { Triple(it[Users.id], it[Users.role], it[AuthTokens.lastSeen]) }
 
-    fun touch(c: Connection, tokenHash: ByteArray) {
-        c.update("UPDATE auth_tokens SET last_seen = now() WHERE token_hash = ?", tokenHash)
+    fun touch(tokenHash: ByteArray) {
+        AuthTokens.update({ AuthTokens.tokenHash eq tokenHash }) { it[lastSeen] = CurrentTimestampWithTimeZone }
     }
 
-    fun delete(c: Connection, tokenHash: ByteArray) {
-        c.update("DELETE FROM auth_tokens WHERE token_hash = ?", tokenHash)
+    fun delete(tokenHash: ByteArray) {
+        AuthTokens.deleteWhere { AuthTokens.tokenHash eq tokenHash }
     }
 
-    fun deleteOthers(c: Connection, userId: Long, keepHash: ByteArray) {
-        c.update("DELETE FROM auth_tokens WHERE user_id = ? AND token_hash <> ?", userId, keepHash)
+    fun deleteOthers(userId: Long, keepHash: ByteArray) {
+        AuthTokens.deleteWhere { (AuthTokens.userId eq userId) and (AuthTokens.tokenHash neq keepHash) }
     }
 }

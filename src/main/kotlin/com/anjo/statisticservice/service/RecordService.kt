@@ -13,6 +13,7 @@ import com.anjo.statisticservice.model.dto.Series
 import com.anjo.statisticservice.repository.RecordRepository
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
+import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
@@ -21,18 +22,18 @@ import kotlin.time.Instant
 
 class RecordService(private val db: Db) {
 
-    suspend fun insert(records: List<Record>): InsertResult = db.tx { c ->
-        val inserted = records.count { RecordRepository.insert(c, it) }
+    suspend fun insert(records: List<Record>): InsertResult = db.tx {
+        val inserted = records.count { RecordRepository.insert(it) }
         InsertResult(inserted, records.size - inserted)
     }
 
     suspend fun purgeRetention(datasets: List<Dataset>) {
-        datasets.forEach { d -> d.retentionDays?.let { days -> db.tx { c -> RecordRepository.deleteOlderThan(c, d.id, days) } } }
+        datasets.forEach { d -> d.retentionDays?.let { days -> db.tx { RecordRepository.deleteBefore(d.id, Clock.System.now() - days.days) } } }
     }
 
     suspend fun dimensionValues(ds: Dataset, dim: String, search: String?, limit: Int, offset: Int): List<DimensionValue> {
         if (ds.dimensions.none { it.name == dim }) throw badRequest("Unknown dimension '$dim'")
-        return db.tx { c -> RecordRepository.dimensionValues(c, ds.id, dim, search, limit.coerceIn(1, 500), offset.coerceAtLeast(0)) }
+        return db.tx { RecordRepository.dimensionValues(ds.id, dim, search, limit.coerceIn(1, 500), offset.coerceAtLeast(0)) }
     }
 
     suspend fun query(q: Query, ds: Dataset, now: Instant): QueryResult {
@@ -50,8 +51,8 @@ class RecordService(private val db: Db) {
         }
         val raw = bucket == "raw"
         // ponytail: raw cap is per query, not per series; split per series if a dashboard needs it
-        val rows = db.tx { c ->
-            RecordRepository.query(c, ds, q, from, to, raw, BUCKETS[bucket]?.inWholeSeconds, if (raw) RAW_LIMIT + 1 else null)
+        val rows = db.tx {
+            RecordRepository.query(ds, q, from, to, raw, BUCKETS[bucket]?.inWholeSeconds, if (raw) RAW_LIMIT + 1 else null)
         }
         val tsCols = if (bucket == "none") 0 else 1
         val columns = (if (tsCols == 1) listOf("ts") else emptyList()) + q.measures.map { it.alias ?: defaultAlias(it, raw) }

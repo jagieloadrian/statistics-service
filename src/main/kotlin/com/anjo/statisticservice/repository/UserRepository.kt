@@ -1,60 +1,64 @@
 package com.anjo.statisticservice.repository
 
 import com.anjo.statisticservice.db.Db
-import com.anjo.statisticservice.db.query
-import com.anjo.statisticservice.db.update
+import com.anjo.statisticservice.db.Users
 import com.anjo.statisticservice.model.Prefs
 import com.anjo.statisticservice.model.User
-import kotlinx.serialization.json.Json
-import java.sql.Connection
-import java.sql.ResultSet
-
-private val prefsJson = Json { encodeDefaults = true; ignoreUnknownKeys = true }
+import org.jetbrains.exposed.v1.core.ResultRow
+import org.jetbrains.exposed.v1.core.and
+import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.jdbc.andWhere
+import org.jetbrains.exposed.v1.jdbc.deleteWhere
+import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.select
+import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.update
 
 object UserRepository {
 
-    fun count(c: Connection, role: String? = null): Long =
-        if (role == null) c.query("SELECT count(*) FROM users WHERE org_id = ?", Db.ORG) { it.getLong(1) }.single()
-        else c.query("SELECT count(*) FROM users WHERE org_id = ? AND role = ?", Db.ORG, role) { it.getLong(1) }.single()
+    fun count(role: String? = null): Long =
+        Users.selectAll().where { Users.orgId eq Db.ORG }.apply { if (role != null) andWhere { Users.role eq role } }.count()
 
-    fun find(c: Connection, id: Long): User? =
-        c.query("SELECT id, email, name, role, prefs::text FROM users WHERE org_id = ? AND id = ?", Db.ORG, id, map = ::toUser).firstOrNull()
+    fun find(id: Long): User? = Users.selectAll().where { (Users.orgId eq Db.ORG) and (Users.id eq id) }.singleOrNull()?.let(::toUser)
 
-    fun list(c: Connection): List<User> =
-        c.query("SELECT id, email, name, role, prefs::text FROM users WHERE org_id = ? ORDER BY id", Db.ORG, map = ::toUser)
+    fun list(): List<User> = Users.selectAll().where { Users.orgId eq Db.ORG }.orderBy(Users.id).map(::toUser)
 
     /** Id and password hash of the user with this (normalized) email. */
-    fun credentials(c: Connection, email: String): Pair<Long, String>? =
-        c.query("SELECT id, password_hash FROM users WHERE org_id = ? AND email = ?", Db.ORG, email) { it.getLong(1) to it.getString(2) }.firstOrNull()
+    fun credentials(email: String): Pair<Long, String>? =
+        Users.select(Users.id, Users.passwordHash).where { (Users.orgId eq Db.ORG) and (Users.email eq email) }.singleOrNull()
+            ?.let { it[Users.id] to it[Users.passwordHash] }
 
-    fun passwordHash(c: Connection, id: Long): String =
-        c.query("SELECT password_hash FROM users WHERE id = ?", id) { it.getString(1) }.single()
+    fun passwordHash(id: Long): String = Users.select(Users.passwordHash).where { Users.id eq id }.single()[Users.passwordHash]
 
-    fun emailTaken(c: Connection, email: String): Boolean =
-        c.query("SELECT 1 FROM users WHERE email = ?", email) { 1 }.isNotEmpty()
+    fun emailTaken(email: String): Boolean = !Users.selectAll().where { Users.email eq email }.empty()
 
-    fun insert(c: Connection, email: String, name: String, role: String, passwordHash: String): Long =
-        c.query(
-            "INSERT INTO users (org_id, email, name, password_hash, role) VALUES (?, ?, ?, ?, ?) RETURNING id",
-            Db.ORG, email, name, passwordHash, role,
-        ) { it.getLong(1) }.single()
+    fun insert(email: String, name: String, role: String, passwordHash: String): Long =
+        Users.insert {
+            it[orgId] = Db.ORG
+            it[this.email] = email
+            it[this.name] = name
+            it[this.passwordHash] = passwordHash
+            it[this.role] = role
+        }[Users.id]
 
-    fun update(c: Connection, id: Long, name: String, role: String) {
-        c.update("UPDATE users SET name = ?, role = ? WHERE id = ?", name, role, id)
+    fun update(id: Long, name: String, role: String) {
+        Users.update({ Users.id eq id }) {
+            it[this.name] = name
+            it[this.role] = role
+        }
     }
 
-    fun setPrefs(c: Connection, id: Long, prefs: Prefs) {
-        c.update("UPDATE users SET prefs = ?::jsonb WHERE id = ?", prefsJson.encodeToString(Prefs.serializer(), prefs), id)
+    fun setPrefs(id: Long, prefs: Prefs) {
+        Users.update({ Users.id eq id }) { it[this.prefs] = prefs }
     }
 
-    fun setPasswordHash(c: Connection, id: Long, hash: String) {
-        c.update("UPDATE users SET password_hash = ? WHERE id = ?", hash, id)
+    fun setPasswordHash(id: Long, hash: String) {
+        Users.update({ Users.id eq id }) { it[passwordHash] = hash }
     }
 
-    fun delete(c: Connection, id: Long) {
-        c.update("DELETE FROM users WHERE id = ?", id)
+    fun delete(id: Long) {
+        Users.deleteWhere { Users.id eq id }
     }
 
-    private fun toUser(rs: ResultSet) =
-        User(rs.getLong(1), rs.getString(2), rs.getString(3), rs.getString(4), prefsJson.decodeFromString(Prefs.serializer(), rs.getString(5)))
+    private fun toUser(r: ResultRow) = User(r[Users.id], r[Users.email], r[Users.name], r[Users.role], r[Users.prefs])
 }
