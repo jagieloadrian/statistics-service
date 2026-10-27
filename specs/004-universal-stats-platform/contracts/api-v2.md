@@ -52,7 +52,7 @@ Rejections (400) are also recorded in source status.
 | `as` | column name; default `<field>_<agg>` or `<field>` |
 | `filter` | dimension → allowed values (OR within, AND across) |
 | `groupBy` | dimensions; one series per distinct combination |
-| `from`/`to` | ISO-8601 instants; or `"range": {"last": "P1D"}` (relative to now) |
+| `from`/`to` | ISO-8601 instants; or `"range": {"last": "P1D"}` (relative to now). Widget definitions never store these — the frontend fills them from the dashboard time range |
 | `bucket` | `raw` (no aggregation), `none` (one row per series), `auto`, or `1m` `5m` `10m` `30m` `1h` `6h` `1d`; buckets aligned to UTC |
 | `maxPoints` | used by `auto` (default 1000); `raw` returns at most 10 000 rows per series |
 
@@ -102,5 +102,5 @@ ordered by `lastSeen` desc.
 | `GET /me` | signed in | `{id, email, name, role, prefs}` |
 | `PUT /me/prefs` | signed in | `{timeZone, units, theme, homeDashboard, favourites}` |
 | `PUT /me/password` | signed in | `{current, new}`; other tokens of the user revoked |
-| `GET /users`, `POST /users` | admin | create = invite with initial password (no email sending) |
+| `GET /users`, `POST /users` | admin | create = invite with initial password (no email sending); password < 10 chars → 400 (also on `PUT /me/password`) |
 | `PUT /users/{id}`, `DELETE /users/{id}` | admin | role/name; last admin cannot be demoted or deleted (409) |

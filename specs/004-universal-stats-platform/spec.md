@@ -246,10 +246,11 @@ source as silent.
   data sources through the user panel and through importable definition files,
   with changes effective without restarting or redeploying anything.
 - **FR-002**: The platform MUST support push over HTTP as the baseline
-  channel; pull over HTTP (scheduled polling), message stream (Kafka) and RPC
-  (gRPC) MUST be supported as additional channel types using the same mapping
-  model. (Channel names are user-mandated integration requirements, not
-  implementation choices.)
+  channel. Pull over HTTP (scheduled polling), message stream (Kafka) and RPC
+  (gRPC) MUST fit the same source and mapping model and MUST each be
+  delivered as soon as a real producer for that channel exists (US5). (Channel
+  names are user-mandated integration requirements, not implementation
+  choices.)
 - **FR-003**: Every source MUST have its own credential, and data without a
   valid credential MUST be rejected; credentials MUST be rotatable without
   changing the source's identity.

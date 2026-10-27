@@ -152,7 +152,7 @@ Rejection reasons are human-readable, one per failed constraint, e.g.
       "id": "runs", "title": "Runs", "type": "table", "w": 12, "h": 4,
       "query": {
         "dataset": "epidemic", "filter": { "type": ["total"] }, "groupBy": ["run", "device"],
-        "bucket": "none", "range": "$range",
+        "bucket": "none",
         "measures": [
           { "field": "ts", "agg": "min", "as": "startedAt" }, { "field": "ts", "agg": "max", "as": "endedAt" },
           { "field": "population", "agg": "last" }, { "field": "generation", "agg": "max", "as": "duration" },
@@ -192,7 +192,7 @@ Rejection reasons are human-readable, one per failed constraint, e.g.
 |-------|--------|
 | `type` | `line`, `area`, `bar`, `stat`, `gauge`, `table` |
 | `w`, `h` | width 1–12 columns, height in rows |
-| `query` | [Query request](./api-v2.md#query) with `$variable` placeholders allowed in string values |
+| `query` | [Query request](./api-v2.md#query) without `from`/`to`/`range` (the dashboard time range is applied to every widget at view time); `$variable` placeholders allowed in `filter` values and `bucket` |
 | `options` | `x` (measure for x-axis, default `ts`), `unit`, `colors` (per series/measure), `min`, `max`, `thresholds` `[{value, color}]`, `decimals` |
 
 ### Variable
@@ -200,5 +200,5 @@ Rejection reasons are human-readable, one per failed constraint, e.g.
 | `type` | Fields | Substitutes |
 |--------|--------|-------------|
 | `dimension` | `dataset`, `dimension`, `multi?` | dimension value(s) |
-| `timeRange` | `default?` (ISO-8601 duration, e.g. `P1D`) | `{from, to}` |
+| `timeRange` | `default?` (ISO-8601 duration, e.g. `P1D`); at most one per dashboard | sets `from`/`to` on every widget query; without it `defaultRange` applies |
 | `bucket` | `options` (e.g. `["raw","1m","1h","1d"]`), `default?` | bucket string |
