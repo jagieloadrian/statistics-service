@@ -172,12 +172,12 @@ that can be demoed on its own.
 
 ### Implementation for US4 — frontend
 
-- [ ] T063 [P] [US4] `Statistics-UI/composeApp/src/commonMain/kotlin/com/anjo/statisticsui/auth/Session.kt`: `expect class TokenStore { fun load(): String?; fun save(token: String?) }` + `Session` (current token, user, `signOut()`); actuals in `Statistics-UI/composeApp/src/webMain/kotlin/com/anjo/statisticsui/auth/TokenStore.web.kt` (`localStorage`; add `org.jetbrains.kotlinx:kotlinx-browser` only if `kotlinx.browser` is missing for wasm) and `Statistics-UI/composeApp/src/jvmMain/kotlin/com/anjo/statisticsui/auth/TokenStore.jvm.kt` (`java.util.prefs.Preferences`)
-- [ ] T064 [US4] `api/PlatformApi.kt`: send `Authorization: Bearer` from `Session`; 401 → `Session.signOut()` and navigate to login; add auth/me/users/shares calls
-- [ ] T065 [US4] `Statistics-UI/composeApp/src/commonMain/kotlin/com/anjo/statisticsui/presentation/login/LoginScreen.kt` + `navigation/NavGraph.kt`: Splash → login when no valid token, else home dashboard from prefs or home screen; sign-out entry in the drawer
-- [ ] T066 [US4] `presentation/account/AccountScreen.kt` (replace the Account placeholder): time zone, units (metric/imperial), theme, home dashboard, change password; timestamps in widgets rendered in the chosen zone (`kotlinx-datetime`); unit display conversion in new `Statistics-UI/composeApp/src/commonMain/kotlin/com/anjo/statisticsui/presentation/dashboard/Units.kt` — one table of `(from, to, factor, offset)` entries per the unit table in contracts/definition-format.md, used by every widget renderer for values and axis labels, unknown units shown as declared; theme applied in `App.kt`
-- [ ] T067 [P] [US4] `Statistics-UI/composeApp/src/commonTest/kotlin/com/anjo/statisticsui/UnitsTest.kt`: one metric→imperial and one imperial→metric case per family of the unit table (°C↔°F with offset, km↔mi, kg↔lb, km/h↔mph, l↔gal, hPa↔inHg), round-trip within 1e-9, pass-through for unknown units
-- [ ] T068 [US4] `Statistics-UI/composeApp/src/commonMain/kotlin/com/anjo/statisticsui/presentation/admin/UsersScreen.kt` (admin: list, create with initial password, change role, delete); hide Sources/Datasets/Users entries for non-admins; visibility + share picker in `DashboardEditor.kt`; favourite star on home tiles (favourites first)
+- [X] T063 [P] [US4] `Statistics-UI/composeApp/src/commonMain/kotlin/com/anjo/statisticsui/auth/Session.kt`: `expect class TokenStore { fun load(): String?; fun save(token: String?) }` + `Session` (current token, user, `signOut()`); actuals in `Statistics-UI/composeApp/src/webMain/kotlin/com/anjo/statisticsui/auth/TokenStore.web.kt` (`localStorage`; add `org.jetbrains.kotlinx:kotlinx-browser` only if `kotlinx.browser` is missing for wasm) and `Statistics-UI/composeApp/src/jvmMain/kotlin/com/anjo/statisticsui/auth/TokenStore.jvm.kt` (`java.util.prefs.Preferences`)
+- [X] T064 [US4] `api/PlatformApi.kt`: send `Authorization: Bearer` from `Session`; 401 → `Session.signOut()` and navigate to login; add auth/me/users/shares calls
+- [X] T065 [US4] `Statistics-UI/composeApp/src/commonMain/kotlin/com/anjo/statisticsui/presentation/login/LoginScreen.kt` + `navigation/NavGraph.kt`: Splash → login when no valid token, else home dashboard from prefs or home screen; sign-out entry in the drawer
+- [X] T066 [US4] `presentation/account/AccountScreen.kt` (replace the Account placeholder): time zone, units (metric/imperial), theme, home dashboard, change password; timestamps in widgets rendered in the chosen zone (`kotlinx-datetime`); unit display conversion in new `Statistics-UI/composeApp/src/commonMain/kotlin/com/anjo/statisticsui/presentation/dashboard/Units.kt` — one table of `(from, to, factor, offset)` entries per the unit table in contracts/definition-format.md, used by every widget renderer for values and axis labels, unknown units shown as declared; theme applied in `App.kt`
+- [X] T067 [P] [US4] `Statistics-UI/composeApp/src/commonTest/kotlin/com/anjo/statisticsui/UnitsTest.kt`: one metric→imperial and one imperial→metric case per family of the unit table (°C↔°F with offset, km↔mi, kg↔lb, km/h↔mph, l↔gal, hPa↔inHg), round-trip within 1e-9, pass-through for unknown units
+- [X] T068 [US4] `Statistics-UI/composeApp/src/commonMain/kotlin/com/anjo/statisticsui/presentation/admin/UsersScreen.kt` (admin: list, create with initial password, change role, delete); hide Sources/Datasets/Users entries for non-admins; visibility + share picker in `DashboardEditor.kt`; favourite star on home tiles (favourites first)
 
 **Checkpoint**: quickstart §6 passes; platform safe to expose beyond the LAN.
 
@@ -208,10 +208,10 @@ that can be demoed on its own.
 ## Phase 9: Polish & Cross-Cutting
 
 - [X] T075 [P] OpenAPI review: open `$API_V2/swagger`, confirm every `/api/v2` route from contracts/api-v2.md is listed with its summary (added per story in T028, T029, T053, T061); fill any gap in `routing/ApiRoutes.kt` / `ingest/IngestRoutes.kt`
-- [ ] T076 [P] `README.md` (backend): run Postgres compose, env vars (`DB_*`, `ADMIN_*`), import example definitions; `Statistics-UI/README.md`: backend URL, login
+- [X] T076 [P] `README.md` (backend): run Postgres compose, env vars (`DB_*`, `ADMIN_*`), import example definitions; `Statistics-UI/README.md`: backend URL, login
 - [X] T077 Performance check per quickstart §3 (5 M seeded records, 8 parallel 30-day `auto` queries < 2 s p95, SC-004) and 500 records/s ingest for 1 min (SC-005); record numbers under research.md D4; not a release gate (spec SC-004/005 note) — if missed, open a follow-up spec for the D4 upgrade path, the feature still closes
 - [ ] T078 Run quickstart §0–§7 end to end; fix gaps — 2026-10-27: backend §0–§3, §5 export, §6, §7 and the §8 collector check pass against a real server; §4/§5 UI flows still need a manual run in the desktop app
-- [ ] T079 Update `PROJECT-STATUS.md` (completed work, decisions, next steps)
+- [X] T079 Update `PROJECT-STATUS.md` (completed work, decisions, next steps)
 
 ---
 
