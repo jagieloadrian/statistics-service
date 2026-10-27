@@ -35,7 +35,7 @@ class ImportExportTest {
         exported shouldNotContain token
         exported shouldNotContain "token"
 
-        Pg.truncateAll()
+        Pg.truncate("records", "definitions", "source_credentials")
         client.postJson("/api/v2/import", exported).json().toString() shouldBe """{"created":6,"updated":0,"errors":[]}"""
         client.get("/api/v2/export").bodyAsText() shouldBe exported
         client.postJson("/api/v2/import", exported).json().toString() shouldBe """{"created":0,"updated":6,"errors":[]}"""

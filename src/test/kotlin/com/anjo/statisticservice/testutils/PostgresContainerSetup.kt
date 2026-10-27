@@ -1,6 +1,7 @@
 package com.anjo.statisticservice.testutils
 
 import io.ktor.client.HttpClient
+import io.ktor.client.plugins.api.createClientPlugin
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -20,6 +21,8 @@ import org.testcontainers.containers.PostgreSQLContainer
 import java.sql.DriverManager
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 object Pg {
     val container: PostgreSQLContainer<Nothing> = PostgreSQLContainer<Nothing>("postgres:16").apply { start() }
@@ -28,22 +31,53 @@ object Pg {
         "ktor.db.url" to container.jdbcUrl,
         "ktor.db.user" to container.username,
         "ktor.db.password" to container.password,
+        "ktor.auth.adminEmail" to ADMIN_EMAIL,
+        "ktor.auth.adminPassword" to ADMIN_PASSWORD,
     )
 
     /** Creates the schema if needed and empties every table except organizations. */
-    fun truncateAll() {
+    fun truncateAll() = truncate("records", "definitions", "source_credentials", "dashboard_shares", "auth_tokens", "users")
+
+    fun truncate(vararg tables: String) = sql("TRUNCATE ${tables.joinToString()}")
+
+    fun sql(statement: String) {
         DriverManager.getConnection(container.jdbcUrl, container.username, container.password).use { c ->
             c.createStatement().use {
                 it.execute(Pg::class.java.getResource("/schema.sql")!!.readText())
-                it.execute("TRUNCATE records, definitions, source_credentials, dashboard_shares, auth_tokens, users")
+                it.execute(statement)
             }
         }
     }
 }
 
-fun testApp(block: suspend ApplicationTestBuilder.() -> Unit) = testApplication {
+const val ADMIN_EMAIL = "admin@test.local"
+const val ADMIN_PASSWORD = "admin-password"
+
+/** [client] is signed in as the bootstrap admin; [anonymous] sends no token. */
+class TestApp(private val builder: ApplicationTestBuilder, val client: HttpClient) {
+    val anonymous get() = builder.client
+
+    suspend fun login(email: String, password: String): HttpClient {
+        val token = anonymous.postJson("/api/v2/auth/login", """{"email":"$email","password":"$password"}""")
+            .json().jsonObject["token"]!!.jsonPrimitive.content
+        // a request's own Authorization (e.g. a source token) wins over the user token
+        val bearer = createClientPlugin("userToken") {
+            onRequest { req, _ -> if (HttpHeaders.Authorization !in req.headers) req.headers[HttpHeaders.Authorization] = "Bearer $token" }
+        }
+        return builder.createClient { install(bearer) }
+    }
+
+    /** Creates a user as admin and returns a client signed in as them. */
+    suspend fun userClient(email: String, role: String, password: String = "password-$role"): HttpClient {
+        client.postJson("/api/v2/users", """{"email":"$email","role":"$role","password":"$password"}""")
+        return login(email, password)
+    }
+}
+
+fun testApp(block: suspend TestApp.() -> Unit) = testApplication {
     environment { config = ApplicationConfig("application-test.yaml").mergeWith(Pg.config()) }
-    block()
+    startApplication()
+    TestApp(this, client).run { TestApp(this@testApplication, login(ADMIN_EMAIL, ADMIN_PASSWORD)).block() }
 }
 
 private fun HttpRequestBuilder.json(body: String, token: String?) {

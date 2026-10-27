@@ -1,5 +1,8 @@
 package com.anjo.statisticservice.definitions
 
+import com.anjo.statisticservice.auth.ADMIN
+import com.anjo.statisticservice.auth.EDITOR
+import com.anjo.statisticservice.auth.UserPrincipal
 import com.anjo.statisticservice.db.Db
 import com.anjo.statisticservice.mapping.Expr
 import com.anjo.statisticservice.routing.ApiException
@@ -177,18 +180,50 @@ val definitionJson = Json { encodeDefaults = true; explicitNulls = false }
 
 class DefinitionStore(private val db: Db) {
 
-    suspend fun <T> list(kind: Kind, ser: KSerializer<T>): List<T> = db.tx { c ->
-        c.query("SELECT body::text FROM definitions WHERE org_id = ? AND kind = ? ORDER BY id", Db.ORG, kind.key) {
+    /** [visibleTo] limits dashboards to the ones that user may view; null = everything. */
+    suspend fun <T> list(kind: Kind, ser: KSerializer<T>, visibleTo: UserPrincipal? = null): List<T> = db.tx { c ->
+        val (where, params) = visible(kind, visibleTo)
+        c.query("SELECT body::text FROM definitions WHERE org_id = ? AND kind = ?$where ORDER BY id", Db.ORG, kind.key, *params) {
             definitionJson.decodeFromString(ser, it.getString(1))
         }
     }
 
-    suspend fun summaries(kind: Kind): List<DefinitionSummary> = db.tx { c ->
+    suspend fun summaries(kind: Kind, visibleTo: UserPrincipal? = null): List<DefinitionSummary> = db.tx { c ->
+        val (where, params) = visible(kind, visibleTo)
         c.query(
-            "SELECT id, coalesce(body->>'label', body->>'title'), updated_at::text FROM definitions WHERE org_id = ? AND kind = ? ORDER BY id",
-            Db.ORG, kind.key,
+            "SELECT id, coalesce(body->>'label', body->>'title'), updated_at::text FROM definitions WHERE org_id = ? AND kind = ?$where ORDER BY id",
+            Db.ORG, kind.key, *params,
         ) { DefinitionSummary(it.getString(1), it.getString(2), it.getString(3)) }
     }
+
+    suspend fun canView(u: UserPrincipal, dashboardId: String): Boolean = db.tx { c ->
+        val (where, params) = visible(Kind.DASHBOARD, u)
+        c.query("SELECT 1 FROM definitions WHERE org_id = ? AND kind = 'dashboard' AND id = ?$where", Db.ORG, dashboardId, *params) { 1 }.isNotEmpty()
+    }
+
+    /** Admins and the owning editor may change a dashboard; imported ones (no owner) are admin-only. */
+    suspend fun canEdit(u: UserPrincipal, dashboardId: String): Boolean = u.role == ADMIN || u.role == EDITOR && db.tx { c ->
+        c.query("SELECT owner_id FROM definitions WHERE org_id = ? AND kind = 'dashboard' AND id = ?", Db.ORG, dashboardId) { it.getObject(1) as Long? }
+    }.singleOrNull() == u.id
+
+    /** Datasets a viewer may query: those used by dashboards visible to them. */
+    suspend fun visibleDatasets(u: UserPrincipal): Set<String> =
+        list(Kind.DASHBOARD, Dashboard.serializer(), u).flatMap { d -> d.widgets.map { it.query.dataset } + d.variables.mapNotNull { it.dataset } }.toSet()
+
+    suspend fun shares(dashboardId: String): List<Long> = db.tx { c ->
+        c.query("SELECT user_id FROM dashboard_shares WHERE org_id = ? AND dashboard_id = ? ORDER BY user_id", Db.ORG, dashboardId) { it.getLong(1) }
+    }
+
+    suspend fun setShares(dashboardId: String, userIds: List<Long>) = db.tx { c ->
+        c.update("DELETE FROM dashboard_shares WHERE org_id = ? AND dashboard_id = ?", Db.ORG, dashboardId)
+        userIds.distinct().forEach { c.update("INSERT INTO dashboard_shares (org_id, dashboard_id, user_id) VALUES (?, ?, ?)", Db.ORG, dashboardId, it) }
+    }
+
+    private fun visible(kind: Kind, u: UserPrincipal?): Pair<String, Array<Any?>> =
+        if (kind != Kind.DASHBOARD || u == null || u.role == ADMIN) "" to emptyArray()
+        else """ AND (body->>'visibility' = 'all' OR owner_id = ? OR (body->>'visibility' = 'users' AND EXISTS (
+                 SELECT 1 FROM dashboard_shares s WHERE s.org_id = definitions.org_id AND s.dashboard_id = definitions.id AND s.user_id = ?)))""" to
+            arrayOf(u.id, u.id)
 
     suspend fun <T> get(kind: Kind, id: String, ser: KSerializer<T>): T? = db.tx { c -> c.get(kind, id, ser) }
 
@@ -203,6 +238,7 @@ class DefinitionStore(private val db: Db) {
     suspend fun delete(kind: Kind, id: String): Boolean = db.tx { c ->
         if (kind == Kind.DATASET) c.update("DELETE FROM records WHERE org_id = ? AND dataset_id = ?", Db.ORG, id)
         if (kind == Kind.SOURCE) c.update("DELETE FROM source_credentials WHERE org_id = ? AND source_id = ?", Db.ORG, id)
+        if (kind == Kind.DASHBOARD) c.update("DELETE FROM dashboard_shares WHERE org_id = ? AND dashboard_id = ?", Db.ORG, id)
         c.update("DELETE FROM definitions WHERE org_id = ? AND kind = ? AND id = ?", Db.ORG, kind.key, id) > 0
     }
 
@@ -226,11 +262,19 @@ class DefinitionStore(private val db: Db) {
         return MessageDigest.isEqual(stored, sha256(token))
     }
 
-    suspend fun export() = Bundle(
-        datasets = list(Kind.DATASET, Dataset.serializer()),
-        sources = list(Kind.SOURCE, Source.serializer()),
-        dashboards = list(Kind.DASHBOARD, Dashboard.serializer()),
-    )
+    /** Everything for admins; for others their visible dashboards plus the datasets those use, no sources. */
+    suspend fun export(u: UserPrincipal? = null): Bundle {
+        if (u == null || u.role == ADMIN) {
+            return Bundle(
+                datasets = list(Kind.DATASET, Dataset.serializer()),
+                sources = list(Kind.SOURCE, Source.serializer()),
+                dashboards = list(Kind.DASHBOARD, Dashboard.serializer()),
+            )
+        }
+        val dashboards = list(Kind.DASHBOARD, Dashboard.serializer(), u)
+        val used = visibleDatasets(u)
+        return Bundle(datasets = list(Kind.DATASET, Dataset.serializer()).filter { it.id in used }, dashboards = dashboards)
+    }
 
     /** All-or-nothing upsert; on any invalid document nothing is stored and every error is returned. */
     // ponytail: no reference guard on import, it restores whole bundles

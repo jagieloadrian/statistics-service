@@ -4,8 +4,9 @@ Base path `/api/v2`, JSON only, documented in OpenAPI (existing Swagger
 route). Definition bodies: [definition-format.md](./definition-format.md).
 
 **Auth**: user calls send `Authorization: Bearer <user token>` (from
-login); ingest calls send `Authorization: Bearer <source token>`. Until slice
-S5 user auth is not enforced (LAN only).
+login); ingest calls send `Authorization: Bearer <source token>`. Every
+`/api/v2` route except `POST /auth/login` and `POST /ingest/{sourceId}` needs
+a user token.
 
 **Errors** (all endpoints): `{"error": "<code>", "message": "<human text>", "details": [ … ]}`
 with 400 validation, 401 no/invalid token, 403 role/visibility, 404 unknown
@@ -82,25 +83,26 @@ ordered by `lastSeen` desc.
 
 | Method + path | Role | Notes |
 |---------------|------|-------|
-| `GET /datasets`, `/sources`, `/dashboards` | dashboards: all roles (filtered by visibility); others: admin | list `{id, label/title, updatedAt}` |
-| `GET /{kind}/{id}` | as above | full document |
+| `GET /datasets`, `/sources`, `/dashboards` | dashboards: all roles (filtered by visibility); datasets: admin, editor (to build widgets); sources: admin | list `{id, label/title, updatedAt}` |
+| `GET /{kind}/{id}` | as above; a viewer may get a dataset used by a dashboard visible to them | full document |
 | `PUT /{kind}/{id}` | datasets, sources: admin; dashboards: owner editor or admin | upsert; validated against format + references; dataset change removing/renaming a referenced name → 409 with `details` = widget refs, unless `?force=true` |
 | `DELETE /{kind}/{id}` | same as PUT | dataset with sources/widgets referencing it → 409 unless `?force=true`; records of a deleted dataset are deleted |
 | `POST /sources/{id}/credential` | admin | rotate; returns `{"token": "…"}` once, previous token invalid immediately |
 | `GET /sources/{id}/status` | admin | `{state, lastRecordAt, accepted:{hour,day}, rejected:{hour,day}, rejections:[{at, reason, excerpt}]}` |
 | `POST /sources/{id}/mapping-test` | admin | body `{payload, mapping?}` → `{records:[…], errors:[…]}`; stores nothing |
-| `PUT /dashboards/{id}/shares` | owner editor or admin | `{"userIds": [ … ]}` (used when `visibility = "users"`) |
-| `GET /export` | admin, editor (own + shared dashboards only) | bundle |
-| `POST /import` | admin | bundle → `{"created": n, "updated": m, "errors": [ … ]}`; all-or-nothing |
+| `GET`/`PUT /dashboards/{id}/shares` | owner editor or admin | `{"userIds": [ … ]}` (used when `visibility = "users"`); dashboards without owner (imported) are admin-only |
+| `GET /export` | admin (everything), editor (dashboards visible to them + the datasets they use, no sources) | bundle |
+| `POST /import` | admin | bundle → 200 `{"created": n, "updated": m, "errors": []}`; any invalid document → 400 with the same shape, `errors` listing every problem, nothing stored |
 
 ## Auth & user panel
 
 | Method + path | Role | Notes |
 |---------------|------|-------|
 | `POST /auth/login` | public | `{email, password}` → `{token, user}`; 401 with one generic message; 5 attempts/min per IP |
-| `POST /auth/logout` | signed in | deletes current token |
+| `POST /auth/logout` | signed in | deletes current token → 204 |
 | `GET /me` | signed in | `{id, email, name, role, prefs}` |
 | `PUT /me/prefs` | signed in | `{timeZone, units, theme, homeDashboard, favourites}` |
-| `PUT /me/password` | signed in | `{current, new}`; other tokens of the user revoked |
-| `GET /users`, `POST /users` | admin | create = invite with initial password (no email sending); password < 10 chars → 400 (also on `PUT /me/password`) |
-| `PUT /users/{id}`, `DELETE /users/{id}` | admin | role/name; last admin cannot be demoted or deleted (409) |
+| `PUT /me/password` | signed in | `{current, new}` → 204; wrong `current` → 400; other tokens of the user revoked |
+| `GET /users` | admin, editor (share picker) | `[{id, email, name, role, prefs}]` |
+| `POST /users` | admin | `{email, name?, role, password}` → 201 user; create = invite with initial password (no email sending); password < 10 chars → 400 (also on `PUT /me/password`); email in use → 409 |
+| `PUT /users/{id}`, `DELETE /users/{id}` | admin | `{name?, role?}`; delete → 204; last admin cannot be demoted or deleted (409) |

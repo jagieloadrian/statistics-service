@@ -11,9 +11,6 @@ import com.anjo.statisticservice.routing.conflict
 import com.anjo.statisticservice.routing.notFound
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
-import io.ktor.server.application.Application
-import io.ktor.server.application.install
-import io.ktor.server.plugins.ratelimit.RateLimit
 import io.ktor.server.plugins.ratelimit.RateLimitName
 import io.ktor.server.plugins.ratelimit.rateLimit
 import io.ktor.server.request.receiveText
@@ -26,22 +23,11 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlin.time.Clock
-import kotlin.time.Duration.Companion.seconds
 
 @Serializable
 data class IngestResult(val accepted: Int, val duplicates: Int)
 
-private val INGEST = RateLimitName("ingest")
-
-fun Application.configureIngestRateLimit() {
-    install(RateLimit) {
-        register(INGEST) {
-            // ponytail: fixed 50/s per source; Source.rateLimitPerSecond needs a suspend lookup the provider can't do
-            rateLimiter(limit = 50, refillPeriod = 1.seconds)
-            requestKey { call -> call.parameters["sourceId"] ?: "" }
-        }
-    }
-}
+val INGEST = RateLimitName("ingest")
 
 fun Route.ingestRoutes(defs: DefinitionStore, records: RecordStore, status: SourceStatus) {
     rateLimit(INGEST) {
