@@ -4,6 +4,7 @@ import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.flywaydb.core.Flyway
 import java.sql.Connection
 import java.sql.PreparedStatement
 import java.sql.ResultSet
@@ -20,9 +21,9 @@ class Db(url: String, user: String, password: String) : AutoCloseable {
         maximumPoolSize = 10
     })
 
-    fun init() {
-        val schema = Db::class.java.getResource("/schema.sql")!!.readText()
-        ds.connection.use { c -> c.createStatement().use { it.execute(schema) } }
+    init {
+        // a database created before Flyway already has the V1 schema and is baselined there
+        Flyway.configure().dataSource(ds).baselineOnMigrate(true).load().migrate()
     }
 
     suspend fun <T> tx(block: (Connection) -> T): T = withContext(Dispatchers.IO) {

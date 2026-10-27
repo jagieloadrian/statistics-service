@@ -1,5 +1,6 @@
 package com.anjo.statisticservice.testutils
 
+import com.anjo.statisticservice.db.Db
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.api.createClientPlugin
 import io.ktor.client.request.HttpRequestBuilder
@@ -25,7 +26,10 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 object Pg {
-    val container: PostgreSQLContainer = PostgreSQLContainer("postgres:16").apply { start() }
+    val container: PostgreSQLContainer = PostgreSQLContainer("postgres:16").apply {
+        start()
+        Db(jdbcUrl, username, password).close() // runs the migrations
+    }
 
     fun config() = MapApplicationConfig(
         "ktor.db.url" to container.jdbcUrl,
@@ -35,17 +39,14 @@ object Pg {
         "ktor.auth.adminPassword" to ADMIN_PASSWORD,
     )
 
-    /** Creates the schema if needed and empties every table except organizations. */
+    /** Empties every table except organizations. */
     fun truncateAll() = truncate("records", "definitions", "source_credentials", "dashboard_shares", "auth_tokens", "users")
 
     fun truncate(vararg tables: String) = sql("TRUNCATE ${tables.joinToString()}")
 
     fun sql(statement: String) {
         DriverManager.getConnection(container.jdbcUrl, container.username, container.password).use { c ->
-            c.createStatement().use {
-                it.execute(Pg::class.java.getResource("/schema.sql")!!.readText())
-                it.execute(statement)
-            }
+            c.createStatement().use { it.execute(statement) }
         }
     }
 }

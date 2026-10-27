@@ -19,7 +19,7 @@ fun Application.configureDI() {
         url = cfg.property("ktor.db.url").getString(),
         user = cfg.property("ktor.db.user").getString(),
         password = cfg.property("ktor.db.password").getString(),
-    ).also { it.init() }
+    )
     monitor.subscribe(ApplicationStopped) { db.close() }
     val auth = AuthService(db)
     val adminEmail = cfg.propertyOrNull("ktor.auth.adminEmail")?.getString().orEmpty()

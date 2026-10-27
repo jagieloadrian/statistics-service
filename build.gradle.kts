@@ -43,6 +43,8 @@ dependencies {
     implementation(libs.kotlinx.datetime)
     implementation(libs.postgresql)
     implementation(libs.hikari)
+    implementation(libs.flyway.core)
+    runtimeOnly(libs.flyway.postgresql)
 
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlin.test.junit5)

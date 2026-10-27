@@ -1,4 +1,3 @@
--- ponytail: idempotent schema run at startup; add Flyway at the first ALTER after release (research D2)
 CREATE TABLE IF NOT EXISTS organizations (
     id   smallint PRIMARY KEY,
     name text NOT NULL
