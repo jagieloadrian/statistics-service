@@ -2,11 +2,11 @@ package com.anjo.statisticservice.controller
 
 import com.anjo.statisticservice.exception.ApiException
 import com.anjo.statisticservice.model.dto.ApiError
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
-import io.ktor.server.application.log
 import io.ktor.server.plugins.BadRequestException
 import io.ktor.server.plugins.requestvalidation.RequestValidationException
 import io.ktor.server.plugins.statuspages.StatusPages
@@ -15,6 +15,7 @@ import io.ktor.server.response.header
 import io.ktor.server.response.respond
 
 private const val RETRY_AFTER_SECONDS = "60"
+private val logger = KotlinLogging.logger {}
 
 fun Application.configureStatusPages() {
     install(StatusPages) {
@@ -35,7 +36,7 @@ fun Application.configureStatusPages() {
             call.respond(status, ApiError("rate_limited", "Too many requests, try again later"))
         }
         exception<Throwable> { call, e ->
-            call.application.log.error("Unhandled error on ${call.request.path()}", e)
+            logger.error(e) { "Unhandled error on ${call.request.path()}" }
             call.respond(HttpStatusCode.InternalServerError, ApiError("internal", "Internal error"))
         }
     }

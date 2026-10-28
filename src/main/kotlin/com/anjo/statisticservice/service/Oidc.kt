@@ -14,6 +14,7 @@ import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.auth0.jwt.exceptions.JWTVerificationException
 import com.auth0.jwt.interfaces.DecodedJWT
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -25,7 +26,6 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import org.slf4j.LoggerFactory
 import java.io.IOException
 import java.net.URI
 import java.net.URLEncoder
@@ -38,7 +38,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.toJavaDuration
 
-private val logger = LoggerFactory.getLogger(Oidc::class.java)
+private val logger = KotlinLogging.logger {}
 private val json = Json { ignoreUnknownKeys = true }
 private val CONNECT_TIMEOUT = 2.seconds
 private val REQUEST_TIMEOUT = 10.seconds
@@ -229,7 +229,7 @@ class Oidc(
         }
 
     private fun unavailable(cause: Exception): ApiException {
-        logger.warn("Sign-in provider {}: {}", config.issuer, cause.toString())
+        logger.warn { "Sign-in provider ${config.issuer}: $cause" }
         return ApiException(HttpStatusCode.ServiceUnavailable, "unavailable", "Sign-in provider unavailable")
     }
 

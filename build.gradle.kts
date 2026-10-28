@@ -51,6 +51,7 @@ dependencies {
     implementation(libs.ktor.server.request.validation)
     implementation(libs.ktor.server.metrics.micrometer)
     implementation(libs.micrometer.registry.prometheus)
+    implementation(libs.kotlin.logging)
     implementation(libs.logback.classic)
     runtimeOnly(libs.logstash.logback.encoder)
     implementation(libs.kotlinx.coroutines.core)
