@@ -43,7 +43,6 @@ dependencies {
     implementation(libs.micrometer.registry.prometheus)
     implementation(libs.logback.classic)
     runtimeOnly(libs.logstash.logback.encoder)
-    implementation(libs.kotlin.logging)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.datetime)
     implementation(libs.postgresql)

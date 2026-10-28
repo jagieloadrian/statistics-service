@@ -4,8 +4,8 @@ ktor:
       - com.anjo.statisticservice.ApplicationKt.module
   deployment:
     port: 8080
-    shutdownGracePeriod: 5000
-    shutdownTimeout: 15000
+    shutdownGracePeriod: 1000
+    shutdownTimeout: 5000
     trustProxy: "${TRUST_PROXY:false}"
   db:
     url: "${DB_URL:jdbc:postgresql://localhost:5432/stats}"
