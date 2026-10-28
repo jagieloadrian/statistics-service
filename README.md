@@ -19,6 +19,7 @@ ADMIN_EMAIL=admin@local ADMIN_PASSWORD='change-me-now' ./gradlew run
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | empty | first admin, created only while there are no users; see sign-in methods |
 | `CORS_HOSTS` | `localhost:8081` | comma-separated frontend hosts |
 | `TRUST_PROXY` | `false` | `true` behind a reverse proxy (e.g. the Istio gateway): the login rate limit keys on the last `X-Forwarded-For` entry; keep `false` without one, clients could spoof it |
+| `LOG_FORMAT` | `json` | `plain` for human-readable local logs |
 
 API: `http://localhost:8080/api/v2`, Swagger UI at `/api/v2/swagger`.
 
@@ -62,33 +63,79 @@ curl -s -X POST $API/sources/temperature/credential -H "Authorization: Bearer $T
 Devices and collector apps: [.docs/Device_Ingest.md](.docs/Device_Ingest.md),
 [.docs/Collector_Apps.md](.docs/Collector_Apps.md).
 
-## Kubernetes
+## Kubernetes (homelab platform)
 
-Optional: plain kustomize manifests for a cluster with Istio in
-[.devops/k8s/](.devops/k8s/) (backend, Postgres, Istio Gateway, the one root
-VirtualService, STRICT mTLS). Host `stats.example.com`: `/api/` goes to the
-backend, everything else to `statistics-ui` from the `Statistics-UI` repo
-(same origin, no CORS).
+Deployed per the homelab platform contract (`homelab` repo, "Homelab Platform
+Contract — wymagania dla aplikacji"). [.devops/k8s/](.devops/k8s/) (kustomize,
+namespace `apps`) is the source for the homelab repo's
+`apps/statistics-service/`, where Flux image automation rewrites the marked
+`image:` line; [.devops/flux/](.devops/flux/) holds the ImageRepository and
+ImagePolicy for the homelab `clusters/home/image-automation.yaml`.
 
-```bash
-# TLS secret in the ingress gateway's namespace
-kubectl -n istio-system create secret tls statistics-tls --cert=stats.crt --key=stats.key
-cp .devops/k8s/secrets.env.example .devops/k8s/secrets.env   # DB_PASSWORD, ADMIN_PASSWORD, OIDC_CLIENT_SECRET; git-ignored
-kubectl apply -k .devops/k8s                                  # this repo first: namespace, backend, edge
-kubectl apply -k ../Statistics-UI/.devops/k8s                 # then the web UI
-```
+- Image: `ghcr.io/jagieloadrian/statistics-service`, built by Jib
+  (linux/amd64 + linux/arm64, eclipse-temurin:21-jre, user 10001). CI pushes
+  `main-<yyyyMMddHHmmss>-<sha7>` from `main` and the semver version from `v*`
+  tags, never `latest`; the Flux ImagePolicy picks the newest `main-*` tag.
+- Route: HTTPRoute on `home-gateway`, host `statistics.home.arpa`, path
+  `/api/`; everything else belongs to `statistics-ui` (same origin).
+- Callers: `home-gateway` only (AuthorizationPolicy admits
+  `istio-ingress/home-gateway-istio`). Callees: Postgres (platform-managed)
+  and the OIDC provider.
+- Backup: the service is stateless; the database is backed up by the platform.
+- One replica: login rate limits and source status are kept in memory.
 
-- Host, `ADMIN_EMAIL` and `OIDC_*`: `kustomization.yaml` (ConfigMap) and `istio.yaml`.
-- OIDC redirect URI for the web UI: `https://stats.example.com/`.
-- `TRUST_PROXY=true` is set: the login rate limit keys on the client IP the
-  gateway appends to `X-Forwarded-For`.
-- One backend replica (rate limits and source status are in memory);
-  in-cluster Postgres with a 1 Gi volume, a managed database fits production better.
+ConfigMap `statistics-service-config` ([configmap.yaml](.devops/k8s/configmap.yaml)):
+`DB_URL`, `DB_USER`, `ADMIN_EMAIL`, `AUTH_LOCAL`, `OIDC_ISSUER`,
+`OIDC_CLIENT_ID`, `OIDC_NAME`, `CORS_HOSTS`, `TRUST_PROXY`, `LOG_FORMAT`.
+Secret `statistics-service-secrets` (SOPS-encrypted in the homelab repo, never
+here): `DB_PASSWORD`, `ADMIN_PASSWORD`, `OIDC_CLIENT_SECRET`.
+
+- OIDC redirect URI for the web UI: `http://statistics.home.arpa/`. The
+  gateway serves plain HTTP, so the provider must accept an `http` redirect
+  URI for this host.
+- `TRUST_PROXY=true`: the login rate limit keys on the client IP the gateway
+  appends to `X-Forwarded-For`.
+
+### Operations
+
+| Endpoint / env | Meaning |
+|----------------|---------|
+| `GET /health/live` | 200 while the process runs; touches no dependency |
+| `GET /health/ready` | 200 when the database answers, 503 otherwise |
+| `GET /metrics` | Prometheus metrics (not under `/api/`, so not routed by the gateway) |
+| `LOG_FORMAT` | `json` (default): one JSON object per line with `timestamp`, `level`, `message`, `logger`, `traceId`; `plain` for local reading |
+
+- SIGTERM: stops taking new calls, waits up to 15 s for in-flight calls and
+  exits 0; `preStop` sleeps 3 s, `terminationGracePeriodSeconds` is 30.
+- Outbound OIDC calls: connect timeout 2 s, request timeout 10 s, W3C
+  `traceparent` propagated; `traceId` comes from the incoming `traceparent`.
+- Invalid configuration (e.g. `DB_URL` not `jdbc:postgresql://`, `AUTH_LOCAL`
+  not a boolean, only one of `OIDC_ISSUER`/`OIDC_CLIENT_ID`) logs one JSON
+  error line and exits 1.
+
+### Definition of Ready
+
+- [x] Multi-arch image via Jib, non-root 10001, no secrets in image — verified
+  with `docker buildx imagetools inspect` and a local registry
+- [x] Probes, `/metrics`, JSON logs, SIGTERM exit 0 with drain — verified
+  against the image (read-only root filesystem, 384 Mi limit)
+- [x] Readiness 503 while Postgres is down, 200 after it returns — verified
+- [x] Fail-fast config, single JSON error line, exit 1 — verified
+- [x] `kustomize build` (v5.4.3) + `kubeconform -strict` incl. HTTPRoute,
+  AuthorizationPolicy and Flux CRDs — 8/8 valid; `istioctl validate` — valid
+- [x] CI workflow — `actionlint` clean
+- [ ] Postgres database, user and `DB_URL` host in the platform — set the real
+  host in `configmap.yaml`
+- [ ] Secret `statistics-service-secrets` added to the homelab repo (SOPS)
+- [ ] OIDC client registered with redirect URI `http://statistics.home.arpa/`
+- [ ] Manifests copied to homelab `apps/statistics-service/`, image objects
+  added to `clusters/home/image-automation.yaml`
 
 ## Build & test
 
-`./gradlew build` runs all tests; they start PostgreSQL through Testcontainers,
-so Docker must be running.
+`./gradlew check` runs ktlint and all tests (warnings are errors); tests start
+PostgreSQL through Testcontainers, so Docker must be running.
+`./gradlew jibDockerBuild` builds the image into the local Docker daemon.
 
 ## Docs
 

@@ -50,6 +50,14 @@ dropped (plain `/health` and `/ready` routes, no jitpack repo), dead code remove
 Kubernetes + Istio (a3a212e..48489ec): `.devops/k8s` manifests (constitution 2.3.0), `TRUST_PROXY` for the
 client IP behind the gateway; 66 tests green. Not tried on a live cluster yet.
 
+Enterprise cleanup + homelab platform contract (same branch, 077f46d..HEAD, constitution 2.4.0): request
+validation at the boundary (Ktor RequestValidation, 400 `ApiError`), no `!!`, no comments, kotlin.time;
+`/health/live` + `/health/ready` (503 without DB), Prometheus `/metrics`, JSON logs with `traceId`
+(`LOG_FORMAT=plain`), SIGTERM drain + exit 0, OIDC timeouts + `traceparent`, fail-fast config; ktlint +
+warnings-as-errors gate, Java 21; Jib multi-arch image, contract CI tags, Renovate; manifests per contract
+(HTTPRoute `/api/`, AuthorizationPolicy, ConfigMap, Flux ImagePolicy), in-repo Postgres/Istio Gateway
+removed. 74 tests green; image, probes, drain and manifests verified locally (README "Definition of Ready").
+
 ## Decisions
 
 - Old v1 API dropped entirely; RPi devices get the new URL + source token (`.docs/Device_Ingest.md`).
@@ -58,17 +66,21 @@ client IP behind the gateway; 66 tests green. Not tried on a live cluster yet.
 - No in-process plugins: custom logic lives in collector apps over the ingest API.
 - Contract additions during US4: editors read datasets and `/users` (widget builder, share picker);
   `GET /dashboards/{id}/shares`; viewers query only datasets of dashboards they can see.
-- Ingest rate limit is a fixed 50 requests/s per source (`ponytail:` note); batches give more records/s.
+- Ingest rate limit is a fixed 50 requests/s per source; batches give more records/s.
 - Raw queries are capped at 10 000 rows per query, not per series.
 - Schema via Flyway (`db/migration/V1__init.sql`, `baselineOnMigrate`: databases from the old
   startup schema are marked V1). SQL through Exposed DSL; analytic measures stay checked SQL text.
 - Services own transactions (`db.tx`), repositories run inside them; models only in `model/`.
-- Health probes are plain routes (`GET /health`, `GET /ready` → 200 `{}`), no KHealth; its `hide()` wrap
-  hid the whole routing root from OpenAPI in Ktor 3.6.
+- Health probes are plain routes per the homelab contract (`/health/live`, `/health/ready` with a DB
+  check), no KHealth; its `hide()` wrap hid the whole routing root from OpenAPI in Ktor 3.6.
+- No comments in code; deliberate simplifications go into commit messages and this file.
+- detekt skipped: 1.23.x is built against Kotlin 2.0, 2.x is still alpha; ktlint is the style gate.
+- Import (`Bundle`) and mapping tests keep collecting errors in their result instead of RequestValidation:
+  import reports per-item errors by contract, mapping needs the stored dataset.
 - OIDC: the backend redeems the code and answers the existing opaque session token, so every route,
   expiry and logout stay as they were; IdP tokens are discarded, no refresh tokens, no RP logout.
   PKCE verifier + state are made by the backend and kept by the client (no crypto in KMP).
-  ID token: RS256 via JWKS (`ponytail:` ES256 when needed), issuer/audience/expiry checked, no nonce.
+  ID token: RS256 via JWKS (ES256 when needed), issuer/audience/expiry checked, no nonce.
   Email from userinfo when the token lacks it. Email/name are not synced after creation.
 - `GET /auth/config` omits `oidc` when no provider is set (API-wide `explicitNulls = false`).
 - Desktop loopback uses an ephemeral port; Authelia (its oauth2-provider) accepts any port for a
@@ -82,6 +94,11 @@ client IP behind the gateway; 66 tests green. Not tried on a live cluster yet.
 Details: research.md D4. Not a release gate.
 
 ## Next steps
+
+First, homelab rollout: real Postgres host in `.devops/k8s/configmap.yaml`, SOPS Secret
+`statistics-service-secrets`, copy manifests to homelab `apps/statistics-service/` and the image
+objects to `clusters/home/image-automation.yaml`, register the OIDC client
+(`http://statistics.home.arpa/`). Prometheus scraping needs an AuthorizationPolicy rule for the scraper.
 
 0. OIDC manual checks (spec 005 quickstart §1–§6, T034): `/etc/hosts` entry `127.0.0.1 auth.example.com`,
    generate Authelia secrets (`.devops/authelia-compose/README.md`), then web sign-in as admin/alice,
