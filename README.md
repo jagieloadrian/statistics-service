@@ -65,17 +65,16 @@ Devices and collector apps: [.docs/Device_Ingest.md](.docs/Device_Ingest.md),
 
 ## Kubernetes (homelab platform)
 
-Deployed per the homelab platform contract (`homelab` repo, "Homelab Platform
-Contract — wymagania dla aplikacji"). [.devops/k8s/](.devops/k8s/) (kustomize,
-namespace `apps`) is the source for the homelab repo's
-`apps/statistics-service/`, where Flux image automation rewrites the marked
-`image:` line; [.devops/flux/](.devops/flux/) holds the ImageRepository and
-ImagePolicy for the homelab `clusters/home/image-automation.yaml`.
+Deployed per the homelab platform contract ("Homelab Platform Contract —
+wymagania dla aplikacji"). [.devops/k8s/](.devops/k8s/) (kustomize, namespace
+`apps`) is read directly by Flux from `main` of this repo (registered in
+homelab-infra `clusters/home/apps/statistics-service.yaml`); CI rewrites the
+`image:` tag there on every push to `main`.
 
 - Image: `ghcr.io/jagieloadrian/statistics-service`, built by Jib
   (linux/amd64 + linux/arm64, eclipse-temurin:21-jre, user 10001). CI pushes
   `main-<yyyyMMddHHmmss>-<sha7>` from `main` and the semver version from `v*`
-  tags, never `latest`; the Flux ImagePolicy picks the newest `main-*` tag.
+  tags, never `latest`; only `main` builds are deployed automatically.
 - Route: HTTPRoute on `home-gateway`, host `statistics.home.arpa`, path
   `/api/`; everything else belongs to `statistics-ui` (same origin).
 - Callers: `home-gateway` only (AuthorizationPolicy admits
@@ -87,8 +86,17 @@ ImagePolicy for the homelab `clusters/home/image-automation.yaml`.
 ConfigMap `statistics-service-config` ([configmap.yaml](.devops/k8s/configmap.yaml)):
 `DB_URL`, `DB_USER`, `ADMIN_EMAIL`, `AUTH_LOCAL`, `OIDC_ISSUER`,
 `OIDC_CLIENT_ID`, `OIDC_NAME`, `CORS_HOSTS`, `TRUST_PROXY`, `LOG_FORMAT`.
-Secret `statistics-service-secrets` (SOPS-encrypted in the homelab repo, never
-here): `DB_PASSWORD`, `ADMIN_PASSWORD`, `OIDC_CLIENT_SECRET`.
+Secret `statistics-service-secrets` (SOPS/age-encrypted in
+`.devops/k8s/secrets.sops.yaml`, decrypted by Flux in the cluster):
+`DB_PASSWORD`, `ADMIN_PASSWORD`, `OIDC_CLIENT_SECRET`.
+
+- Database: role and schema `statistics` in database `statistics` on the
+  Postgres running on the Wyse host, reached as
+  `postgres.apps.svc.cluster.local:5432` (homelab-infra `docs/postgres.md`).
+- Deploy: a push to `main` builds the image and CI commits the new tag to
+  `.devops/k8s/`; Flux (homelab-infra
+  `clusters/home/apps/statistics-service.yaml`) reads that directory and rolls
+  it out.
 
 - OIDC redirect URI for the web UI: `http://statistics.home.arpa/`. The
   gateway serves plain HTTP, so the provider must accept an `http` redirect
@@ -124,12 +132,11 @@ here): `DB_PASSWORD`, `ADMIN_PASSWORD`, `OIDC_CLIENT_SECRET`.
 - [x] `kustomize build` (v5.4.3) + `kubeconform -strict` incl. HTTPRoute,
   AuthorizationPolicy and Flux CRDs — 8/8 valid; `istioctl validate` — valid
 - [x] CI workflow — `actionlint` clean
-- [ ] Postgres database, user and `DB_URL` host in the platform — set the real
-  host in `configmap.yaml`
-- [ ] Secret `statistics-service-secrets` added to the homelab repo (SOPS)
+- [x] `DB_URL` points at the platform Postgres (`postgres.apps.svc.cluster.local`)
+- [ ] Role + schema `statistics` created on the Wyse Postgres
+- [ ] Secret `statistics-service-secrets` in `.devops/k8s/secrets.sops.yaml` (SOPS)
 - [ ] OIDC client registered with redirect URI `http://statistics.home.arpa/`
-- [ ] Manifests copied to homelab `apps/statistics-service/`, image objects
-  added to `clusters/home/image-automation.yaml`
+- [x] Registered in homelab-infra (`clusters/home/apps/statistics-service.yaml`)
 
 ## Build & test
 

@@ -7,7 +7,7 @@ on:
     tags: ['v*']
 
 permissions:
-  contents: read
+  contents: write # deploy step commits the new image tag to .devops/k8s
   packages: write
 
 env:
@@ -53,3 +53,13 @@ jobs:
           -Djib.to.image=${{ env.IMAGE }}:${{ steps.tag.outputs.tag }}
           -Djib.to.auth.username=${{ github.actor }}
           -Djib.to.auth.password=${{ secrets.GITHUB_TOKEN }}
+
+      # Flux reads .devops/k8s from main; a push made with GITHUB_TOKEN does not trigger another run.
+      - name: Deploy (bump image tag)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          sed -i -E "s#(image: ${{ env.IMAGE }}):[^[:space:]]+#\1:${{ steps.tag.outputs.tag }}#" .devops/k8s/*.yaml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -am "chore(deploy): ${{ steps.tag.outputs.tag }}"
+          git pull --rebase && git push
