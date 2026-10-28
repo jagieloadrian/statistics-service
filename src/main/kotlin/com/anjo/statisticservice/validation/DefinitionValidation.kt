@@ -1,6 +1,5 @@
-package com.anjo.statisticservice.service
+package com.anjo.statisticservice.validation
 
-import com.anjo.statisticservice.exception.badRequest
 import com.anjo.statisticservice.model.AGGREGATIONS
 import com.anjo.statisticservice.model.Dashboard
 import com.anjo.statisticservice.model.Dataset
@@ -27,15 +26,6 @@ private val TIMESTAMP_FORMATS = setOf("iso", "epoch_ms", "epoch_s")
 private const val SUPPORTED_VERSION = 1
 private const val MIN_REFRESH_SECONDS = 5
 private const val GRID_COLUMNS = 12
-
-fun violations(rules: MutableList<String>.() -> Unit): List<String> = buildList(rules)
-
-fun MutableList<String>.ensure(
-    ok: Boolean,
-    reason: () -> String,
-) {
-    if (!ok) add(reason())
-}
 
 fun datasetViolations(d: Dataset): List<String> =
     violations {
@@ -153,12 +143,3 @@ private fun measureViolations(
             ensure(m.by == null || ds.measureType(m.by) == MeasureType.NUMBER) { "'by' must be a number measure: '${m.by}'" }
         }
     }
-
-fun normalizeEmail(email: String) = email.trim().lowercase()
-
-private fun throwIfAny(
-    what: String,
-    reasons: List<String>,
-) {
-    if (reasons.isNotEmpty()) throw badRequest("Invalid $what", reasons)
-}

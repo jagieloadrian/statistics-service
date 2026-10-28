@@ -10,6 +10,7 @@ import com.anjo.statisticservice.model.dto.MappedRecord
 import com.anjo.statisticservice.model.dto.MappingTestRequest
 import com.anjo.statisticservice.model.dto.MappingTestResult
 import com.anjo.statisticservice.service.mapping.Mapper
+import com.anjo.statisticservice.validation.validateSource
 import io.ktor.http.HttpStatusCode
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json

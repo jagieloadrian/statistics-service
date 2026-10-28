@@ -1,4 +1,4 @@
-package com.anjo.statisticservice.controller
+package com.anjo.statisticservice.validation
 
 import com.anjo.statisticservice.testutils.Pg
 import com.anjo.statisticservice.testutils.json

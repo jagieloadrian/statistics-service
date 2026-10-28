@@ -1,7 +1,6 @@
 package com.anjo.statisticservice
 
 import com.anjo.statisticservice.config.toAppConfig
-import com.anjo.statisticservice.controller.configureRequestValidation
 import com.anjo.statisticservice.controller.configureRouting
 import com.anjo.statisticservice.controller.configureStatusPages
 import com.anjo.statisticservice.di.configureDI
@@ -10,6 +9,7 @@ import com.anjo.statisticservice.di.configureMonitoring
 import com.anjo.statisticservice.di.drainInFlightCallsOnStop
 import com.anjo.statisticservice.service.DefinitionService
 import com.anjo.statisticservice.service.RecordService
+import com.anjo.statisticservice.validation.configureRequestValidation
 import io.ktor.server.application.Application
 import io.ktor.server.application.log
 import io.ktor.server.netty.EngineMain

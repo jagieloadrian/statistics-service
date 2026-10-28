@@ -23,6 +23,9 @@ import com.anjo.statisticservice.repository.DashboardShareRepository
 import com.anjo.statisticservice.repository.DefinitionRepository
 import com.anjo.statisticservice.repository.RecordRepository
 import com.anjo.statisticservice.repository.SourceCredentialRepository
+import com.anjo.statisticservice.validation.validateDashboard
+import com.anjo.statisticservice.validation.validateDataset
+import com.anjo.statisticservice.validation.validateSource
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.JsonElement
 import java.security.MessageDigest

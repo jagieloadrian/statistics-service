@@ -1,4 +1,4 @@
-package com.anjo.statisticservice.controller
+package com.anjo.statisticservice.validation
 
 import com.anjo.statisticservice.model.BUCKETS
 import com.anjo.statisticservice.model.Dashboard
@@ -16,11 +16,6 @@ import com.anjo.statisticservice.model.dto.PasswordChange
 import com.anjo.statisticservice.model.dto.Shares
 import com.anjo.statisticservice.model.dto.UserUpdate
 import com.anjo.statisticservice.model.timeRange
-import com.anjo.statisticservice.service.dashboardViolations
-import com.anjo.statisticservice.service.datasetViolations
-import com.anjo.statisticservice.service.ensure
-import com.anjo.statisticservice.service.sourceViolations
-import com.anjo.statisticservice.service.violations
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
 import io.ktor.server.plugins.requestvalidation.RequestValidation
