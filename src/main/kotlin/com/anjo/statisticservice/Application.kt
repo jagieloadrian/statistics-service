@@ -9,16 +9,11 @@ import com.anjo.statisticservice.service.DefinitionService
 import com.anjo.statisticservice.service.RecordService
 import io.ktor.server.application.Application
 import io.ktor.server.application.log
-import io.ktor.server.netty.EngineMain.main
 import io.ktor.server.plugins.di.dependencies
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.hours
-
-fun main(args: Array<String>) {
-    main(args)
-}
 
 fun Application.module() {
     configureFrameworks()

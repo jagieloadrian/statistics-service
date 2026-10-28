@@ -31,7 +31,7 @@ fun Application.configureRouting() {
     val records: RecordService by dependencies
     val ingest: IngestService by dependencies
     val status: SourceStatusService by dependencies
-    validatorExceptionHandler()
+    configureStatusPages()
     install(RateLimit) {
         register(INGEST) {
             // ponytail: fixed 50/s per source; Source.rateLimitPerSecond needs a suspend lookup the provider can't do

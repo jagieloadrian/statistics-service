@@ -12,9 +12,7 @@ import io.ktor.server.plugins.calllogging.CallLogging
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.plugins.defaultheaders.DefaultHeaders
-import io.ktor.utils.io.ExperimentalKtorApi
 
-@OptIn(ExperimentalKtorApi::class)
 fun Application.configureFrameworks() {
     install(DefaultHeaders) {
         header("X-Engine", "Ktor")

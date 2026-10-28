@@ -15,7 +15,7 @@ import kotlinx.serialization.SerializationException
 
 private val logger = KotlinLogging.logger {}
 
-fun Application.validatorExceptionHandler() {
+fun Application.configureStatusPages() {
     install(StatusPages) {
         exception<ApiException> { call, e ->
             // only a paused source or an unreachable sign-in provider answers 503
