@@ -47,6 +47,8 @@ provider). Frontend `jvmTest` 20 green (callback parser, loopback receiver); js/
 
 Cleanup (branch `feature-6/cleaning-and-refactoring`, 85f6fbe..a836372): unused Ktor modules and KHealth
 dropped (plain `/health` and `/ready` routes, no jitpack repo), dead code removed; still 65 tests green.
+Kubernetes + Istio (a3a212e..48489ec): `.devops/k8s` manifests (constitution 2.3.0), `TRUST_PROXY` for the
+client IP behind the gateway; 66 tests green. Not tried on a live cluster yet.
 
 ## Decisions
 

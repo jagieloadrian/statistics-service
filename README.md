@@ -62,6 +62,29 @@ curl -s -X POST $API/sources/temperature/credential -H "Authorization: Bearer $T
 Devices and collector apps: [.docs/Device_Ingest.md](.docs/Device_Ingest.md),
 [.docs/Collector_Apps.md](.docs/Collector_Apps.md).
 
+## Kubernetes
+
+Optional: plain kustomize manifests for a cluster with Istio in
+[.devops/k8s/](.devops/k8s/) (backend, Postgres, Istio Gateway, the one root
+VirtualService, STRICT mTLS). Host `stats.example.com`: `/api/` goes to the
+backend, everything else to `statistics-ui` from the `Statistics-UI` repo
+(same origin, no CORS).
+
+```bash
+# TLS secret in the ingress gateway's namespace
+kubectl -n istio-system create secret tls statistics-tls --cert=stats.crt --key=stats.key
+cp .devops/k8s/secrets.env.example .devops/k8s/secrets.env   # DB_PASSWORD, ADMIN_PASSWORD, OIDC_CLIENT_SECRET; git-ignored
+kubectl apply -k .devops/k8s                                  # this repo first: namespace, backend, edge
+kubectl apply -k ../Statistics-UI/.devops/k8s                 # then the web UI
+```
+
+- Host, `ADMIN_EMAIL` and `OIDC_*`: `kustomization.yaml` (ConfigMap) and `istio.yaml`.
+- OIDC redirect URI for the web UI: `https://stats.example.com/`.
+- `TRUST_PROXY=true` is set: the login rate limit keys on the client IP the
+  gateway appends to `X-Forwarded-For`.
+- One backend replica (rate limits and source status are in memory);
+  in-cluster Postgres with a 1 Gi volume, a managed database fits production better.
+
 ## Build & test
 
 `./gradlew build` runs all tests; they start PostgreSQL through Testcontainers,
