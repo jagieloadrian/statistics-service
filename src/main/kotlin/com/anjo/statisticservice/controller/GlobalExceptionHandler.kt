@@ -27,7 +27,8 @@ fun Application.configureStatusPages() {
             call.respond(HttpStatusCode.BadRequest, ApiError("bad_request", "Invalid request", e.reasons))
         }
         exception<BadRequestException> { call, e ->
-            call.respond(HttpStatusCode.BadRequest, ApiError("bad_request", e.cause?.message ?: e.message ?: "Bad request"))
+            logger.debug(e) { "Bad request on ${call.request.path()}" }
+            call.respond(HttpStatusCode.BadRequest, ApiError("bad_request", "Malformed request"))
         }
         status(HttpStatusCode.Unauthorized) { call, status ->
             call.respond(status, ApiError("unauthorized", "Missing or invalid token"))

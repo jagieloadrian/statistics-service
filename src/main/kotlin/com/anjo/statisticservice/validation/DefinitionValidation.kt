@@ -31,6 +31,11 @@ fun datasetViolations(d: Dataset): List<String> =
     violations {
         ensure(d.version == SUPPORTED_VERSION) { "version: must be $SUPPORTED_VERSION" }
         ensure(ID.matches(d.id)) { "id: '${d.id}' must match ${ID.pattern}" }
+        ensure(d.label?.isNotBlank() ?: true) { "label: must not be blank" }
+        ensure(d.measures.isNotEmpty()) { "measures: at least one is required" }
+        (d.measures.map { it.name to it.label } + d.dimensions.map { it.name to it.label })
+            .filter { (_, label) -> label?.isBlank() == true }
+            .forEach { (name, _) -> add("$name.label: must not be blank") }
         val names = d.names()
         names.filterNot { NAME.matches(it) }.forEach { add("name: '$it' must match ${NAME.pattern}") }
         names

@@ -8,8 +8,10 @@ import com.anjo.statisticservice.testutils.testApp
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldNotContain
 import io.ktor.client.request.delete
 import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -65,6 +67,13 @@ class RequestValidationTest :
                 client
                     .putJson("/api/v2/datasets/climate", """{"id":"climate","version":2,"measures":[{"name":"ts"}]}""")
                     .shouldBeBadRequestWith("version: must be 1", "name: 'ts' is reserved")
+                client
+                    .putJson("/api/v2/datasets/climate", """{"id":"climate","label":" ","dimensions":[{"name":"room","label":""}]}""")
+                    .shouldBeBadRequestWith(
+                        "label: must not be blank",
+                        "measures: at least one is required",
+                        "room.label: must not be blank",
+                    )
                 client.putJson("/api/v2/dashboards/home/shares", """{"userIds":[0]}""").status shouldBe HttpStatusCode.BadRequest
             }
         }
@@ -73,6 +82,9 @@ class RequestValidationTest :
             testApp {
                 client.delete("/api/v2/users/abc").status shouldBe HttpStatusCode.BadRequest
                 client.postJson("/api/v2/users", """{"email":""").status shouldBe HttpStatusCode.BadRequest
+                val leak = anonymous.postJson("/api/v2/auth/login", """{"email":"a@b.c","password":"hunter2-secret-pass"""")
+                leak.status shouldBe HttpStatusCode.BadRequest
+                leak.bodyAsText() shouldNotContain "hunter2-secret-pass"
             }
         }
     })
