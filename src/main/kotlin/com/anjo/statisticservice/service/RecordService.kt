@@ -17,8 +17,8 @@ import com.anjo.statisticservice.model.dto.DimensionValue
 import com.anjo.statisticservice.model.dto.IngestResult
 import com.anjo.statisticservice.model.dto.QueryResult
 import com.anjo.statisticservice.model.dto.Series
-import com.anjo.statisticservice.model.timeRange
 import com.anjo.statisticservice.repository.RecordRepository
+import com.anjo.statisticservice.service.timeRange
 import com.anjo.statisticservice.validation.validateQuery
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.contentOrNull

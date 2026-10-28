@@ -1,28 +1,17 @@
 package com.anjo.statisticservice.service
 
 import com.anjo.statisticservice.model.Counts
+import com.anjo.statisticservice.model.MinuteCounts
 import com.anjo.statisticservice.model.Rejection
 import com.anjo.statisticservice.model.Source
+import com.anjo.statisticservice.model.SourceActivity
 import com.anjo.statisticservice.model.StatusView
-import java.util.TreeMap
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 
 class SourceStatusService {
-    private class MinuteCounts(
-        var accepted: Long = 0,
-        var rejected: Long = 0,
-    )
-
-    private class SourceActivity {
-        val countsByEpochMinute = TreeMap<Long, MinuteCounts>()
-        var lastRecordAt: Instant? = null
-        val recentAttemptsRejected = ArrayDeque<Boolean>()
-        val newestRejections = ArrayDeque<Rejection>()
-    }
-
     private val activities = ConcurrentHashMap<String, SourceActivity>()
 
     fun accepted(

@@ -1,8 +1,12 @@
 package com.anjo.statisticservice.service
 
-import com.anjo.statisticservice.config.OidcConfig
 import com.anjo.statisticservice.exception.ApiException
 import com.anjo.statisticservice.exception.unauthorized
+import com.anjo.statisticservice.model.OidcClaims
+import com.anjo.statisticservice.model.OidcConfig
+import com.anjo.statisticservice.model.OidcDiscovery
+import com.anjo.statisticservice.model.OidcProviderMetadata
+import com.anjo.statisticservice.model.OidcTokens
 import com.anjo.statisticservice.model.dto.OidcStartResponse
 import com.anjo.statisticservice.observability.TRACEPARENT_HEADER
 import com.anjo.statisticservice.observability.currentTraceparent
@@ -18,8 +22,6 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.booleanOrNull
@@ -47,43 +49,16 @@ private const val JWKS_CACHE_SIZE = 10L
 private const val JWKS_CACHE_HOURS = 24L
 private const val JWKS_FETCHES_PER_MINUTE = 10L
 
-data class OidcClaims(
-    val subject: String,
-    val email: String?,
-    val emailVerified: Boolean,
-    val name: String?,
-)
-
 class Oidc(
     private val config: OidcConfig,
 ) {
     val issuer: String get() = config.issuer
     val name: String get() = config.name
 
-    @Serializable
-    private class Discovery(
-        val issuer: String,
-        @SerialName("authorization_endpoint") val authorizationEndpoint: String,
-        @SerialName("token_endpoint") val tokenEndpoint: String,
-        @SerialName("userinfo_endpoint") val userinfoEndpoint: String? = null,
-        @SerialName("jwks_uri") val jwksUri: String,
-    )
-
-    @Serializable
-    private class Tokens(
-        @SerialName("access_token") val accessToken: String,
-        @SerialName("id_token") val idToken: String,
-    )
-
-    private data class ProviderMetadata(
-        val discovery: Discovery,
-        val keys: JwkProvider,
-    )
-
     private val http = HttpClient.newBuilder().connectTimeout(CONNECT_TIMEOUT.toJavaDuration()).build()
 
     @Volatile
-    private var metadata: ProviderMetadata? = null
+    private var metadata: OidcProviderMetadata? = null
 
     suspend fun start(redirectUri: String): OidcStartResponse =
         withContext(Dispatchers.IO) {
@@ -125,11 +100,11 @@ class Oidc(
         }
 
     private fun requestTokens(
-        discovery: Discovery,
+        discovery: OidcDiscovery,
         code: String,
         codeVerifier: String,
         redirectUri: String,
-    ): Tokens {
+    ): OidcTokens {
         val request =
             request(discovery.tokenEndpoint)
                 .header("Content-Type", "application/x-www-form-urlencoded")
@@ -150,13 +125,13 @@ class Oidc(
         val response = send(request.POST(HttpRequest.BodyPublishers.ofString(form(*fields.toTypedArray()))))
         return response
             .takeIf { it.isSuccessful() }
-            ?.let { runCatching { json.decodeFromString<Tokens>(it.body()) }.getOrNull() }
+            ?.let { runCatching { json.decodeFromString<OidcTokens>(it.body()) }.getOrNull() }
             ?: throw unauthorized("Provider refused sign-in")
     }
 
     private fun verify(
         token: String,
-        discovery: Discovery,
+        discovery: OidcDiscovery,
         keys: JwkProvider,
     ): DecodedJWT =
         try {
@@ -196,11 +171,11 @@ class Oidc(
         )
     }
 
-    private fun metadata(): ProviderMetadata =
+    private fun metadata(): OidcProviderMetadata =
         metadata ?: try {
             val response = send(request("${config.issuer.trimEnd('/')}/.well-known/openid-configuration").GET())
             check(response.statusCode() == HTTP_OK) { "discovery answered ${response.statusCode()}" }
-            val discovery = json.decodeFromString<Discovery>(response.body())
+            val discovery = json.decodeFromString<OidcDiscovery>(response.body())
             check(discovery.issuer == config.issuer) { "discovery names issuer ${discovery.issuer}, OIDC_ISSUER is ${config.issuer}" }
             val keys =
                 JwkProviderBuilder(URI(discovery.jwksUri).toURL())
@@ -208,7 +183,7 @@ class Oidc(
                     .cached(JWKS_CACHE_SIZE, JWKS_CACHE_HOURS, TimeUnit.HOURS)
                     .rateLimited(JWKS_FETCHES_PER_MINUTE, 1, TimeUnit.MINUTES)
                     .build()
-            ProviderMetadata(discovery, keys).also { metadata = it }
+            OidcProviderMetadata(discovery, keys).also { metadata = it }
         } catch (e: ApiException) {
             throw e
         } catch (e: Exception) {

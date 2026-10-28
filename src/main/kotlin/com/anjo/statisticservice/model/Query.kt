@@ -61,16 +61,7 @@ val TIMESTAMP_AGGREGATIONS = setOf("min", "max", "first", "last", "count")
 
 val RANKED_AGGREGATIONS = setOf("at_max", "at_min")
 
-private const val DEFAULT_RANGE = "P1D"
-
 data class TimeRange(
     val from: Instant,
     val to: Instant,
 )
-
-fun Query.timeRange(now: Instant): TimeRange =
-    if (from != null && to != null) {
-        TimeRange(Instant.parse(from), Instant.parse(to))
-    } else {
-        TimeRange(now - Duration.parseIsoString(range?.last ?: DEFAULT_RANGE), now)
-    }

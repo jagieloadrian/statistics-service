@@ -1,7 +1,10 @@
 package com.anjo.statisticservice.repository
 
 import com.anjo.statisticservice.db.Db
+import com.anjo.statisticservice.db.DimText
+import com.anjo.statisticservice.db.ILike
 import com.anjo.statisticservice.db.Records
+import com.anjo.statisticservice.db.Sql
 import com.anjo.statisticservice.model.Dataset
 import com.anjo.statisticservice.model.MeasureType
 import com.anjo.statisticservice.model.Query
@@ -15,14 +18,8 @@ import com.anjo.statisticservice.service.mapping.Expr
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
-import org.jetbrains.exposed.v1.core.ComparisonOp
-import org.jetbrains.exposed.v1.core.Expression
-import org.jetbrains.exposed.v1.core.ExpressionWithColumnType
-import org.jetbrains.exposed.v1.core.QueryBuilder
 import org.jetbrains.exposed.v1.core.SortOrder
-import org.jetbrains.exposed.v1.core.TextColumnType
 import org.jetbrains.exposed.v1.core.and
-import org.jetbrains.exposed.v1.core.append
 import org.jetbrains.exposed.v1.core.count
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greaterEq
@@ -31,7 +28,6 @@ import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.max
 import org.jetbrains.exposed.v1.core.min
-import org.jetbrains.exposed.v1.core.stringParam
 import org.jetbrains.exposed.v1.jdbc.andWhere
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insertIgnore
@@ -173,26 +169,3 @@ object RecordRepository {
             else -> value.toString()
         }
 }
-
-private class Sql(
-    private val sql: String,
-) : Expression<Any?>() {
-    override fun toQueryBuilder(queryBuilder: QueryBuilder) {
-        queryBuilder.append(sql)
-    }
-}
-
-private class DimText(
-    private val name: String,
-) : ExpressionWithColumnType<String?>() {
-    override val columnType = TextColumnType()
-
-    override fun toQueryBuilder(queryBuilder: QueryBuilder) {
-        queryBuilder.append(Records.dims, "->>'", name, "'")
-    }
-}
-
-private class ILike(
-    expr: Expression<*>,
-    pattern: String,
-) : ComparisonOp(expr, stringParam(pattern), "ILIKE")

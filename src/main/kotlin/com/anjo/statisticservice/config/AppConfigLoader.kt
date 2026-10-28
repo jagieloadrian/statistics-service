@@ -1,30 +1,10 @@
 package com.anjo.statisticservice.config
 
+import com.anjo.statisticservice.model.AppConfig
+import com.anjo.statisticservice.model.DbConfig
+import com.anjo.statisticservice.model.OidcConfig
 import io.ktor.server.config.ApplicationConfig
 import java.net.URI
-
-data class DbConfig(
-    val url: String,
-    val user: String,
-    val password: String,
-)
-
-data class OidcConfig(
-    val issuer: String,
-    val clientId: String,
-    val clientSecret: String,
-    val name: String,
-)
-
-data class AppConfig(
-    val db: DbConfig,
-    val localSignIn: Boolean,
-    val adminEmail: String,
-    val adminPassword: String,
-    val oidc: OidcConfig?,
-    val corsHosts: List<String>,
-    val trustProxy: Boolean,
-)
 
 fun ApplicationConfig.toAppConfig(): AppConfig {
     val problems = mutableListOf<String>()

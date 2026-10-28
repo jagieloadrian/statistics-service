@@ -15,7 +15,7 @@ import com.anjo.statisticservice.model.dto.OidcStartRequest
 import com.anjo.statisticservice.model.dto.PasswordChange
 import com.anjo.statisticservice.model.dto.Shares
 import com.anjo.statisticservice.model.dto.UserUpdate
-import com.anjo.statisticservice.model.timeRange
+import com.anjo.statisticservice.service.timeRange
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
 import io.ktor.server.plugins.requestvalidation.RequestValidation

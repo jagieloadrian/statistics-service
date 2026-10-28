@@ -2,6 +2,8 @@ package com.anjo.statisticservice.repository
 
 import com.anjo.statisticservice.db.Db
 import com.anjo.statisticservice.db.Users
+import com.anjo.statisticservice.model.Credentials
+import com.anjo.statisticservice.model.EmailAccount
 import com.anjo.statisticservice.model.Prefs
 import com.anjo.statisticservice.model.User
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -13,16 +15,6 @@ import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
-
-data class Credentials(
-    val userId: Long,
-    val passwordHash: String?,
-)
-
-data class EmailAccount(
-    val userId: Long,
-    val linkedToProvider: Boolean,
-)
 
 object UserRepository {
     fun count(role: String? = null): Long =

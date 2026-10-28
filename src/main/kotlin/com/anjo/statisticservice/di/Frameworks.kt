@@ -1,6 +1,6 @@
 package com.anjo.statisticservice.di
 
-import com.anjo.statisticservice.config.AppConfig
+import com.anjo.statisticservice.model.AppConfig
 import com.anjo.statisticservice.model.definitionJson
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod

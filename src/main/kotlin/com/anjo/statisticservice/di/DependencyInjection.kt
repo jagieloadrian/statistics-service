@@ -1,7 +1,7 @@
 package com.anjo.statisticservice.di
 
-import com.anjo.statisticservice.config.AppConfig
 import com.anjo.statisticservice.db.Db
+import com.anjo.statisticservice.model.AppConfig
 import com.anjo.statisticservice.service.AuthService
 import com.anjo.statisticservice.service.DefinitionService
 import com.anjo.statisticservice.service.IngestService
