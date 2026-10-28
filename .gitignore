@@ -40,3 +40,4 @@ out/
 .devops/redis-compose/redis-data/
 .devops/redis-compose/redisinsight-data/
 .devops/authelia-compose/secrets/
+.devops/k8s/secrets.env

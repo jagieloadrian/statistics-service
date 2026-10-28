@@ -1,0 +1,32 @@
+# kubectl apply -k .devops/k8s — backend, Postgres and the Istio edge (Gateway, root VirtualService, mTLS).
+# The UI repo applies statistics-ui into the same namespace.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: statistics
+resources:
+  - namespace.yaml
+  - postgres.yaml
+  - statistics-service.yaml
+  - istio.yaml
+configMapGenerator:
+  # non-secret settings, see application.yaml
+  - name: statistics-config
+    literals:
+      - DB_URL=jdbc:postgresql://postgres:5432/stats
+      - DB_USER=stats
+      - ADMIN_EMAIL=admin@example.com
+      - AUTH_LOCAL=true
+      - OIDC_ISSUER=
+      - OIDC_CLIENT_ID=
+      - OIDC_NAME=SSO
+      - CORS_HOSTS=stats.example.com
+      # the Istio ingress gateway appends the client IP to X-Forwarded-For
+      - TRUST_PROXY=true
+secretGenerator:
+  # DB_PASSWORD, ADMIN_PASSWORD, OIDC_CLIENT_SECRET; copy secrets.env.example (git-ignored)
+  - name: statistics-secrets
+    envs:
+      - secrets.env
+images:
+  - name: ghcr.io/jagieloadrian/statistics-service
+    newTag: latest

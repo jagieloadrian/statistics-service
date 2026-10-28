@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: statistics-service
+  labels:
+    app: statistics-service
+spec:
+  # ponytail: one replica; login/ingest rate limits and source status live in memory per pod, shared store before scaling
+  replicas: 1
+  selector:
+    matchLabels:
+      app: statistics-service
+  template:
+    metadata:
+      labels:
+        app: statistics-service
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        # the image's user `app` is not numeric, so runAsNonRoot needs an explicit uid
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: statistics-service
+          image: ghcr.io/jagieloadrian/statistics-service
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: statistics-config
+            - secretRef:
+                name: statistics-secrets
+          env:
+            - name: JAVA_TOOL_OPTIONS
+              value: -XX:MaxRAMPercentage=75
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ ALL ]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            # JVM start + Flyway migrations
+            initialDelaySeconds: 60
+          volumeMounts:
+            # JVM and Netty temp files
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: statistics-service
+  labels:
+    app: statistics-service
+spec:
+  selector:
+    app: statistics-service
+  ports:
+    - name: http
+      appProtocol: http
+      port: 8080
+      targetPort: http
