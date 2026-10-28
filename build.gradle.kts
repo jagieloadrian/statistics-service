@@ -1,7 +1,8 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.serialization)
-    alias(libs.plugins.ktor)
+    application
+    alias(libs.plugins.jib)
     alias(libs.plugins.ktlint)
     jacoco
 }
@@ -61,6 +62,36 @@ dependencies {
     testImplementation(libs.kotest.runner)
     testImplementation(libs.kotest.assertions)
     testImplementation(libs.testcontainers.postgresql)
+}
+
+jib {
+    from {
+        image = "eclipse-temurin:21-jre"
+        platforms {
+            platform {
+                architecture = "amd64"
+                os = "linux"
+            }
+            platform {
+                architecture = "arm64"
+                os = "linux"
+            }
+        }
+    }
+    to {
+        image = "ghcr.io/jagieloadrian/statistics-service"
+    }
+    container {
+        ports = listOf("8080")
+        user = "10001:10001"
+        jvmFlags =
+            listOf(
+                "-XX:MaxRAMPercentage=60",
+                "-XX:+UseSerialGC",
+                "-XX:+ExitOnOutOfMemoryError",
+            )
+        creationTime.set("USE_CURRENT_TIMESTAMP")
+    }
 }
 
 ktlint {
