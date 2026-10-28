@@ -326,7 +326,7 @@ source as silent.
 - **FR-021**: Dashboards MUST have visibility private, shared with chosen
   users, or shared with all signed-in users.
 - **FR-022**: Each user MUST be able to set favourites, a home dashboard,
-  time zone, unit system (metric / imperial) and theme. Values whose declared
+  time zone, unit system (metric / imperial), theme and accent colour. Values whose declared
   unit is in the platform's unit table (temperature, length, mass, speed,
   volume, pressure — see contracts/definition-format.md) MUST be displayed
   converted to the chosen system; other units are shown as declared.

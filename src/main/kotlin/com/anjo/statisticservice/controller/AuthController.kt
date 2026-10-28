@@ -49,7 +49,7 @@ fun Route.accountRoutes(
     get("/me") { call.respond(users.user(call.user().id)) }
         .describe { summary = "Current user with preferences" }
     put("/me/prefs") { call.respond(users.setPrefs(call.user().id, call.receive<Prefs>())) }
-        .describe { summary = "Save own preferences (time zone, units, theme, home dashboard, favourites)" }
+        .describe { summary = "Save own preferences (time zone, units, theme, accent colour, home dashboard, favourites)" }
     put("/me/password") {
         val req = call.receive<PasswordChange>()
         auth.changePassword(call.user(), req.current, req.new)

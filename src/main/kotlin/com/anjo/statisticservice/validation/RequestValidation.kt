@@ -27,6 +27,28 @@ import kotlin.time.Clock
 private val EMAIL = Regex("^[^@\\s]+@[^@\\s]+$")
 private val UNITS = setOf("metric", "imperial")
 private val THEMES = setOf("system", "light", "dark")
+
+private val ACCENTS =
+    setOf(
+        "red",
+        "deep-orange",
+        "orange",
+        "amber",
+        "yellow",
+        "lime",
+        "light-green",
+        "green",
+        "teal",
+        "cyan",
+        "light-blue",
+        "blue",
+        "indigo",
+        "deep-purple",
+        "purple",
+        "pink",
+        "brown",
+        "blue-grey",
+    )
 private const val MAX_EMAIL_LENGTH = 254
 private const val MAX_NAME_LENGTH = 200
 private const val MIN_PASSWORD_LENGTH = 10
@@ -95,6 +117,7 @@ private fun Prefs.violations() =
     violations {
         ensure(units in UNITS) { "units: ${UNITS.joinToString(" | ")}" }
         ensure(theme in THEMES) { "theme: ${THEMES.joinToString(" | ")}" }
+        ensure(accent in ACCENTS) { "accent: ${ACCENTS.joinToString(" | ")}" }
         ensure(timeZone == null || runCatching { TimeZone.of(timeZone) }.isSuccess) { "timeZone: unknown zone '$timeZone'" }
         ensure(homeDashboard == null || homeDashboard.length <= MAX_ID_LENGTH) { "homeDashboard: at most $MAX_ID_LENGTH characters" }
         ensure(favourites.size <= MAX_FAVOURITES) { "favourites: at most $MAX_FAVOURITES" }

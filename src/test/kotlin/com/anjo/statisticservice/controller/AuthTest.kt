@@ -156,7 +156,7 @@ class AuthTest :
                     HttpStatusCode.Conflict
 
                 val prefs =
-                    """{"timeZone":"Europe/Warsaw","units":"imperial","theme":"dark",""" +
+                    """{"timeZone":"Europe/Warsaw","units":"imperial","theme":"dark","accent":"pink",""" +
                         """"homeDashboard":"temperature","favourites":["temperature"]}"""
                 client
                     .putJson("/api/v2/me/prefs", prefs)

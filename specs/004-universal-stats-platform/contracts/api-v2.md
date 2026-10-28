@@ -104,7 +104,7 @@ ordered by `lastSeen` desc.
 | `POST /auth/oidc` | public | `{code, codeVerifier, redirectUri}` → `{token, user}` like `/auth/login`. Known provider identity → that account; else the account with the same email is linked if the provider verified the email and it has no other identity; else a new account (admin when the verified email is `ADMIN_EMAIL`, otherwise viewer; no password). Code refused, invalid/expired/foreign ID token, no email, unverified email of an existing account, account linked to another identity → 401; no provider → 404; provider unreachable → 503; shares the login limit |
 | `POST /auth/logout` | signed in | deletes current token → 204 |
 | `GET /me` | signed in | `{id, email, name, role, prefs, hasPassword}`; `hasPassword` false for provider-only accounts |
-| `PUT /me/prefs` | signed in | `{timeZone, units, theme, homeDashboard, favourites}` |
+| `PUT /me/prefs` | signed in | `{timeZone, units, theme, accent, homeDashboard, favourites}` |
 | `PUT /me/password` | signed in | `{current, new}` → 204; wrong `current` → 400; other tokens of the user revoked; local sign-in off or no password → 403 |
 | `GET /users` | admin, editor (share picker) | `[{id, email, name, role, prefs, hasPassword}]` |
 | `POST /users` | admin | `{email, name?, role, password}` → 201 user; create = invite with initial password (no email sending); password < 10 chars → 400 (also on `PUT /me/password`); email in use → 409 |

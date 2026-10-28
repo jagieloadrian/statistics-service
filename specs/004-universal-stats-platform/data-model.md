@@ -51,7 +51,7 @@ user instead of the constant — no change to definitions or exports.
 | Query + dimension values (only datasets used by visible dashboards for viewers) | ✓ | ✓ | ✓ |
 | Own prefs, favourites, home dashboard | ✓ | ✓ | ✓ |
 
-- `prefs` = `{timeZone, units: "metric"|"imperial", theme: "system"|"light"|"dark", homeDashboard, favourites: [ids]}`.
+- `prefs` = `{timeZone, units: "metric"|"imperial", theme: "system"|"light"|"dark", accent: one of 18 Material colour names ("teal" by default, e.g. "deep-orange"), homeDashboard, favourites: [ids]}`.
 - Validation: email unique, password ≥ 10 chars, last remaining admin cannot be demoted/deleted.
 
 ### Auth token

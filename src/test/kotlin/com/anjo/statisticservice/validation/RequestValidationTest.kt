@@ -50,8 +50,12 @@ class RequestValidationTest :
         test("preferences, sign-in and definitions are validated before any lookup") {
             testApp {
                 client
-                    .putJson("/api/v2/me/prefs", """{"units":"furlongs","theme":"neon"}""")
-                    .shouldBeBadRequestWith("units: metric | imperial", "theme: system | light | dark")
+                    .putJson("/api/v2/me/prefs", """{"units":"furlongs","theme":"neon","accent":"plaid"}""")
+                    .shouldBeBadRequestWith(
+                        "units: metric | imperial",
+                        "theme: system | light | dark",
+                        "accent: red | deep-orange | orange | amber | yellow | lime | light-green | green | teal | cyan | light-blue | blue | indigo | deep-purple | purple | pink | brown | blue-grey",
+                    )
                 anonymous
                     .postJson("/api/v2/auth/oidc/start", """{"redirectUri":"callback"}""")
                     .shouldBeBadRequestWith("redirectUri: absolute URI of at most 2048 characters")

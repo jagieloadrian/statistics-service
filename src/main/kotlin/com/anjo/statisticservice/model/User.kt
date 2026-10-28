@@ -12,6 +12,7 @@ data class Prefs(
     val timeZone: String? = null,
     val units: String = "metric",
     val theme: String = "system",
+    val accent: String = "teal",
     val homeDashboard: String? = null,
     val favourites: List<String> = emptyList(),
 )
