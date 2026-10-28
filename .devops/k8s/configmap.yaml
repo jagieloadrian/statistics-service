@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: statistics-service-config
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: statistics-service
+    app.kubernetes.io/part-of: homelab
+data:
+  DB_URL: jdbc:postgresql://postgres.databases.svc.cluster.local:5432/statistics
+  DB_USER: statistics
+  ADMIN_EMAIL: admin@home.arpa
+  AUTH_LOCAL: "true"
+  OIDC_ISSUER: ""
+  OIDC_CLIENT_ID: ""
+  OIDC_NAME: SSO
+  CORS_HOSTS: statistics.home.arpa
+  TRUST_PROXY: "true"
+  LOG_FORMAT: json

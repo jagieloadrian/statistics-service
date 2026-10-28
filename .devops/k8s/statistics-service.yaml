@@ -1,83 +1,159 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: statistics-service
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: statistics-service
+    app.kubernetes.io/part-of: homelab
+automountServiceAccountToken: false
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: statistics-service
+  namespace: apps
   labels:
-    app: statistics-service
+    app.kubernetes.io/name: statistics-service
+    app.kubernetes.io/part-of: homelab
 spec:
-  # ponytail: one replica; login/ingest rate limits and source status live in memory per pod, shared store before scaling
   replicas: 1
+  revisionHistoryLimit: 3
   selector:
     matchLabels:
-      app: statistics-service
+      app.kubernetes.io/name: statistics-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   template:
     metadata:
       labels:
-        app: statistics-service
+        app.kubernetes.io/name: statistics-service
+        app.kubernetes.io/version: "0.0.1"
+        app.kubernetes.io/part-of: homelab
     spec:
+      serviceAccountName: statistics-service
       automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
       securityContext:
         runAsNonRoot: true
-        # the image's user `app` is not numeric, so runAsNonRoot needs an explicit uid
         runAsUser: 10001
         runAsGroup: 10001
+        fsGroup: 10001
         seccompProfile:
           type: RuntimeDefault
       containers:
-        - name: statistics-service
-          image: ghcr.io/jagieloadrian/statistics-service
+        - name: app
+          image: ghcr.io/jagieloadrian/statistics-service:main-20261028120000-abc1234 # {"$imagepolicy": "flux-system:statistics-service"}
+          imagePullPolicy: IfNotPresent
           ports:
             - name: http
               containerPort: 8080
+              protocol: TCP
           envFrom:
             - configMapRef:
-                name: statistics-config
+                name: statistics-service-config
             - secretRef:
-                name: statistics-secrets
-          env:
-            - name: JAVA_TOOL_OPTIONS
-              value: -XX:MaxRAMPercentage=75
+                name: statistics-service-secrets
+          resources:
+            requests:
+              cpu: 100m
+              memory: 384Mi
+            limits:
+              memory: 384Mi
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            periodSeconds: 5
+            failureThreshold: 24
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            periodSeconds: 20
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            periodSeconds: 10
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: 3
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             capabilities:
-              drop: [ ALL ]
-          resources:
-            requests:
-              cpu: 100m
-              memory: 256Mi
-            limits:
-              cpu: "1"
-              memory: 512Mi
-          readinessProbe:
-            httpGet:
-              path: /ready
-              port: http
-          livenessProbe:
-            httpGet:
-              path: /health
-              port: http
-            # JVM start + Flyway migrations
-            initialDelaySeconds: 60
+              drop: ["ALL"]
           volumeMounts:
-            # JVM and Netty temp files
             - name: tmp
               mountPath: /tmp
       volumes:
         - name: tmp
-          emptyDir: {}
+          emptyDir:
+            sizeLimit: 64Mi
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: statistics-service
+  namespace: apps
   labels:
-    app: statistics-service
+    app.kubernetes.io/name: statistics-service
+    app.kubernetes.io/part-of: homelab
 spec:
   selector:
-    app: statistics-service
+    app.kubernetes.io/name: statistics-service
   ports:
     - name: http
-      appProtocol: http
-      port: 8080
+      port: 80
       targetPort: http
+      appProtocol: http
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: statistics-service
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: statistics-service
+    app.kubernetes.io/part-of: homelab
+spec:
+  parentRefs:
+    - name: home-gateway
+      namespace: istio-ingress
+      sectionName: http
+  hostnames:
+    - statistics.home.arpa
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/
+      backendRefs:
+        - name: statistics-service
+          port: 80
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: statistics-service
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: statistics-service
+    app.kubernetes.io/part-of: homelab
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: statistics-service
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/istio-ingress/sa/home-gateway-istio
