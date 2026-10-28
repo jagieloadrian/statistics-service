@@ -6,12 +6,25 @@ turn it into records of a dataset, dashboards query them. Everything domain
 specific is configuration (JSON definitions), not code. Frontend: the
 `Statistics-UI` repo.
 
-## Run
+## Run locally
 
 ```bash
 docker compose -f .devops/postgres-compose/compose.yaml up -d   # PostgreSQL 16, db/user/password "stats"
-ADMIN_EMAIL=admin@local ADMIN_PASSWORD='change-me-now' ./gradlew run
+./gradlew runLocal
 ```
+
+`runLocal` is the local profile: it starts the app with
+`-config=application.yaml -config=.devops/application-local.yaml` (Ktor merges the files, the later one wins)
+and `LOG_FORMAT=plain`. [.devops/application-local.yaml](.devops/application-local.yaml) turns on password
+sign-in only (no OIDC), points at the compose database, allows the web dev server
+(`localhost:8081`, `127.0.0.1:8081`), keeps `TRUST_PROXY` off and creates the dev admin `admin@local` /
+`change-me-now` (only while there are no users). The file is outside `src/main/resources`, so the image
+never contains it. Stop with Ctrl+C, then `docker compose -f .devops/postgres-compose/compose.yaml stop`.
+Web UI: `Statistics-UI` README, "Run locally".
+
+## Configuration
+
+`./gradlew run` and the image read the environment:
 
 | Env | Default | Meaning |
 |-----|---------|---------|

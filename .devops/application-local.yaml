@@ -1,0 +1,17 @@
+ktor:
+  deployment:
+    trustProxy: "false"
+  db:
+    url: "jdbc:postgresql://localhost:5432/stats"
+    user: "stats"
+    password: "stats"
+  auth:
+    adminEmail: "admin@local"
+    adminPassword: "change-me-now"
+    local: "true"
+    oidc:
+      issuer: ""
+      clientId: ""
+      clientSecret: ""
+  cors:
+    hosts: "localhost:8081,127.0.0.1:8081"

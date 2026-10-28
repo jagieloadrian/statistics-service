@@ -22,6 +22,15 @@ application {
     mainClass = "com.anjo.statisticservice.ApplicationKt"
 }
 
+tasks.register<JavaExec>("runLocal") {
+    group = "application"
+    description = "Runs the service with the local profile: .devops/application-local.yaml over application.yaml"
+    mainClass = application.mainClass
+    classpath = sourceSets.main.get().runtimeClasspath
+    args("-config=application.yaml", "-config=${file(".devops/application-local.yaml")}")
+    environment("LOG_FORMAT", "plain")
+}
+
 dependencies {
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.netty)
