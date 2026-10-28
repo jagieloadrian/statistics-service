@@ -2,5 +2,19 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: apps
 resources:
-  - configmap.yaml
   - statistics-service.yaml
+# Nazwy dostają hash treści, więc zmiana config.env / secrets.sops.env robi rollout Deploymentu.
+configMapGenerator:
+  - name: statistics-service-config
+    envs: [config.env]
+    options:
+      labels:
+        app.kubernetes.io/name: statistics-service
+        app.kubernetes.io/part-of: homelab
+secretGenerator:
+  - name: statistics-service-secrets
+    envs: [secrets.sops.env] # zaszyfrowany SOPS (age), Flux odszyfrowuje przy budowaniu
+    options:
+      labels:
+        app.kubernetes.io/name: statistics-service
+        app.kubernetes.io/part-of: homelab

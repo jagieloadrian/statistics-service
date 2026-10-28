@@ -83,12 +83,17 @@ homelab-infra `clusters/home/apps/statistics-service.yaml`); CI rewrites the
 - Backup: the service is stateless; the database is backed up by the platform.
 - One replica: login rate limits and source status are kept in memory.
 
-ConfigMap `statistics-service-config` ([configmap.yaml](.devops/k8s/configmap.yaml)):
-`DB_URL`, `DB_USER`, `ADMIN_EMAIL`, `AUTH_LOCAL`, `OIDC_ISSUER`,
-`OIDC_CLIENT_ID`, `OIDC_NAME`, `CORS_HOSTS`, `TRUST_PROXY`, `LOG_FORMAT`.
-Secret `statistics-service-secrets` (SOPS/age-encrypted in
-`.devops/k8s/secrets.sops.yaml`, decrypted by Flux in the cluster):
-`DB_PASSWORD`, `ADMIN_PASSWORD`, `OIDC_CLIENT_SECRET`.
+Environment comes from two dotenv files turned into a ConfigMap and a Secret by
+kustomize generators (a change rolls the Deployment):
+
+- [config.env](.devops/k8s/config.env), plain → ConfigMap
+  `statistics-service-config`: `DB_URL`, `DB_USER`, `ADMIN_EMAIL`,
+  `AUTH_LOCAL`, `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_NAME`, `CORS_HOSTS`,
+  `TRUST_PROXY`, `LOG_FORMAT`.
+- `.devops/k8s/secrets.sops.env`, SOPS/age-encrypted, decrypted by Flux →
+  Secret `statistics-service-secrets`: `DB_PASSWORD`, `ADMIN_PASSWORD`,
+  `OIDC_CLIENT_SECRET`. Create/edit only with `sops .devops/k8s/secrets.sops.env`
+  (plaintext never touches the disk); the age key is in [.sops.yaml](.sops.yaml).
 
 - Database: role and schema `statistics` in database `statistics` on the
   Postgres running on the Wyse host, reached as
@@ -134,7 +139,7 @@ Secret `statistics-service-secrets` (SOPS/age-encrypted in
 - [x] CI workflow — `actionlint` clean
 - [x] `DB_URL` points at the platform Postgres (`postgres.apps.svc.cluster.local`)
 - [ ] Role + schema `statistics` created on the Wyse Postgres
-- [ ] Secret `statistics-service-secrets` in `.devops/k8s/secrets.sops.yaml` (SOPS)
+- [ ] Secret `statistics-service-secrets` in `.devops/k8s/secrets.sops.env` (SOPS)
 - [ ] OIDC client registered with redirect URI `http://statistics.home.arpa/`
 - [x] Registered in homelab-infra (`clusters/home/apps/statistics-service.yaml`)
 
