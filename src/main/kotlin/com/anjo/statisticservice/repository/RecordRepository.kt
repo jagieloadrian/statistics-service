@@ -2,13 +2,13 @@ package com.anjo.statisticservice.repository
 
 import com.anjo.statisticservice.db.Db
 import com.anjo.statisticservice.db.Records
-import com.anjo.statisticservice.db.toOffsetDateTime
-import com.anjo.statisticservice.exception.badRequest
 import com.anjo.statisticservice.model.Dataset
 import com.anjo.statisticservice.model.MeasureType
 import com.anjo.statisticservice.model.Query
 import com.anjo.statisticservice.model.QueryMeasure
 import com.anjo.statisticservice.model.Record
+import com.anjo.statisticservice.model.TIMESTAMP_FIELD
+import com.anjo.statisticservice.model.measureType
 import com.anjo.statisticservice.model.dto.DimensionValue
 import com.anjo.statisticservice.model.numberMeasures
 import com.anjo.statisticservice.service.mapping.Expr
@@ -36,17 +36,16 @@ import org.jetbrains.exposed.v1.jdbc.andWhere
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insertIgnore
 import org.jetbrains.exposed.v1.jdbc.select
-import java.time.OffsetDateTime
+import java.sql.Timestamp
 import kotlin.time.Instant
+import kotlin.time.toKotlinInstant
 
 object RecordRepository {
-
-    /** false = duplicate identity, nothing stored */
     fun insert(r: Record): Boolean =
         Records.insertIgnore {
             it[orgId] = Db.ORG
             it[datasetId] = r.datasetId
-            it[ts] = r.ts.toOffsetDateTime()
+            it[ts] = r.ts
             it[dims] = r.dims
             it[vals] = r.vals
             it[ident] = r.ident
@@ -58,10 +57,9 @@ object RecordRepository {
     }
 
     fun deleteBefore(datasetId: String, cutoff: Instant) {
-        Records.deleteWhere { of(datasetId) and (ts less cutoff.toOffsetDateTime()) }
+        Records.deleteWhere { of(datasetId) and (ts less cutoff) }
     }
 
-    /** [dim] must be a dimension of the dataset. */
     fun dimensionValues(datasetId: String, dim: String, search: String?, limit: Int, offset: Int): List<DimensionValue> {
         val value = DimText(dim)
         val first = Records.ts.min()
@@ -71,13 +69,9 @@ object RecordRepository {
             .where { of(datasetId) and value.isNotNull() }
             .apply { if (!search.isNullOrBlank()) andWhere { ILike(value, "%$search%") } }
             .groupBy(value).orderBy(last, SortOrder.DESC).limit(limit).offset(offset.toLong())
-            .map { DimensionValue(it[value]!!, iso(it[first]), iso(it[last]), it[count]) }
+            .mapNotNull { row -> row[value]?.let { DimensionValue(it, iso(row[first]), iso(row[last]), row[count]) } }
     }
 
-    /**
-     * Rows of `[time], groupBy values..., measures...` in [from, to): every record when [raw], else one row per
-     * group and bucket of [bucketSeconds] (no time column when null). Group by and filter names must be dimensions.
-     */
     fun query(ds: Dataset, q: Query, from: Instant, to: Instant, raw: Boolean, bucketSeconds: Long?, limit: Int?): List<List<JsonElement>> {
         val time = when {
             raw -> Records.ts
@@ -87,7 +81,7 @@ object RecordRepository {
         val groups = q.groupBy.map(::DimText)
         val select = listOfNotNull(time) + groups + q.measures.map { Sql(measureSql(it, ds, raw)) }
         val query = Records.select(select)
-            .where { of(ds.id) and (Records.ts greaterEq from.toOffsetDateTime()) and (Records.ts less to.toOffsetDateTime()) }
+            .where { of(ds.id) and (Records.ts greaterEq from) and (Records.ts less to) }
         q.filter.forEach { (k, v) -> query.andWhere { DimText(k) inList v } }
         if (!raw && (time != null || groups.isNotEmpty())) query.groupBy(*(listOfNotNull(time) + groups).toTypedArray())
         query.orderBy(*(groups + listOfNotNull(time)).map { it to SortOrder.ASC }.toTypedArray())
@@ -95,70 +89,62 @@ object RecordRepository {
         return query.map { row -> select.map { json(row[it]) } }
     }
 
-    // ponytail: measures stay SQL text (array_agg(... ORDER BY ...)[1], calculated Expr output); typed Exposed expressions if they get reused
     private fun measureSql(m: QueryMeasure, ds: Dataset, raw: Boolean): String {
         val (x, type) = field(ds, m.field)
         if (raw) return x
-        val agg = m.agg ?: when (type) {
-            null -> "max"
-            MeasureType.number -> "avg"
-            else -> "last"
-        }
-        if (agg in setOf("sum", "avg") && type != MeasureType.number) throw badRequest("agg '$agg' needs a number measure: '${m.field}'")
-        if (type == null && agg !in setOf("min", "max", "first", "last", "count")) throw badRequest("agg '$agg' not allowed on ts")
-        return when (agg) {
+        return when (val agg = m.agg ?: defaultAggregation(type)) {
             "count" -> "count($x)"
             "sum", "avg", "min", "max" -> "$agg($x)"
             "first" -> "(array_agg($x ORDER BY ts))[1]"
             "last" -> "(array_agg($x ORDER BY ts DESC))[1]"
-            "at_max", "at_min" -> {
-                val (by, byType) = field(ds, m.by ?: throw badRequest("agg '$agg' needs 'by'"))
-                if (byType != MeasureType.number) throw badRequest("'by' must be a number measure: '${m.by}'")
-                "(array_agg($x ORDER BY $by ${if (agg == "at_max") "DESC" else "ASC"} NULLS LAST))[1]"
-            }
-            else -> throw badRequest("agg: count | sum | avg | min | max | first | last | at_max | at_min")
+            "at_max" -> "(array_agg($x ORDER BY ${rankedBy(ds, m)} DESC NULLS LAST))[1]"
+            "at_min" -> "(array_agg($x ORDER BY ${rankedBy(ds, m)} ASC NULLS LAST))[1]"
+            else -> error("Unvalidated aggregation '$agg'")
         }
     }
 
-    /** SQL value and type of `ts`, a declared or a calculated measure; names validated before being inlined. */
+    private fun defaultAggregation(type: MeasureType?) =
+        when (type) {
+            null -> "max"
+            MeasureType.NUMBER -> "avg"
+            else -> "last"
+        }
+
+    private fun rankedBy(ds: Dataset, m: QueryMeasure): String = field(ds, checkNotNull(m.by) { "Unvalidated 'by' of '${m.field}'" }).first
+
     private fun field(ds: Dataset, name: String): Pair<String, MeasureType?> {
-        if (name == "ts") return "ts" to null
-        ds.calculated[name]?.let { return Expr.toSql(it, ds.numberMeasures()) to MeasureType.number }
-        return when (ds.measures.firstOrNull { it.name == name }?.type ?: throw badRequest("Unknown measure '$name'")) {
-            MeasureType.number -> "(vals->>'$name')::float8" to MeasureType.number
-            MeasureType.boolean -> "(vals->>'$name')::boolean" to MeasureType.boolean
-            MeasureType.text -> "(vals->>'$name')" to MeasureType.text
+        if (name == TIMESTAMP_FIELD) return TIMESTAMP_FIELD to null
+        ds.calculated[name]?.let { return Expr.toSql(it, ds.numberMeasures()) to MeasureType.NUMBER }
+        return when (checkNotNull(ds.measureType(name)) { "Unvalidated measure '$name'" }) {
+            MeasureType.NUMBER -> "(vals->>'$name')::float8" to MeasureType.NUMBER
+            MeasureType.BOOLEAN -> "(vals->>'$name')::boolean" to MeasureType.BOOLEAN
+            MeasureType.TEXT -> "(vals->>'$name')" to MeasureType.TEXT
         }
     }
 
     private fun of(datasetId: String) = (Records.orgId eq Db.ORG) and (Records.datasetId eq datasetId)
 
-    private fun json(v: Any?): JsonElement = when (v) {
-        null -> JsonNull
-        is Number -> JsonPrimitive(v)
-        is Boolean -> JsonPrimitive(v)
-        is java.sql.Timestamp, is OffsetDateTime -> JsonPrimitive(iso(v))
-        else -> JsonPrimitive(v.toString())
-    }
+    private fun json(value: Any?): JsonElement =
+        when (value) {
+            null -> JsonNull
+            is Number -> JsonPrimitive(value)
+            is Boolean -> JsonPrimitive(value)
+            else -> JsonPrimitive(iso(value))
+        }
 
-    private fun iso(v: Any?): String = when (v) {
-        is OffsetDateTime -> v.toInstant().toString()
-        is java.sql.Timestamp -> v.toInstant().toString()
-        else -> v.toString()
-    }
+    private fun iso(value: Any?): String =
+        when (value) {
+            is Timestamp -> value.toInstant().toKotlinInstant().toString()
+            else -> value.toString()
+        }
 }
 
-/** SQL text built from names validated against the dataset. */
 private class Sql(private val sql: String) : Expression<Any?>() {
     override fun toQueryBuilder(queryBuilder: QueryBuilder) {
         queryBuilder.append(sql)
     }
 }
 
-/**
- * `dims->>'name'` with the name inlined; callers validate it. Exposed's extract() binds the path as a parameter,
- * and a parameter in SELECT never matches the one in GROUP BY.
- */
 private class DimText(private val name: String) : ExpressionWithColumnType<String?>() {
     override val columnType = TextColumnType()
     override fun toQueryBuilder(queryBuilder: QueryBuilder) {

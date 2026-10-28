@@ -18,7 +18,7 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.exists
 import org.jetbrains.exposed.v1.core.intLiteral
 import org.jetbrains.exposed.v1.core.or
-import org.jetbrains.exposed.v1.javatime.CurrentTimestampWithTimeZone
+import org.jetbrains.exposed.v1.datetime.CurrentTimestamp
 import org.jetbrains.exposed.v1.jdbc.Query
 import org.jetbrains.exposed.v1.jdbc.andWhere
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
@@ -31,7 +31,6 @@ object DefinitionRepository {
     private val label = coalesce(Definitions.body.extract<String>("label"), Definitions.body.extract<String>("title"))
     private val updatedAtText = Definitions.updatedAt.castTo(TextColumnType())
 
-    /** [visibleTo] limits dashboards to the ones that user may view; null = everything. */
     fun <T> list(kind: Kind, ser: KSerializer<T>, visibleTo: UserPrincipal? = null): List<T> =
         Definitions.select(Definitions.body).where { key(kind) }.visibleTo(kind, visibleTo).orderBy(Definitions.id)
             .map { definitionJson.decodeFromString(ser, it[Definitions.body]) }
@@ -50,8 +49,6 @@ object DefinitionRepository {
         Definitions.select(Definitions.body).where { key(kind, id) }.singleOrNull()
             ?.let { definitionJson.decodeFromString(ser, it[Definitions.body]) }
 
-    /** true = created, false = updated; owner is kept on update */
-    // ponytail: two racing creates both report created; RETURNING (xmax = 0) if import counts must be exact
     fun <T> upsert(kind: Kind, id: String, body: T, ser: KSerializer<T>, ownerId: Long?): Boolean {
         val created = Definitions.selectAll().where { key(kind, id) }.empty()
         Definitions.upsert(onUpdateExclude = listOf(Definitions.ownerId)) {
@@ -60,7 +57,7 @@ object DefinitionRepository {
             it[this.id] = id
             it[this.body] = definitionJson.encodeToString(ser, body)
             it[this.ownerId] = ownerId
-            it[updatedAt] = CurrentTimestampWithTimeZone
+            it[updatedAt] = CurrentTimestamp
         }
         return created
     }

@@ -9,7 +9,6 @@ import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.select
 
 object DashboardShareRepository {
-
     fun userIds(dashboardId: String): List<Long> =
         DashboardShares.select(DashboardShares.userId).where { of(dashboardId) }.orderBy(DashboardShares.userId).map { it[DashboardShares.userId] }
 

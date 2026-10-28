@@ -1,6 +1,5 @@
 package com.anjo.statisticservice.controller
 
-import com.anjo.statisticservice.exception.notFound
 import com.anjo.statisticservice.model.ADMIN
 import com.anjo.statisticservice.model.Dataset
 import com.anjo.statisticservice.model.EDITOR
@@ -14,22 +13,23 @@ import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
 import io.ktor.server.routing.openapi.describe
 import io.ktor.server.routing.put
+import io.ktor.server.util.getOrFail
 
-// admin writes; editors read them to build widgets; viewers only the ones their dashboards use
+private const val DEFAULT_PAGE_SIZE = 50
+
 fun Route.datasetRoutes(definitions: DefinitionService, records: RecordService) {
     get("/datasets") {
         call.requireRole(ADMIN, EDITOR)
         call.respond(definitions.summaries(Kind.DATASET))
     }.describe { summary = "List datasets (admin, editor)" }
     get("/datasets/{id}") {
-        definitions.requireDatasetAccess(call.user(), call.id)
-        call.respond(definitions.json(Kind.DATASET, call.id) ?: throw notFound("Unknown dataset '${call.id}'"))
+        call.respond(definitions.datasetDocument(call.user(), call.id))
     }.describe { summary = "Get one dataset" }
     put("/datasets/{id}") {
         call.requireRole(ADMIN)
-        val d = call.receive<Dataset>().also { requireSameId(call.id, it.id) }
-        definitions.putDataset(d, call.force)
-        call.respond(d)
+        val dataset = call.receive<Dataset>().also { requireSameId(call.id, it.id) }
+        definitions.putDataset(dataset, call.force)
+        call.respond(dataset)
     }.describe { summary = "Create or replace a dataset (admin)" }
     delete("/datasets/{id}") {
         call.requireRole(ADMIN)
@@ -37,14 +37,16 @@ fun Route.datasetRoutes(definitions: DefinitionService, records: RecordService) 
         call.respond(mapOf("deleted" to call.id))
     }.describe { summary = "Delete a dataset and its records (admin)" }
     get("/datasets/{id}/dimensions/{dim}/values") {
-        definitions.requireDatasetAccess(call.user(), call.id)
-        val ds = definitions.dataset(call.id) ?: throw notFound("Unknown dataset '${call.id}'")
-        val p = call.request.queryParameters
-        call.respond(
+        val dataset = definitions.accessibleDataset(call.user(), call.id)
+        val query = call.request.queryParameters
+        val values =
             records.dimensionValues(
-                ds, call.parameters["dim"]!!, p["search"],
-                p["limit"]?.toIntOrNull() ?: 50, p["offset"]?.toIntOrNull() ?: 0,
-            ),
-        )
+                ds = dataset,
+                dim = call.parameters.getOrFail("dim"),
+                search = query["search"],
+                limit = query["limit"]?.toIntOrNull() ?: DEFAULT_PAGE_SIZE,
+                offset = query["offset"]?.toIntOrNull() ?: 0,
+            )
+        call.respond(values)
     }.describe { summary = "Distinct values of a dimension with first/last seen, newest first" }
 }

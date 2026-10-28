@@ -4,7 +4,6 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonPrimitive
 
-// ponytail: push only; pull/kafka/grpc settings land with their channel
 @Serializable
 data class Channel(val type: String = "push")
 

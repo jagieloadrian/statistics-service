@@ -24,7 +24,6 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.io.File
 
-/** Role × endpoint matrix from data-model.md. */
 class AccessControlTest : FunSpec({
     beforeTest { Pg.truncateAll() }
 
@@ -33,25 +32,23 @@ class AccessControlTest : FunSpec({
 
     fun query(dataset: String) = """{"dataset":"$dataset","measures":[{"field":"temperature"}],"bucket":"none"}"""
 
-    suspend fun HttpClient.ids(path: String) = get(path).json().jsonArray.map { it.jsonObject["id"]!!.jsonPrimitive.content }
+    suspend fun HttpClient.ids(path: String) = get(path).json().jsonArray.map { it.jsonObject.getValue("id").jsonPrimitive.content }
 
     infix fun HttpResponse.expect(code: HttpStatusCode) = withClue("${call.request.method.value} ${call.request.url.encodedPath}") { status shouldBe code }
 
     test("roles and dashboard visibility") {
         testApp {
-            client.postJson("/api/v2/import", File("definitions/temperature.json").readText()) expect OK // dashboard 'temperature', visibility all
+            client.postJson("/api/v2/import", File("definitions/temperature.json").readText()) expect OK
             client.putJson("/api/v2/datasets/secret", """{"id":"secret","measures":[{"name":"temperature"}]}""") expect OK
             val editor = userClient("editor@test.local", EDITOR)
             val viewer = userClient("viewer@test.local", VIEWER)
-            val viewerId = client.get("/api/v2/users").json().jsonArray.first { it.jsonObject["email"]!!.jsonPrimitive.content == "viewer@test.local" }
-                .jsonObject["id"]!!.jsonPrimitive.content
+            val viewerId = client.get("/api/v2/users").json().jsonArray.first { it.jsonObject.getValue("email").jsonPrimitive.content == "viewer@test.local" }
+                .jsonObject.getValue("id").jsonPrimitive.content
 
-            // anonymous: nothing but login and ingest
             anonymous.get("/api/v2/dashboards") expect Unauthorized
             anonymous.postJson("/api/v2/query", query("temperature")) expect Unauthorized
             anonymous.get("/api/v2/export") expect Unauthorized
 
-            // editor: own dashboards and sharing, no sources/datasets writes/import/users admin
             editor.putJson("/api/v2/dashboards/ed-private", dashboard("ed-private", "private", "secret")) expect OK
             editor.putJson("/api/v2/dashboards/ed-shared", dashboard("ed-shared", "users", "temperature")) expect OK
             editor.putJson("/api/v2/dashboards/ed-shared/shares", """{"userIds":[$viewerId]}""") expect OK
@@ -65,9 +62,8 @@ class AccessControlTest : FunSpec({
             editor.get("/api/v2/datasets") expect OK
             editor.postJson("/api/v2/query", query("secret")) expect OK
             editor.ids("/api/v2/dashboards") shouldBe listOf("ed-private", "ed-shared", "temperature")
-            editor.get("/api/v2/export").json().jsonObject["sources"]!!.jsonArray.size shouldBe 0
+            editor.get("/api/v2/export").json().jsonObject.getValue("sources").jsonArray.size shouldBe 0
 
-            // viewer: only shared/all dashboards and their datasets, no writes
             viewer.ids("/api/v2/dashboards") shouldBe listOf("ed-shared", "temperature")
             viewer.get("/api/v2/dashboards/ed-private") expect Forbidden
             viewer.get("/api/v2/dashboards/ed-shared") expect OK
@@ -85,7 +81,6 @@ class AccessControlTest : FunSpec({
             viewer.postJson("/api/v2/sources/temperature/credential", "") expect Forbidden
             viewer.postJson("/api/v2/import", "{}") expect Forbidden
 
-            // admin: everything, all dashboards
             client.ids("/api/v2/dashboards") shouldBe listOf("ed-private", "ed-shared", "temperature")
             client.putJson("/api/v2/dashboards/ed-private", dashboard("ed-private", "private", "secret")) expect OK
             client.get("/api/v2/sources/temperature/status") expect OK

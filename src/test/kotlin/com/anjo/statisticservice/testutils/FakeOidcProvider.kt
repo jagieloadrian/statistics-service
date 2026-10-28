@@ -11,17 +11,18 @@ import java.security.KeyPair
 import java.security.KeyPairGenerator
 import java.security.interfaces.RSAPrivateKey
 import java.security.interfaces.RSAPublicKey
-import java.time.Instant
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Instant
+import kotlin.time.toJavaInstant
 import java.util.Base64
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
-/** In-test OpenID Connect provider (discovery, JWKS, token, userinfo); the knobs shape or break the next answer. */
 class FakeOidcProvider(val clientId: String = "statistics-ui") {
     private val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
     val issuer = "http://127.0.0.1:${server.address.port}"
 
-    /** Claims of the next ID token; userinfo answers [userinfoClaims], or these when null. */
     var claims: Map<String, Any> = user("alice-sub", "alice@test.local", name = "Alice")
     var userinfoClaims: Map<String, Any>? = null
     var signWithOtherKey = false
@@ -30,7 +31,6 @@ class FakeOidcProvider(val clientId: String = "statistics-ui") {
     var expiresAt: Instant? = null
     var failToken = false
 
-    /** Form fields of the last token request. */
     var lastTokenRequest: Map<String, String> = emptyMap()
         private set
 
@@ -62,11 +62,17 @@ class FakeOidcProvider(val clientId: String = "statistics-ui") {
     fun stop() = server.stop(0)
 
     private fun idToken(): String {
-        val k = if (signWithOtherKey) otherKey else key
-        val now = Instant.now()
-        return JWT.create().withKeyId("k1").withIssuer(tokenIssuer ?: issuer).withAudience(audience).withIssuedAt(now)
-            .withExpiresAt(expiresAt ?: now.plusSeconds(300)).withPayload(claims)
-            .sign(Algorithm.RSA256(k.public as RSAPublicKey, k.private as RSAPrivateKey))
+        val signingKey = if (signWithOtherKey) otherKey else key
+        val now = Clock.System.now()
+        return JWT
+            .create()
+            .withKeyId("k1")
+            .withIssuer(tokenIssuer ?: issuer)
+            .withAudience(audience)
+            .withIssuedAt(now.toJavaInstant())
+            .withExpiresAt((expiresAt ?: now + 5.minutes).toJavaInstant())
+            .withPayload(claims)
+            .sign(Algorithm.RSA256(signingKey.public as RSAPublicKey, signingKey.private as RSAPrivateKey))
     }
 
     companion object {

@@ -9,13 +9,12 @@ import io.kotest.matchers.ints.shouldBeGreaterThan
 import io.ktor.client.request.get
 import kotlinx.serialization.json.jsonObject
 
-/** Every /api/v2 operation is documented in Swagger with a summary. */
 class OpenApiTest : FunSpec({
     beforeTest { Pg.truncateAll() }
 
     test("every api v2 operation has a summary") {
         testApp {
-            val paths = anonymous.get("/api/v2/swagger/documentation.yaml").json().jsonObject["paths"]!!.jsonObject
+            val paths = anonymous.get("/api/v2/swagger/documentation.yaml").json().jsonObject.getValue("paths").jsonObject
                 .filterKeys { it.startsWith("/api/v2/") }
             paths.size shouldBeGreaterThan 20
             paths.flatMap { (path, ops) -> ops.jsonObject.filterValues { "summary" !in it.jsonObject }.keys.map { "$it $path" } }.shouldBeEmpty()

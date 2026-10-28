@@ -9,6 +9,7 @@ import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.openapi.describe
 import io.ktor.server.routing.post
+import io.ktor.server.util.getOrFail
 
 val INGEST = RateLimitName("ingest")
 
@@ -16,7 +17,7 @@ fun Route.ingestRoutes(ingest: IngestService) {
     rateLimit(INGEST) {
         post("$API_V2/ingest/{sourceId}") {
             val token = call.request.headers[HttpHeaders.Authorization]?.removePrefix("Bearer ")?.trim()
-            call.respond(ingest.ingest(call.parameters["sourceId"]!!, token) { call.receiveText() })
+            call.respond(ingest.ingest(call.parameters.getOrFail("sourceId"), token) { call.receiveText() })
         }.describe { summary = "Push a payload to a source (source token)" }
     }
 }

@@ -14,8 +14,11 @@ import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
 
-object UserRepository {
+data class Credentials(val userId: Long, val passwordHash: String?)
 
+data class EmailAccount(val userId: Long, val linkedToProvider: Boolean)
+
+object UserRepository {
     fun count(role: String? = null): Long =
         Users.selectAll().where { Users.orgId eq Db.ORG }.apply { if (role != null) andWhere { Users.role eq role } }.count()
 
@@ -23,20 +26,19 @@ object UserRepository {
 
     fun list(): List<User> = Users.selectAll().where { Users.orgId eq Db.ORG }.orderBy(Users.id).map(::toUser)
 
-    /** Id and password hash (null = provider-only) of the user with this (normalized) email. */
-    fun credentials(email: String): Pair<Long, String?>? =
+    fun credentials(email: String): Credentials? =
         Users.select(Users.id, Users.passwordHash).where { (Users.orgId eq Db.ORG) and (Users.email eq email) }.singleOrNull()
-            ?.let { it[Users.id] to it[Users.passwordHash] }
+            ?.let { Credentials(it[Users.id], it[Users.passwordHash]) }
 
-    fun passwordHash(id: Long): String? = Users.select(Users.passwordHash).where { Users.id eq id }.single()[Users.passwordHash]
+    fun passwordHash(id: Long): String? =
+        Users.select(Users.passwordHash).where { Users.id eq id }.singleOrNull()?.get(Users.passwordHash)
 
     fun findByOidc(issuer: String, subject: String): Long? =
         Users.select(Users.id).where { (Users.oidcIssuer eq issuer) and (Users.oidcSubject eq subject) }.singleOrNull()?.get(Users.id)
 
-    /** Id of the user with this (normalized) email and whether a provider identity is linked to it. */
-    fun findByEmail(email: String): Pair<Long, Boolean>? =
+    fun findByEmail(email: String): EmailAccount? =
         Users.select(Users.id, Users.oidcSubject).where { Users.email eq email }.singleOrNull()
-            ?.let { it[Users.id] to (it[Users.oidcSubject] != null) }
+            ?.let { EmailAccount(it[Users.id], linkedToProvider = it[Users.oidcSubject] != null) }
 
     fun linkOidc(id: Long, issuer: String, subject: String) {
         Users.update({ Users.id eq id }) {

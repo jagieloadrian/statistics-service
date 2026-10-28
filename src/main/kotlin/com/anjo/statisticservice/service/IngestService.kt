@@ -4,9 +4,7 @@ import com.anjo.statisticservice.exception.ApiException
 import com.anjo.statisticservice.exception.MappingException
 import com.anjo.statisticservice.exception.badRequest
 import com.anjo.statisticservice.exception.conflict
-import com.anjo.statisticservice.exception.notFound
 import com.anjo.statisticservice.exception.unauthorized
-import com.anjo.statisticservice.model.Source
 import com.anjo.statisticservice.model.dto.IngestResult
 import com.anjo.statisticservice.model.dto.MappedRecord
 import com.anjo.statisticservice.model.dto.MappingTestRequest
@@ -22,10 +20,8 @@ class IngestService(
     private val records: RecordService,
     private val status: SourceStatusService,
 ) {
-
-    /** Maps and stores one pushed payload; [body] is read only once the source accepts it. Rejections go to the source status. */
     suspend fun ingest(sourceId: String, token: String?, body: suspend () -> String): IngestResult {
-        val source = definitions.source(sourceId) ?: throw notFound("Unknown source '$sourceId'")
+        val source = definitions.requireSource(sourceId)
         if (token.isNullOrEmpty() || !definitions.verifyCredential(sourceId, token)) throw unauthorized("Missing or invalid source token")
         if (source.paused) throw ApiException(HttpStatusCode.ServiceUnavailable, "paused", "Source '$sourceId' is paused")
         val dataset = definitions.dataset(source.dataset)
@@ -47,8 +43,8 @@ class IngestService(
         return result
     }
 
-    /** Runs [req]'s mapping, or the stored one, against a sample payload; stores nothing. */
-    suspend fun mappingTest(stored: Source, req: MappingTestRequest): MappingTestResult {
+    suspend fun mappingTest(sourceId: String, req: MappingTestRequest): MappingTestResult {
+        val stored = definitions.requireSource(sourceId)
         val source = stored.copy(mapping = req.mapping ?: stored.mapping)
         val dataset = definitions.dataset(source.dataset) ?: throw badRequest("Unknown dataset '${source.dataset}'")
         validateSource(source, dataset)

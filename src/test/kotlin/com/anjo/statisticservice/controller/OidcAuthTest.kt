@@ -26,7 +26,8 @@ import io.ktor.client.statement.HttpResponse
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.Url
 import java.security.MessageDigest
-import java.time.Instant
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.hours
 import java.util.Base64
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -36,7 +37,6 @@ import kotlinx.serialization.json.jsonPrimitive
 
 private const val REDIRECT = "http://127.0.0.1:51234/callback"
 
-/** Runs [block] against an app configured for a fresh [FakeOidcProvider]; [TestApp.client] is the bootstrap admin when there is one. */
 private fun oidcApp(extraConfig: Map<String, String> = emptyMap(), block: suspend TestApp.(FakeOidcProvider) -> Unit) {
     val idp = FakeOidcProvider()
     try {
@@ -50,11 +50,10 @@ private fun oidcApp(extraConfig: Map<String, String> = emptyMap(), block: suspen
 private suspend fun TestApp.oidcSignIn(code: String = "code-1", verifier: String = "verifier-1"): HttpResponse =
     anonymous.postJson("/api/v2/auth/oidc", """{"code":"$code","codeVerifier":"$verifier","redirectUri":"$REDIRECT"}""")
 
-private fun JsonObject.str(key: String) = this[key]!!.jsonPrimitive.content
+private fun JsonObject.str(key: String) = getValue(key).jsonPrimitive.content
 
-private suspend fun HttpResponse.user() = json().jsonObject["user"]!!.jsonObject
+private suspend fun HttpResponse.user() = json().jsonObject.getValue("user").jsonObject
 
-/** No local admin: the first verified provider sign-in with ADMIN_EMAIL becomes admin. */
 private val PROVIDER_ADMIN = mapOf("ktor.auth.adminEmail" to "Boss@Test.local", "ktor.auth.adminPassword" to "")
 
 private val LOCAL_OFF = mapOf("ktor.auth.local" to "false")
@@ -73,12 +72,12 @@ class OidcAuthTest : FunSpec({
         oidcApp {
             val config = anonymous.get("/api/v2/auth/config").json().jsonObject
             config.str("local") shouldBe "true"
-            config["oidc"]!!.jsonObject.str("name") shouldBe "Fake"
+            config.getValue("oidc").jsonObject.str("name") shouldBe "Fake"
         }
         oidcApp(LOCAL_OFF) {
             val config = anonymous.get("/api/v2/auth/config").json().jsonObject
             config.str("local") shouldBe "false"
-            config["oidc"]!!.jsonObject.str("name") shouldBe "Fake"
+            config.getValue("oidc").jsonObject.str("name") shouldBe "Fake"
         }
     }
 
@@ -102,7 +101,7 @@ class OidcAuthTest : FunSpec({
     test("first sign-in creates a viewer without password, the next one finds the same account") {
         oidcApp { idp ->
             val first = oidcSignIn().json().jsonObject
-            val user = first["user"]!!.jsonObject
+            val user = first.getValue("user").jsonObject
             user.str("email") shouldBe "alice@test.local"
             user.str("name") shouldBe "Alice"
             user.str("role") shouldBe "viewer"
@@ -114,7 +113,7 @@ class OidcAuthTest : FunSpec({
 
             val alice = withToken(first.str("token"))
             alice.get("/api/v2/me").json().jsonObject.str("id") shouldBe user.str("id")
-            oidcSignIn("code-2").json().jsonObject["user"]!!.jsonObject.str("id") shouldBe user.str("id")
+            oidcSignIn("code-2").json().jsonObject.getValue("user").jsonObject.str("id") shouldBe user.str("id")
             userCount() shouldBe 2
 
             alice.post("/api/v2/auth/logout").status shouldBe HttpStatusCode.NoContent
@@ -134,7 +133,7 @@ class OidcAuthTest : FunSpec({
             idp.stop()
             anonymous.postJson("/api/v2/auth/oidc/start", """{"redirectUri":"$REDIRECT"}""").status shouldBe HttpStatusCode.ServiceUnavailable
             oidcSignIn().status shouldBe HttpStatusCode.ServiceUnavailable
-            client.get("/api/v2/me").status shouldBe HttpStatusCode.OK // password sign-in unaffected
+            client.get("/api/v2/me").status shouldBe HttpStatusCode.OK
         }
     }
 
@@ -143,12 +142,11 @@ class OidcAuthTest : FunSpec({
             "signed with another key" to { signWithOtherKey = true },
             "wrong issuer" to { tokenIssuer = "https://evil.example" },
             "wrong audience" to { audience = "someone-else" },
-            "expired" to { expiresAt = Instant.now().minusSeconds(3600) },
+            "expired" to { expiresAt = Clock.System.now() - 1.hours },
             "code refused" to { failToken = true },
             "userinfo for another user" to { claims = mapOf("sub" to "alice-sub"); userinfoClaims = user("mallory-sub", "alice@test.local") },
             "no email anywhere" to { claims = mapOf("sub" to "alice-sub"); userinfoClaims = mapOf("sub" to "alice-sub") },
         )
-        // one app per case: start and exchange share the 5/min login limit
         for ((case, breakIt) in cases) oidcApp { idp ->
             idp.breakIt()
             withClue(case) {
@@ -207,7 +205,7 @@ class OidcAuthTest : FunSpec({
         oidcApp(PROVIDER_ADMIN) { idp ->
             idp.claims = user("boss-sub", "boss@test.local")
             val answer = oidcSignIn().json().jsonObject
-            val id = answer["user"]!!.jsonObject.str("id")
+            val id = answer.getValue("user").jsonObject.str("id")
             val boss = withToken(answer.str("token"))
             boss.putJson("/api/v2/users/$id", """{"role":"editor"}""").status shouldBe HttpStatusCode.Conflict
             boss.delete("/api/v2/users/$id").status shouldBe HttpStatusCode.Conflict
@@ -217,7 +215,7 @@ class OidcAuthTest : FunSpec({
     test("deleting a provider user ends their session; the next sign-in is a new viewer") {
         oidcApp {
             val answer = oidcSignIn().json().jsonObject
-            val id = answer["user"]!!.jsonObject.str("id")
+            val id = answer.getValue("user").jsonObject.str("id")
             client.delete("/api/v2/users/$id").status shouldBe HttpStatusCode.NoContent
             withToken(answer.str("token")).get("/api/v2/me").status shouldBe HttpStatusCode.Unauthorized
             val again = oidcSignIn("code-2").user()
@@ -268,7 +266,7 @@ class OidcAuthTest : FunSpec({
         oidcApp { idp ->
             idp.claims = mapOf("sub" to "bob-sub")
             idp.userinfoClaims = user("bob-sub", "bob@test.local", name = "Bob")
-            val user = oidcSignIn().json().jsonObject["user"]!!.jsonObject
+            val user = oidcSignIn().json().jsonObject.getValue("user").jsonObject
             user.str("email") shouldBe "bob@test.local"
             user.str("name") shouldBe "Bob"
         }

@@ -6,15 +6,16 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.neq
-import org.jetbrains.exposed.v1.javatime.CurrentTimestampWithTimeZone
+import org.jetbrains.exposed.v1.datetime.CurrentTimestamp
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.update
-import java.time.OffsetDateTime
+import kotlin.time.Instant
+
+data class TokenOwner(val userId: Long, val role: String, val lastSeen: Instant)
 
 object TokenRepository {
-
     fun insert(tokenHash: ByteArray, userId: Long) {
         AuthTokens.insert {
             it[this.tokenHash] = tokenHash
@@ -22,14 +23,13 @@ object TokenRepository {
         }
     }
 
-    /** User id, role and `last_seen` behind a token last used after [seenAfter]. */
-    fun find(tokenHash: ByteArray, seenAfter: OffsetDateTime): Triple<Long, String, OffsetDateTime>? =
+    fun findOwner(tokenHash: ByteArray, seenAfter: Instant): TokenOwner? =
         (AuthTokens innerJoin Users).select(Users.id, Users.role, AuthTokens.lastSeen)
             .where { (AuthTokens.tokenHash eq tokenHash) and (AuthTokens.lastSeen greater seenAfter) }
-            .singleOrNull()?.let { Triple(it[Users.id], it[Users.role], it[AuthTokens.lastSeen]) }
+            .singleOrNull()?.let { TokenOwner(it[Users.id], it[Users.role], it[AuthTokens.lastSeen]) }
 
     fun touch(tokenHash: ByteArray) {
-        AuthTokens.update({ AuthTokens.tokenHash eq tokenHash }) { it[lastSeen] = CurrentTimestampWithTimeZone }
+        AuthTokens.update({ AuthTokens.tokenHash eq tokenHash }) { it[lastSeen] = CurrentTimestamp }
     }
 
     fun delete(tokenHash: ByteArray) {

@@ -1,5 +1,6 @@
 package com.anjo.statisticservice.di
 
+import com.anjo.statisticservice.config.AppConfig
 import com.anjo.statisticservice.model.definitionJson
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
@@ -14,29 +15,23 @@ import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.plugins.defaultheaders.DefaultHeaders
 import io.ktor.server.plugins.forwardedheaders.XForwardedHeaders
 
-fun Application.configureFrameworks() {
+fun Application.configureFrameworks(config: AppConfig) {
     install(DefaultHeaders) {
         header("X-Engine", "Ktor")
     }
-    val corsHosts = environment.config.property("ktor.cors.hosts").getString()
-        .split(',').map { it.trim() }.filter { it.isNotEmpty() }
     install(CORS) {
-        corsHosts.forEach { allowHost(it, schemes = listOf("http", "https")) }
+        config.corsHosts.forEach { allowHost(it, schemes = listOf("http", "https")) }
         allowHeader(HttpHeaders.ContentType)
         allowHeader(HttpHeaders.Authorization)
         allowMethod(HttpMethod.Put)
         allowMethod(HttpMethod.Delete)
     }
-    // behind a reverse proxy the client IP (login rate limit) is the entry the proxy appended last;
-    // off without one, or clients could pick their own IP
-    if (environment.config.propertyOrNull("ktor.deployment.trustProxy")?.getString() == "true") {
+    if (config.trustProxy) {
         install(XForwardedHeaders) { useLastProxy() }
     }
     install(CallId) {
         header(HttpHeaders.XRequestId)
-        verify { callId: String ->
-            callId.isNotEmpty()
-        }
+        verify { it.isNotEmpty() }
     }
     install(CallLogging) {
         callIdMdc("call-id")

@@ -7,7 +7,6 @@ import io.ktor.http.HttpStatusCode
 import com.anjo.statisticservice.testutils.testApp
 
 class ApplicationTest : FunSpec({
-
     test("shouldReturnOkWhenTestHealthEndpoint") {
         testApp {
             client.get("/health").apply {

@@ -6,32 +6,42 @@ import java.util.Base64
 import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
 
-/** PBKDF2-HMAC-SHA256, stored as `pbkdf2$<iterations>$<salt b64>$<hash b64>` */
 object Passwords {
+    private const val SCHEME = "pbkdf2"
     private const val ITERATIONS = 600_000
-    private val b64 = Base64.getEncoder()
-    private val unb64 = Base64.getDecoder()
+    private const val SALT_BYTES = 16
+    private const val KEY_BITS = 256
+    private const val FIELD_SEPARATOR = '$'
+    private val encoder = Base64.getEncoder()
+    private val decoder = Base64.getDecoder()
 
-    /** Verified against when the email is unknown, so both cases take the same time. */
-    private val dummy by lazy { hash("dummy-password") }
+    private val timingDecoyHash by lazy { hash("timing-decoy-password") }
 
     fun hash(password: String): String {
-        val salt = ByteArray(16).also(SecureRandom()::nextBytes)
-        return "pbkdf2\$$ITERATIONS\$${b64.encodeToString(salt)}\$${b64.encodeToString(derive(password, salt, ITERATIONS))}"
+        val salt = randomBytes(SALT_BYTES)
+        val key = derive(password, salt, ITERATIONS)
+        return listOf(SCHEME, ITERATIONS.toString(), encoder.encodeToString(salt), encoder.encodeToString(key)).joinToString(FIELD_SEPARATOR.toString())
     }
 
-    fun verify(password: String, stored: String?): Boolean {
-        val parts = (stored ?: dummy).split('$')
-        if (parts.size != 4 || parts[0] != "pbkdf2") return false
-        val ok = MessageDigest.isEqual(unb64.decode(parts[3]), derive(password, unb64.decode(parts[2]), parts[1].toInt()))
-        return ok && stored != null
+    fun verify(password: String, storedHash: String?): Boolean {
+        val fields = (storedHash ?: timingDecoyHash).split(FIELD_SEPARATOR)
+        if (fields.size != 4 || fields[0] != SCHEME) return false
+        val (_, iterations, salt, key) = fields
+        val matches = MessageDigest.isEqual(decoder.decode(key), derive(password, decoder.decode(salt), iterations.toInt()))
+        return matches && storedHash != null
     }
 
     private fun derive(password: String, salt: ByteArray, iterations: Int): ByteArray =
-        SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(PBEKeySpec(password.toCharArray(), salt, iterations, 256)).encoded
+        SecretKeyFactory
+            .getInstance("PBKDF2WithHmacSHA256")
+            .generateSecret(PBEKeySpec(password.toCharArray(), salt, iterations, KEY_BITS))
+            .encoded
 }
 
-/** 32 random bytes, URL-safe; stored only as [sha256]. */
-fun newToken(): String = Base64.getUrlEncoder().withoutPadding().encodeToString(ByteArray(32).also(SecureRandom()::nextBytes))
+private const val TOKEN_BYTES = 32
 
-fun sha256(s: String): ByteArray = MessageDigest.getInstance("SHA-256").digest(s.toByteArray())
+fun newToken(): String = Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes(TOKEN_BYTES))
+
+fun sha256(value: String): ByteArray = MessageDigest.getInstance("SHA-256").digest(value.toByteArray())
+
+private fun randomBytes(count: Int) = ByteArray(count).also(SecureRandom()::nextBytes)

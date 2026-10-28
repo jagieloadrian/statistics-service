@@ -5,6 +5,7 @@ import com.anjo.statisticservice.db.Records
 import com.anjo.statisticservice.exception.ApiException
 import com.anjo.statisticservice.model.Dataset
 import com.anjo.statisticservice.model.Dimension
+import com.anjo.statisticservice.model.MAX_RAW_ROWS
 import com.anjo.statisticservice.model.Measure
 import com.anjo.statisticservice.model.Query
 import com.anjo.statisticservice.model.QueryMeasure
@@ -91,8 +92,8 @@ class RecordServiceTest : FunSpec({
 
     test("auto picks the smallest bucket within maxPoints and echoes it") {
         seed()
-        q("auto", QueryMeasure("temp")).bucket shouldBe "1m" // 2 h / 1 m = 120
-        q("auto", QueryMeasure("temp"), maxPoints = 10).bucket shouldBe "30m" // 12 at 10m, 4 at 30m
+        q("auto", QueryMeasure("temp")).bucket shouldBe "1m"
+        q("auto", QueryMeasure("temp"), maxPoints = 10).bucket shouldBe "30m"
     }
 
     test("raw over 10 000 rows is truncated") {
@@ -105,7 +106,7 @@ class RecordServiceTest : FunSpec({
         }
         val r = q("raw", QueryMeasure("temp"))
         r.truncated shouldBe true
-        r.series.single().rows.size shouldBe RecordService.RAW_LIMIT
+        r.series.single().rows.size shouldBe MAX_RAW_ROWS
     }
 
     test("unknown names are rejected") {

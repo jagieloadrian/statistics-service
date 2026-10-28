@@ -28,7 +28,7 @@ import kotlinx.serialization.json.jsonPrimitive
 object Pg {
     val container: PostgreSQLContainer = PostgreSQLContainer("postgres:16").apply {
         start()
-        Db(jdbcUrl, username, password).close() // runs the migrations
+        Db(jdbcUrl, username, password).close()
     }
 
     fun config() = MapApplicationConfig(
@@ -39,7 +39,6 @@ object Pg {
         "ktor.auth.adminPassword" to ADMIN_PASSWORD,
     )
 
-    /** Empties every table except organizations. */
     fun truncateAll() = truncate("records", "definitions", "source_credentials", "dashboard_shares", "auth_tokens", "users")
 
     fun truncate(vararg tables: String) = sql("TRUNCATE ${tables.joinToString()}")
@@ -54,29 +53,25 @@ object Pg {
 const val ADMIN_EMAIL = "admin@test.local"
 const val ADMIN_PASSWORD = "admin-password"
 
-/** [client] is signed in as the bootstrap admin; [anonymous] sends no token. */
 class TestApp(private val builder: ApplicationTestBuilder, val client: HttpClient) {
     val anonymous get() = builder.client
 
     suspend fun login(email: String, password: String): HttpClient =
-        withToken(anonymous.postJson("/api/v2/auth/login", """{"email":"$email","password":"$password"}""").json().jsonObject["token"]!!.jsonPrimitive.content)
+        withToken(anonymous.postJson("/api/v2/auth/login", """{"email":"$email","password":"$password"}""").json().jsonObject.getValue("token").jsonPrimitive.content)
 
     fun withToken(token: String): HttpClient {
-        // a request's own Authorization (e.g. a source token) wins over the user token
         val bearer = createClientPlugin("userToken") {
             onRequest { req, _ -> if (HttpHeaders.Authorization !in req.headers) req.headers[HttpHeaders.Authorization] = "Bearer $token" }
         }
         return builder.createClient { install(bearer) }
     }
 
-    /** Creates a user as admin and returns a client signed in as them. */
     suspend fun userClient(email: String, role: String, password: String = "password-$role"): HttpClient {
         client.postJson("/api/v2/users", """{"email":"$email","role":"$role","password":"$password"}""")
         return login(email, password)
     }
 }
 
-/** [extraConfig] overrides config keys; with local sign-in off or no admin password [TestApp.client] is anonymous. */
 fun testApp(extraConfig: Map<String, String> = emptyMap(), block: suspend TestApp.() -> Unit) = testApplication {
     val cfg = ApplicationConfig("application-test.yaml").mergeWith(Pg.config()).mergeWith(MapApplicationConfig(extraConfig.toList()))
     environment { config = cfg }

@@ -1,10 +1,5 @@
 package com.anjo.statisticservice.service.mapping
 
-/**
- * Calculated measure → SQL over one record: numbers, number measures,
- * `+ - * /` and parentheses only. Every other character is rejected, so the output
- * can be inlined. Division by zero gives null.
- */
 object Expr {
     fun toSql(expr: String, numberMeasures: Set<String>): String = Parser(expr, numberMeasures).parse()
 
@@ -32,7 +27,6 @@ object Expr {
             }
         }
 
-        // ponytail: no unary minus; write `0 - x`
         fun atom(): String {
             val c = peek() ?: fail("unexpected end")
             return when {

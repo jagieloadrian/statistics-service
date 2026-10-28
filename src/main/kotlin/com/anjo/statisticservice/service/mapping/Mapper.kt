@@ -21,9 +21,7 @@ import kotlinx.serialization.json.longOrNull
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Instant
 
-/** Turns one payload into records of the source's dataset. */
 object Mapper {
-
     fun map(source: Source, dataset: Dataset, payload: JsonElement, now: Instant): List<Record> {
         val reasons = mutableListOf<String>()
         val records = if (source.mapping.isEmpty()) native(dataset, payload, now, reasons)
@@ -55,7 +53,7 @@ object Mapper {
             val (ts, estimated) = timestamp(rule, ::resolve, now, reasons)
             val dims = buildMap {
                 rule.dims.forEach { (name, f) ->
-                    val v = f.constValue ?: resolve(f.path!!)
+                    val v = f.valueIn(::resolve)
                     when {
                         v == null || v is JsonNull -> reasons += "dims.$name: missing at path '${f.path}'"
                         v !is JsonPrimitive -> reasons += "dims.$name: expected a value at path '${f.path}'"
@@ -66,7 +64,7 @@ object Mapper {
                 putAll(rule.constDims)
             }
             val vals = buildMap {
-                rule.vals.forEach { (name, f) -> value(name, f, f.constValue ?: resolve(f.path!!), ds, reasons)?.let { put(name, it) } }
+                rule.vals.forEach { (name, f) -> value(name, f, f.valueIn(::resolve), ds, reasons)?.let { put(name, it) } }
             }
             val ident = if (rule.identity.isEmpty()) null else {
                 val parts = rule.identity.map { p ->
@@ -94,7 +92,6 @@ object Mapper {
         when (format) {
             "epoch_ms" -> Instant.fromEpochMilliseconds(raw.longOrNull ?: raw.content.toLong())
             "epoch_s" -> Instant.fromEpochMilliseconds(((raw.doubleOrNull ?: raw.content.toDouble()) * 1000).toLong())
-            // iso: instant with offset, or local date-time read as UTC (RPi payloads)
             else -> runCatching { Instant.parse(raw.content) }.getOrElse { LocalDateTime.parse(raw.content).toInstant(TimeZone.UTC) }
         }
     }.getOrNull()
@@ -109,7 +106,7 @@ object Mapper {
             return null
         }
         return when (ds.measures.first { it.name == name }.type) {
-            MeasureType.number -> {
+            MeasureType.NUMBER -> {
                 val d = (v.doubleOrNull ?: v.content.toDoubleOrNull())?.let { it * (f.scale ?: 1.0) }
                 when {
                     d == null -> null.also { reasons += "vals.$name: expected a number, got '${v.content}'" }
@@ -118,14 +115,13 @@ object Mapper {
                     else -> JsonPrimitive(d)
                 }
             }
-            MeasureType.boolean -> (v.booleanOrNull ?: v.content.toBooleanStrictOrNull())?.let(::JsonPrimitive)
+            MeasureType.BOOLEAN -> (v.booleanOrNull ?: v.content.toBooleanStrictOrNull())?.let(::JsonPrimitive)
                 ?: null.also { reasons += "vals.$name: expected a boolean, got '${v.content}'" }
-            MeasureType.text -> if (f.notBlank && v.content.isBlank()) null.also { reasons += "vals.$name: must not be blank" }
+            MeasureType.TEXT -> if (f.notBlank && v.content.isBlank()) null.also { reasons += "vals.$name: must not be blank" }
             else JsonPrimitive(v.content)
         }
     }
 
-    /** Native record format: `{ts?, dims, vals}` or a list of them. */
     private fun native(ds: Dataset, payload: JsonElement, now: Instant, reasons: MutableList<String>): List<Record> {
         val items = when (payload) {
             is JsonArray -> payload
@@ -158,6 +154,8 @@ object Mapper {
                 else -> null
             }
         }
+
+    private fun FieldSpec.valueIn(resolve: (String) -> JsonElement?): JsonElement? = constValue ?: path?.let(resolve)
 
     private fun JsonObject?.orEmpty(): Map<String, JsonElement> = this ?: emptyMap()
 }

@@ -24,7 +24,7 @@ class MapperTest : FunSpec({
         id = "climate",
         measures = listOf(
             Measure("temperature"), Measure("humidity"),
-            Measure("heating", MeasureType.boolean), Measure("note", MeasureType.text),
+            Measure("heating", MeasureType.BOOLEAN), Measure("note", MeasureType.TEXT),
         ),
         dimensions = listOf(Dimension("device")),
     )
@@ -114,7 +114,7 @@ class MapperTest : FunSpec({
 
     test("epidemic sample payload gives total plus one record per byType entry") {
         val bundle = Json.decodeFromString(Bundle.serializer(), java.io.File("definitions/epidemic.json").readText())
-        val payload = Json.parseToJsonElement(javaClass.getResource("/payloads/epidemic.json")!!.readText())
+        val payload = Json.parseToJsonElement(checkNotNull(javaClass.getResource("/payloads/epidemic.json")).readText())
         val recs = Mapper.map(bundle.sources.single(), bundle.datasets.single(), payload, now)
         recs.map { it.dims["type"] } shouldBe listOf("total", "0", "1", "2")
         recs.map { it.ident } shouldBe listOf("RPI_Pico_2w_1|5|32", "RPI_Pico_2w_1|5|32|0", "RPI_Pico_2w_1|5|32|1", "RPI_Pico_2w_1|5|32|2")

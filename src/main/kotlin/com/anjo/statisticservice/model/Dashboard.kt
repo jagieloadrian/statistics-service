@@ -1,26 +1,6 @@
 package com.anjo.statisticservice.model
 
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-
-@Serializable
-data class QueryMeasure(val field: String, val agg: String? = null, val by: String? = null, @SerialName("as") val alias: String? = null)
-
-@Serializable
-data class RelativeRange(val last: String)
-
-@Serializable
-data class Query(
-    val dataset: String,
-    val measures: List<QueryMeasure> = emptyList(),
-    val filter: Map<String, List<String>> = emptyMap(),
-    val groupBy: List<String> = emptyList(),
-    val from: String? = null,
-    val to: String? = null,
-    val range: RelativeRange? = null,
-    val bucket: String = "auto",
-    val maxPoints: Int = 1000,
-)
 
 @Serializable
 data class Threshold(val value: Double, val color: String)

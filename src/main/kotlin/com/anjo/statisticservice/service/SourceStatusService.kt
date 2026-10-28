@@ -10,64 +10,82 @@ import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 
-/** Per-source ingest health, in memory only; lost on restart. */
 class SourceStatusService {
-    private class Entry {
-        val minutes = TreeMap<Long, LongArray>() // epoch minute -> [accepted, rejected], last 24 h
+    private class MinuteCounts(var accepted: Long = 0, var rejected: Long = 0)
+
+    private class SourceActivity {
+        val countsByEpochMinute = TreeMap<Long, MinuteCounts>()
         var lastRecordAt: Instant? = null
-        val lastAttempts = ArrayDeque<Boolean>() // true = rejected, last 5
-        val rejections = ArrayDeque<Rejection>() // newest first, last 50
+        val recentAttemptsRejected = ArrayDeque<Boolean>()
+        val newestRejections = ArrayDeque<Rejection>()
     }
 
-    private val entries = ConcurrentHashMap<String, Entry>()
+    private val activities = ConcurrentHashMap<String, SourceActivity>()
 
-    fun accepted(sourceId: String, count: Int, now: Instant) = update(sourceId, now, rejected = false) { e ->
-        e.lastRecordAt = now
-        bucket(e, now)[0] += count.toLong()
-    }
+    fun accepted(sourceId: String, count: Int, now: Instant) =
+        record(sourceId, now, rejected = false) { activity ->
+            activity.lastRecordAt = now
+            activity.countsAt(now).accepted += count
+        }
 
     fun rejected(sourceId: String, reasons: List<String>, payload: String, now: Instant) =
-        update(sourceId, now, rejected = true) { e ->
-            bucket(e, now)[1]++
-            e.rejections.addFirst(Rejection(now.toString(), reasons.joinToString("; "), payload.take(500)))
-            if (e.rejections.size > 50) e.rejections.removeLast()
+        record(sourceId, now, rejected = true) { activity ->
+            activity.countsAt(now).rejected++
+            activity.newestRejections.addFirst(Rejection(now.toString(), reasons.joinToString("; "), payload.take(EXCERPT_LENGTH)))
+            if (activity.newestRejections.size > MAX_REJECTIONS) activity.newestRejections.removeLast()
         }
 
     fun forget(sourceId: String) {
-        entries.remove(sourceId)
+        activities.remove(sourceId)
     }
 
     fun view(source: Source, now: Instant = Clock.System.now()): StatusView {
-        val e = entries[source.id] ?: Entry()
-        return synchronized(e) {
-            val minute = now.epochSeconds / 60
-            fun sum(i: Int, since: Long) = e.minutes.tailMap(since, true).values.sumOf { it[i] }
-            val last = e.lastRecordAt
-            val state = when {
-                source.paused -> "paused"
-                e.lastAttempts.size == 5 && e.lastAttempts.all { it } -> "erroring"
-                last == null -> "waiting-for-data"
-                now - last > source.silentAfterMinutes.minutes -> "silent"
-                else -> "receiving"
-            }
+        val activity = activities[source.id] ?: SourceActivity()
+        return synchronized(activity) {
+            val minute = now.epochMinute()
+
+            fun total(since: Long, count: (MinuteCounts) -> Long) = activity.countsByEpochMinute.tailMap(since, true).values.sumOf(count)
+            val hourStart = minute - MINUTES_PER_HOUR + 1
+            val dayStart = minute - MINUTES_PER_DAY + 1
+            val last = activity.lastRecordAt
+            val state =
+                when {
+                    source.paused -> "paused"
+                    activity.recentAttemptsRejected.size == ERRORING_STREAK && activity.recentAttemptsRejected.all { it } -> "erroring"
+                    last == null -> "waiting-for-data"
+                    now - last > source.silentAfterMinutes.minutes -> "silent"
+                    else -> "receiving"
+                }
             StatusView(
-                state, last?.toString(),
-                Counts(sum(0, minute - 59), sum(0, minute - 1439)),
-                Counts(sum(1, minute - 59), sum(1, minute - 1439)),
-                e.rejections.toList(),
+                state = state,
+                lastRecordAt = last?.toString(),
+                accepted = Counts(total(hourStart) { it.accepted }, total(dayStart) { it.accepted }),
+                rejected = Counts(total(hourStart) { it.rejected }, total(dayStart) { it.rejected }),
+                rejections = activity.newestRejections.toList(),
             )
         }
     }
 
-    private fun update(sourceId: String, now: Instant, rejected: Boolean, block: (Entry) -> Unit) {
-        val e = entries.computeIfAbsent(sourceId) { Entry() }
-        synchronized(e) {
-            block(e)
-            e.lastAttempts.addLast(rejected)
-            if (e.lastAttempts.size > 5) e.lastAttempts.removeFirst()
-            e.minutes.headMap(now.epochSeconds / 60 - 1439).clear()
+    private fun record(sourceId: String, now: Instant, rejected: Boolean, update: (SourceActivity) -> Unit) {
+        val activity = activities.computeIfAbsent(sourceId) { SourceActivity() }
+        synchronized(activity) {
+            update(activity)
+            activity.recentAttemptsRejected.addLast(rejected)
+            if (activity.recentAttemptsRejected.size > ERRORING_STREAK) activity.recentAttemptsRejected.removeFirst()
+            activity.countsByEpochMinute.headMap(now.epochMinute() - MINUTES_PER_DAY + 1).clear()
         }
     }
 
-    private fun bucket(e: Entry, now: Instant) = e.minutes.getOrPut(now.epochSeconds / 60) { LongArray(2) }
+    private fun SourceActivity.countsAt(now: Instant) = countsByEpochMinute.getOrPut(now.epochMinute()) { MinuteCounts() }
+
+    private fun Instant.epochMinute() = epochSeconds / SECONDS_PER_MINUTE
+
+    private companion object {
+        const val SECONDS_PER_MINUTE = 60
+        const val MINUTES_PER_HOUR = 60
+        const val MINUTES_PER_DAY = 1440
+        const val ERRORING_STREAK = 5
+        const val MAX_REJECTIONS = 50
+        const val EXCERPT_LENGTH = 500
+    }
 }

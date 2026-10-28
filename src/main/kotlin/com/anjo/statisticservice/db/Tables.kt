@@ -4,10 +4,8 @@ import com.anjo.statisticservice.model.Prefs
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import org.jetbrains.exposed.v1.core.Table
-import org.jetbrains.exposed.v1.javatime.timestampWithTimeZone
+import org.jetbrains.exposed.v1.datetime.timestamp
 import org.jetbrains.exposed.v1.json.jsonb
-
-// Mirrors db/migration; Flyway owns the DDL. Only the columns the code reads or writes.
 
 private val prefsJson = Json { encodeDefaults = true; ignoreUnknownKeys = true }
 
@@ -27,7 +25,7 @@ object Users : Table("users") {
 object AuthTokens : Table("auth_tokens") {
     val tokenHash = binary("token_hash")
     val userId = long("user_id").references(Users.id)
-    val lastSeen = timestampWithTimeZone("last_seen")
+    val lastSeen = timestamp("last_seen")
     override val primaryKey = PrimaryKey(tokenHash)
 }
 
@@ -35,9 +33,9 @@ object Definitions : Table("definitions") {
     val orgId = short("org_id")
     val kind = text("kind")
     val id = text("id")
-    val body = jsonb<String>("body", { it }, { it }) // the document's JSON text, (de)serialized by the repository
+    val body = jsonb<String>("body", { it }, { it })
     val ownerId = long("owner_id").nullable()
-    val updatedAt = timestampWithTimeZone("updated_at")
+    val updatedAt = timestamp("updated_at")
     override val primaryKey = PrimaryKey(orgId, kind, id)
 }
 
@@ -52,14 +50,14 @@ object SourceCredentials : Table("source_credentials") {
     val orgId = short("org_id")
     val sourceId = text("source_id")
     val tokenHash = binary("token_hash")
-    val createdAt = timestampWithTimeZone("created_at")
+    val createdAt = timestamp("created_at")
     override val primaryKey = PrimaryKey(orgId, sourceId)
 }
 
 object Records : Table("records") {
     val orgId = short("org_id")
     val datasetId = text("dataset_id")
-    val ts = timestampWithTimeZone("ts")
+    val ts = timestamp("ts")
     val dims = jsonb<Map<String, String>>("dims", Json)
     val vals = jsonb<Map<String, JsonPrimitive>>("vals", Json)
     val ident = text("ident").nullable()
