@@ -58,6 +58,13 @@ warnings-as-errors gate, Java 21; Jib multi-arch image, contract CI tags, Renova
 (HTTPRoute `/api/`, AuthorizationPolicy, ConfigMap, Flux ImagePolicy), in-repo Postgres/Istio Gateway
 removed. 74 tests green; image, probes, drain and manifests verified locally (README "Definition of Ready").
 
+UI refactor along the "Czytelny Interfejs" guide (M3, Laws of UX, Baymard), frontend branch
+`feature-6/cleaning-and-refactoring`, 984a4db..HEAD: one tonal palette, labelled controls, window size classes
+(navigation bar under 840dp, admin list *or* detail under 600dp), validation when a field is left, Undo snackbar
+for deleting users and sources, list editors that wrap on narrow windows, 18 accent colours. Backend: `accent`
+in prefs (validated against the 18 ids). Frontend `jvmTest` green (incl. contrast check of every accent), js/wasm
+compile; checked in headless Chrome against a mock backend at 390 and 1280 px, light and dark.
+
 ## Decisions
 
 - Old v1 API dropped entirely; RPi devices get the new URL + source token (`.docs/Device_Ingest.md`).
@@ -83,6 +90,10 @@ removed. 74 tests green; image, probes, drain and manifests verified locally (RE
   ID token: RS256 via JWKS (ES256 when needed), issuer/audience/expiry checked, no nonce.
   Email from userinfo when the token lacks it. Email/name are not synced after creation.
 - `GET /auth/config` omits `oidc` when no provider is set (API-wide `explicitNulls = false`).
+- Accent colours are Material 2 "500" seeds; the UI builds the M3 scheme in CIELAB (tone = L*), so contrast
+  holds for every hue. Theme and accent save the moment they are picked; other prefs wait for Save.
+- Deleting users and sources is deferred behind a 10 s Undo snackbar (no server support needed); dataset
+  delete keeps its confirm click because it drops records and can answer 409.
 - Desktop loopback uses an ephemeral port; Authelia (its oauth2-provider) accepts any port for a
   registered `http://127.0.0.1/callback` (RFC 8252 §7.3).
 
@@ -106,8 +117,8 @@ objects to `clusters/home/image-automation.yaml`, register the OIDC client
 1. Manual UI run of quickstart §4/§5 in the desktop app against a live backend (T078). The sign-in,
    prefs, users and shares screens have not been exercised end to end yet.
 2. Follow-up spec for query speed (SC-004): hourly pre-aggregation or TimescaleDB continuous aggregates.
-3. Desktop app crashes Xorg (RENDER segfault, Intel+NVIDIA PRIME on X11): uncommitted
-   `-Dsun.java2d.xrender=false` in Statistics-UI `composeApp/build.gradle.kts` waits for a manual test.
+3. Desktop app crashed Xorg on close (RENDER segfault, Intel+NVIDIA PRIME on X11): `sun.java2d.xrender=false`
+   is now set in `main()`, so it also applies under jvmRun/hot reload; still needs a manual close test.
    Kotest on js/wasm needs the `io.kotest` plugin + KSP (tests compile, not discovered yet).
 4. Reprogram the RPi devices (quickstart §7): new URL `/api/v2/ingest/{temperature|epidemic}` + header.
 5. US5 channels (pull, Kafka, gRPC) only when a real producer exists.
