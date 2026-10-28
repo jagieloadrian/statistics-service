@@ -28,6 +28,12 @@ fun Application.configureStatusPages() {
         exception<BadRequestException> { call, e ->
             call.respond(HttpStatusCode.BadRequest, ApiError("bad_request", e.cause?.message ?: e.message ?: "Bad request"))
         }
+        status(HttpStatusCode.Unauthorized) { call, status ->
+            call.respond(status, ApiError("unauthorized", "Missing or invalid token"))
+        }
+        status(HttpStatusCode.TooManyRequests) { call, status ->
+            call.respond(status, ApiError("rate_limited", "Too many requests, try again later"))
+        }
         exception<Throwable> { call, e ->
             call.application.log.error("Unhandled error on ${call.request.path()}", e)
             call.respond(HttpStatusCode.InternalServerError, ApiError("internal", "Internal error"))

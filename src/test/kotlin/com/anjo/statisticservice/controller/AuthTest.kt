@@ -14,6 +14,7 @@ import com.anjo.statisticservice.testutils.postJson
 import com.anjo.statisticservice.testutils.putJson
 import com.anjo.statisticservice.testutils.testApp
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldStartWith
 import io.ktor.client.request.delete
@@ -63,7 +64,14 @@ class AuthTest :
                     .getValue("role")
                     .jsonPrimitive.content shouldBe "admin"
                 anonymous.postJson("/api/v2/auth/login", creds(ADMIN_EMAIL, "x")).status shouldBe HttpStatusCode.Unauthorized
-                anonymous.postJson("/api/v2/auth/login", creds(ADMIN_EMAIL, ADMIN_PASSWORD)).status shouldBe HttpStatusCode.TooManyRequests
+                val limited = anonymous.postJson("/api/v2/auth/login", creds(ADMIN_EMAIL, ADMIN_PASSWORD))
+                limited.status shouldBe HttpStatusCode.TooManyRequests
+                limited.headers[HttpHeaders.RetryAfter].shouldNotBeNull()
+                limited
+                    .json()
+                    .jsonObject
+                    .getValue("error")
+                    .jsonPrimitive.content shouldBe "rate_limited"
             }
         }
 
@@ -86,10 +94,17 @@ class AuthTest :
             }
         }
 
-        test("no token or a bad one gives 401") {
+        test("no token or a bad one gives 401 with an ApiError") {
             testApp {
-                anonymous.get("/api/v2/me").status shouldBe HttpStatusCode.Unauthorized
-                anonymous.get("/api/v2/me") { headers.append("Authorization", "Bearer nope") }.status shouldBe HttpStatusCode.Unauthorized
+                listOf(anonymous.get("/api/v2/me"), anonymous.get("/api/v2/me") { headers.append("Authorization", "Bearer nope") })
+                    .forEach {
+                        it.status shouldBe HttpStatusCode.Unauthorized
+                        it
+                            .json()
+                            .jsonObject
+                            .getValue("error")
+                            .jsonPrimitive.content shouldBe "unauthorized"
+                    }
                 client
                     .get("/api/v2/me")
                     .json()
