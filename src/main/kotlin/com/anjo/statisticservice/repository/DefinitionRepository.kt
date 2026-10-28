@@ -31,25 +31,64 @@ object DefinitionRepository {
     private val label = coalesce(Definitions.body.extract<String>("label"), Definitions.body.extract<String>("title"))
     private val updatedAtText = Definitions.updatedAt.castTo(TextColumnType())
 
-    fun <T> list(kind: Kind, ser: KSerializer<T>, visibleTo: UserPrincipal? = null): List<T> =
-        Definitions.select(Definitions.body).where { key(kind) }.visibleTo(kind, visibleTo).orderBy(Definitions.id)
+    fun <T> list(
+        kind: Kind,
+        ser: KSerializer<T>,
+        visibleTo: UserPrincipal? = null,
+    ): List<T> =
+        Definitions
+            .select(Definitions.body)
+            .where { key(kind) }
+            .visibleTo(kind, visibleTo)
+            .orderBy(Definitions.id)
             .map { definitionJson.decodeFromString(ser, it[Definitions.body]) }
 
-    fun summaries(kind: Kind, visibleTo: UserPrincipal? = null): List<DefinitionSummary> =
-        Definitions.select(Definitions.id, label, updatedAtText).where { key(kind) }.visibleTo(kind, visibleTo).orderBy(Definitions.id)
+    fun summaries(
+        kind: Kind,
+        visibleTo: UserPrincipal? = null,
+    ): List<DefinitionSummary> =
+        Definitions
+            .select(Definitions.id, label, updatedAtText)
+            .where { key(kind) }
+            .visibleTo(kind, visibleTo)
+            .orderBy(Definitions.id)
             .map { DefinitionSummary(it[Definitions.id], it[label], it[updatedAtText]) }
 
-    fun isVisible(u: UserPrincipal, dashboardId: String): Boolean =
-        !Definitions.selectAll().where { key(Kind.DASHBOARD, dashboardId) }.visibleTo(Kind.DASHBOARD, u).empty()
+    fun isVisible(
+        u: UserPrincipal,
+        dashboardId: String,
+    ): Boolean =
+        !Definitions
+            .selectAll()
+            .where { key(Kind.DASHBOARD, dashboardId) }
+            .visibleTo(Kind.DASHBOARD, u)
+            .empty()
 
     fun ownerId(dashboardId: String): Long? =
-        Definitions.select(Definitions.ownerId).where { key(Kind.DASHBOARD, dashboardId) }.singleOrNull()?.get(Definitions.ownerId)
+        Definitions
+            .select(Definitions.ownerId)
+            .where { key(Kind.DASHBOARD, dashboardId) }
+            .singleOrNull()
+            ?.get(Definitions.ownerId)
 
-    fun <T> get(kind: Kind, id: String, ser: KSerializer<T>): T? =
-        Definitions.select(Definitions.body).where { key(kind, id) }.singleOrNull()
+    fun <T> get(
+        kind: Kind,
+        id: String,
+        ser: KSerializer<T>,
+    ): T? =
+        Definitions
+            .select(Definitions.body)
+            .where { key(kind, id) }
+            .singleOrNull()
             ?.let { definitionJson.decodeFromString(ser, it[Definitions.body]) }
 
-    fun <T> upsert(kind: Kind, id: String, body: T, ser: KSerializer<T>, ownerId: Long?): Boolean {
+    fun <T> upsert(
+        kind: Kind,
+        id: String,
+        body: T,
+        ser: KSerializer<T>,
+        ownerId: Long?,
+    ): Boolean {
         val created = Definitions.selectAll().where { key(kind, id) }.empty()
         Definitions.upsert(onUpdateExclude = listOf(Definitions.ownerId)) {
             it[orgId] = Db.ORG
@@ -62,19 +101,30 @@ object DefinitionRepository {
         return created
     }
 
-    fun delete(kind: Kind, id: String): Boolean = Definitions.deleteWhere { key(kind, id) } > 0
+    fun delete(
+        kind: Kind,
+        id: String,
+    ): Boolean = Definitions.deleteWhere { key(kind, id) } > 0
 
-    private fun key(kind: Kind, id: String? = null): Op<Boolean> {
+    private fun key(
+        kind: Kind,
+        id: String? = null,
+    ): Op<Boolean> {
         val k = (Definitions.orgId eq Db.ORG) and (Definitions.kind eq kind.key)
         return if (id == null) k else k and (Definitions.id eq id)
     }
 
-    private fun Query.visibleTo(kind: Kind, u: UserPrincipal?): Query {
+    private fun Query.visibleTo(
+        kind: Kind,
+        u: UserPrincipal?,
+    ): Query {
         if (kind != Kind.DASHBOARD || u == null || u.role == ADMIN) return this
         val visibility = Definitions.body.extract<String>("visibility")
-        val shared = DashboardShares.select(intLiteral(1)).where {
-            (DashboardShares.orgId eq Definitions.orgId) and (DashboardShares.dashboardId eq Definitions.id) and (DashboardShares.userId eq u.id)
-        }
+        val shared =
+            DashboardShares.select(intLiteral(1)).where {
+                (DashboardShares.orgId eq Definitions.orgId) and (DashboardShares.dashboardId eq Definitions.id) and
+                    (DashboardShares.userId eq u.id)
+            }
         return andWhere { (visibility eq "all") or (Definitions.ownerId eq u.id) or ((visibility eq "users") and exists(shared)) }
     }
 }

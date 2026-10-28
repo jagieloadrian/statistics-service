@@ -3,9 +3,18 @@ package com.anjo.statisticservice.config
 import io.ktor.server.config.ApplicationConfig
 import java.net.URI
 
-data class DbConfig(val url: String, val user: String, val password: String)
+data class DbConfig(
+    val url: String,
+    val user: String,
+    val password: String,
+)
 
-data class OidcConfig(val issuer: String, val clientId: String, val clientSecret: String, val name: String)
+data class OidcConfig(
+    val issuer: String,
+    val clientId: String,
+    val clientSecret: String,
+    val name: String,
+)
 
 data class AppConfig(
     val db: DbConfig,
@@ -22,7 +31,11 @@ fun ApplicationConfig.toAppConfig(): AppConfig {
 
     fun setting(key: String) = propertyOrNull(key)?.getString().orEmpty()
 
-    fun flag(key: String, envName: String, default: Boolean): Boolean =
+    fun flag(
+        key: String,
+        envName: String,
+        default: Boolean,
+    ): Boolean =
         when (setting(key).ifBlank { default.toString() }) {
             "true" -> true
             "false" -> false

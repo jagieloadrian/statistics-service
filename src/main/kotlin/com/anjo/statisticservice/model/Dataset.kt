@@ -16,10 +16,18 @@ enum class MeasureType {
 }
 
 @Serializable
-data class Measure(val name: String, val type: MeasureType = MeasureType.NUMBER, val unit: String? = null, val label: String? = null)
+data class Measure(
+    val name: String,
+    val type: MeasureType = MeasureType.NUMBER,
+    val unit: String? = null,
+    val label: String? = null,
+)
 
 @Serializable
-data class Dimension(val name: String, val label: String? = null)
+data class Dimension(
+    val name: String,
+    val label: String? = null,
+)
 
 @Serializable
 data class Dataset(

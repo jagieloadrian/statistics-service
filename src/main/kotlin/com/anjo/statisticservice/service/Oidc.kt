@@ -47,9 +47,16 @@ private const val JWKS_CACHE_SIZE = 10L
 private const val JWKS_CACHE_HOURS = 24L
 private const val JWKS_FETCHES_PER_MINUTE = 10L
 
-data class OidcClaims(val subject: String, val email: String?, val emailVerified: Boolean, val name: String?)
+data class OidcClaims(
+    val subject: String,
+    val email: String?,
+    val emailVerified: Boolean,
+    val name: String?,
+)
 
-class Oidc(private val config: OidcConfig) {
+class Oidc(
+    private val config: OidcConfig,
+) {
     val issuer: String get() = config.issuer
     val name: String get() = config.name
 
@@ -68,7 +75,10 @@ class Oidc(private val config: OidcConfig) {
         @SerialName("id_token") val idToken: String,
     )
 
-    private data class ProviderMetadata(val discovery: Discovery, val keys: JwkProvider)
+    private data class ProviderMetadata(
+        val discovery: Discovery,
+        val keys: JwkProvider,
+    )
 
     private val http = HttpClient.newBuilder().connectTimeout(CONNECT_TIMEOUT.toJavaDuration()).build()
 
@@ -94,7 +104,11 @@ class Oidc(private val config: OidcConfig) {
             OidcStartResponse(endpoint + separator + query, state, verifier)
         }
 
-    suspend fun redeem(code: String, codeVerifier: String, redirectUri: String): OidcClaims =
+    suspend fun redeem(
+        code: String,
+        codeVerifier: String,
+        redirectUri: String,
+    ): OidcClaims =
         withContext(Dispatchers.IO) {
             val (discovery, keys) = metadata()
             val tokens = requestTokens(discovery, code, codeVerifier, redirectUri)
@@ -110,12 +124,23 @@ class Oidc(private val config: OidcConfig) {
             if (claims.email != null || userinfoEndpoint == null) claims else userinfo(userinfoEndpoint, tokens.accessToken, claims)
         }
 
-    private fun requestTokens(discovery: Discovery, code: String, codeVerifier: String, redirectUri: String): Tokens {
+    private fun requestTokens(
+        discovery: Discovery,
+        code: String,
+        codeVerifier: String,
+        redirectUri: String,
+    ): Tokens {
         val request =
             request(discovery.tokenEndpoint)
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .header("Accept", "application/json")
-        val fields = mutableListOf("grant_type" to "authorization_code", "code" to code, "redirect_uri" to redirectUri, "code_verifier" to codeVerifier)
+        val fields =
+            mutableListOf(
+                "grant_type" to "authorization_code",
+                "code" to code,
+                "redirect_uri" to redirectUri,
+                "code_verifier" to codeVerifier,
+            )
         if (config.clientSecret.isBlank()) {
             fields += "client_id" to config.clientId
         } else {
@@ -129,7 +154,11 @@ class Oidc(private val config: OidcConfig) {
             ?: throw unauthorized("Provider refused sign-in")
     }
 
-    private fun verify(token: String, discovery: Discovery, keys: JwkProvider): DecodedJWT =
+    private fun verify(
+        token: String,
+        discovery: Discovery,
+        keys: JwkProvider,
+    ): DecodedJWT =
         try {
             val decoded = JWT.decode(token)
             val key = keys.get(decoded.keyId).publicKey as? RSAPublicKey ?: throw unauthorized("Invalid ID token")
@@ -148,7 +177,11 @@ class Oidc(private val config: OidcConfig) {
             throw unauthorized("Invalid ID token")
         }
 
-    private fun userinfo(endpoint: String, accessToken: String, claims: OidcClaims): OidcClaims {
+    private fun userinfo(
+        endpoint: String,
+        accessToken: String,
+        claims: OidcClaims,
+    ): OidcClaims {
         val response = send(request(endpoint).header("Authorization", "Bearer $accessToken").GET())
         val info =
             response

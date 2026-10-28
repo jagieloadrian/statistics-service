@@ -10,7 +10,10 @@ import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.upsert
 
 object SourceCredentialRepository {
-    fun upsert(sourceId: String, tokenHash: ByteArray) {
+    fun upsert(
+        sourceId: String,
+        tokenHash: ByteArray,
+    ) {
         SourceCredentials.upsert {
             it[orgId] = Db.ORG
             it[this.sourceId] = sourceId
@@ -20,7 +23,11 @@ object SourceCredentialRepository {
     }
 
     fun tokenHash(sourceId: String): ByteArray? =
-        SourceCredentials.select(SourceCredentials.tokenHash).where { of(sourceId) }.singleOrNull()?.get(SourceCredentials.tokenHash)
+        SourceCredentials
+            .select(SourceCredentials.tokenHash)
+            .where { of(sourceId) }
+            .singleOrNull()
+            ?.get(SourceCredentials.tokenHash)
 
     fun delete(sourceId: String) {
         SourceCredentials.deleteWhere { of(sourceId) }

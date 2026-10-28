@@ -13,7 +13,11 @@ import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.sql.SQLException
 import kotlin.time.Duration.Companion.seconds
 
-class Db(url: String, user: String, password: String) : AutoCloseable {
+class Db(
+    url: String,
+    user: String,
+    password: String,
+) : AutoCloseable {
     private val dataSource =
         HikariDataSource(
             HikariConfig().apply {
@@ -28,7 +32,12 @@ class Db(url: String, user: String, password: String) : AutoCloseable {
     private val database: Database
 
     init {
-        Flyway.configure().dataSource(dataSource).baselineOnMigrate(true).load().migrate()
+        Flyway
+            .configure()
+            .dataSource(dataSource)
+            .baselineOnMigrate(true)
+            .load()
+            .migrate()
         database = Database.connect(dataSource)
     }
 

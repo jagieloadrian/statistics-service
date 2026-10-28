@@ -17,7 +17,9 @@ data class QueryMeasure(
 )
 
 @Serializable
-data class RelativeRange(val last: String)
+data class RelativeRange(
+    val last: String,
+)
 
 @Serializable
 data class Query(
@@ -61,7 +63,10 @@ val RANKED_AGGREGATIONS = setOf("at_max", "at_min")
 
 private const val DEFAULT_RANGE = "P1D"
 
-data class TimeRange(val from: Instant, val to: Instant)
+data class TimeRange(
+    val from: Instant,
+    val to: Instant,
+)
 
 fun Query.timeRange(now: Instant): TimeRange =
     if (from != null && to != null) {

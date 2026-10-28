@@ -1,8 +1,8 @@
-
 plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ktor)
+    alias(libs.plugins.ktlint)
     jacoco
 }
 
@@ -10,7 +10,11 @@ group = "com.anjo"
 version = "0.0.1"
 
 kotlin {
-    compilerOptions { optIn.add("kotlin.time.ExperimentalTime") }
+    jvmToolchain(21)
+    compilerOptions {
+        allWarningsAsErrors = true
+        optIn.add("io.ktor.utils.io.ExperimentalKtorApi")
+    }
 }
 
 application {
@@ -58,6 +62,12 @@ dependencies {
     testImplementation(libs.kotest.runner)
     testImplementation(libs.kotest.assertions)
     testImplementation(libs.testcontainers.postgresql)
+}
+
+ktlint {
+    version =
+        libs.versions.ktlint.engine
+            .get()
 }
 
 jacoco {

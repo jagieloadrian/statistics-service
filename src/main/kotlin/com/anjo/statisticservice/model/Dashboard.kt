@@ -3,7 +3,10 @@ package com.anjo.statisticservice.model
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class Threshold(val value: Double, val color: String)
+data class Threshold(
+    val value: Double,
+    val color: String,
+)
 
 @Serializable
 data class WidgetOptions(

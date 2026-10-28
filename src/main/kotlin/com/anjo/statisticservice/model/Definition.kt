@@ -3,7 +3,13 @@ package com.anjo.statisticservice.model
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
-enum class Kind(val key: String) { DATASET("dataset"), SOURCE("source"), DASHBOARD("dashboard") }
+enum class Kind(
+    val key: String,
+) {
+    DATASET("dataset"),
+    SOURCE("source"),
+    DASHBOARD("dashboard"),
+}
 
 @Serializable
 data class Bundle(
@@ -13,4 +19,8 @@ data class Bundle(
     val dashboards: List<Dashboard> = emptyList(),
 )
 
-val definitionJson = Json { encodeDefaults = true; explicitNulls = false }
+val definitionJson =
+    Json {
+        encodeDefaults = true
+        explicitNulls = false
+    }

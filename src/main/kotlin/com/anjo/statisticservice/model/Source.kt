@@ -5,10 +5,16 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonPrimitive
 
 @Serializable
-data class Channel(val type: String = "push")
+data class Channel(
+    val type: String = "push",
+)
 
 @Serializable
-data class TimestampSpec(val path: String, val format: String = "iso", val maxAgeHours: Int? = null)
+data class TimestampSpec(
+    val path: String,
+    val format: String = "iso",
+    val maxAgeHours: Int? = null,
+)
 
 @Serializable
 data class FieldSpec(

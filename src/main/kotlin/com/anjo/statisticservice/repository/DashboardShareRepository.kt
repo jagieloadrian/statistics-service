@@ -10,9 +10,17 @@ import org.jetbrains.exposed.v1.jdbc.select
 
 object DashboardShareRepository {
     fun userIds(dashboardId: String): List<Long> =
-        DashboardShares.select(DashboardShares.userId).where { of(dashboardId) }.orderBy(DashboardShares.userId).map { it[DashboardShares.userId] }
+        DashboardShares
+            .select(
+                DashboardShares.userId,
+            ).where { of(dashboardId) }
+            .orderBy(DashboardShares.userId)
+            .map { it[DashboardShares.userId] }
 
-    fun replace(dashboardId: String, userIds: List<Long>) {
+    fun replace(
+        dashboardId: String,
+        userIds: List<Long>,
+    ) {
         delete(dashboardId)
         userIds.distinct().forEach { u ->
             DashboardShares.insert {

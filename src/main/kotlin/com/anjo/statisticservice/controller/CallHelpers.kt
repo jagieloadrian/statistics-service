@@ -16,6 +16,9 @@ val RoutingCall.id: String get() = parameters.getOrFail("id")
 
 val RoutingCall.force: Boolean get() = request.queryParameters["force"] == "true"
 
-fun requireSameId(pathId: String, bodyId: String) {
+fun requireSameId(
+    pathId: String,
+    bodyId: String,
+) {
     if (pathId != bodyId) throw badRequest("id in path '$pathId' differs from body '$bodyId'")
 }

@@ -43,7 +43,12 @@ fun datasetViolations(d: Dataset): List<String> =
         ensure(ID.matches(d.id)) { "id: '${d.id}' must match ${ID.pattern}" }
         val names = d.names()
         names.filterNot { NAME.matches(it) }.forEach { add("name: '$it' must match ${NAME.pattern}") }
-        names.groupingBy { it }.eachCount().filterValues { it > 1 }.keys.forEach { add("name: '$it' is declared more than once") }
+        names
+            .groupingBy { it }
+            .eachCount()
+            .filterValues { it > 1 }
+            .keys
+            .forEach { add("name: '$it' is declared more than once") }
         ensure(TIMESTAMP_FIELD !in names) { "name: '$TIMESTAMP_FIELD' is reserved" }
         ensure(d.retentionDays == null || d.retentionDays > 0) { "retentionDays: must be > 0" }
         d.calculated.forEach { (name, expr) ->
@@ -80,7 +85,12 @@ fun dashboardViolations(d: Dashboard): List<String> =
             ensure(w.w in 1..GRID_COLUMNS) { "widget ${w.id}: w must be 1..$GRID_COLUMNS" }
             ensure(w.h >= 1) { "widget ${w.id}: h must be >= 1" }
         }
-        ensure(d.widgets.map { it.id }.toSet().size == d.widgets.size) { "widgets: ids must be unique" }
+        ensure(
+            d.widgets
+                .map { it.id }
+                .toSet()
+                .size == d.widgets.size,
+        ) { "widgets: ids must be unique" }
     }
 
 fun validateDataset(d: Dataset) = throwIfAny("dataset", datasetViolations(d))
@@ -96,8 +106,14 @@ fun validateSource(
     val mappingViolations =
         violations {
             s.mapping.forEachIndexed { i, rule ->
-                (rule.dims.keys + rule.constDims.keys).filterNot { it in dims }.forEach { add("mapping[$i]: dimension '$it' not declared in dataset") }
-                rule.vals.keys.filterNot { it in measures }.forEach { add("mapping[$i]: measure '$it' not declared in dataset") }
+                (rule.dims.keys + rule.constDims.keys).filterNot { it in dims }.forEach {
+                    add(
+                        "mapping[$i]: dimension '$it' not declared in dataset",
+                    )
+                }
+                rule.vals.keys
+                    .filterNot { it in measures }
+                    .forEach { add("mapping[$i]: measure '$it' not declared in dataset") }
             }
         }
     throwIfAny("source", sourceViolations(s) + mappingViolations)

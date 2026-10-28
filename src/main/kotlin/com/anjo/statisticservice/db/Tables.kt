@@ -7,7 +7,11 @@ import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.datetime.timestamp
 import org.jetbrains.exposed.v1.json.jsonb
 
-private val prefsJson = Json { encodeDefaults = true; ignoreUnknownKeys = true }
+private val prefsJson =
+    Json {
+        encodeDefaults = true
+        ignoreUnknownKeys = true
+    }
 
 object Users : Table("users") {
     val id = long("id").autoIncrement()

@@ -27,7 +27,9 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Instant
 
-class RecordService(private val db: Db) {
+class RecordService(
+    private val db: Db,
+) {
     suspend fun insert(records: List<Record>): IngestResult =
         db.tx {
             val inserted = records.count { RecordRepository.insert(it) }
@@ -40,14 +42,24 @@ class RecordService(private val db: Db) {
         }
     }
 
-    suspend fun dimensionValues(ds: Dataset, dim: String, search: String?, limit: Int, offset: Int): List<DimensionValue> {
+    suspend fun dimensionValues(
+        ds: Dataset,
+        dim: String,
+        search: String?,
+        limit: Int,
+        offset: Int,
+    ): List<DimensionValue> {
         if (dim !in ds.dimensionNames()) throw badRequest("Unknown dimension '$dim'")
         return db.tx {
             RecordRepository.dimensionValues(ds.id, dim, search, limit.coerceIn(1, MAX_DIMENSION_VALUES), offset.coerceAtLeast(0))
         }
     }
 
-    suspend fun query(q: Query, ds: Dataset, now: Instant): QueryResult {
+    suspend fun query(
+        q: Query,
+        ds: Dataset,
+        now: Instant,
+    ): QueryResult {
         validateQuery(q, ds)
         val (from, to) = q.timeRange(now)
         val bucket = if (q.bucket == AUTO_BUCKET) autoBucket(to - from, q.maxPoints) else q.bucket
@@ -68,13 +80,21 @@ class RecordService(private val db: Db) {
         return QueryResult(bucket, series, raw && rows.size > MAX_RAW_ROWS)
     }
 
-    private fun groupKey(groupBy: List<String>, row: List<JsonElement>, offset: Int): Map<String, String> =
-        groupBy.withIndex().associate { (i, dim) -> dim to row[offset + i].jsonPrimitive.contentOrNull.orEmpty() }
+    private fun groupKey(
+        groupBy: List<String>,
+        row: List<JsonElement>,
+        offset: Int,
+    ): Map<String, String> = groupBy.withIndex().associate { (i, dim) -> dim to row[offset + i].jsonPrimitive.contentOrNull.orEmpty() }
 
-    private fun defaultAlias(m: QueryMeasure, raw: Boolean) = if (raw || m.agg == null) m.field else "${m.field}_${m.agg}"
+    private fun defaultAlias(
+        m: QueryMeasure,
+        raw: Boolean,
+    ) = if (raw || m.agg == null) m.field else "${m.field}_${m.agg}"
 
-    private fun autoBucket(span: Duration, maxPoints: Int): String =
-        TIME_BUCKETS.entries.firstOrNull { span / it.value <= maxPoints.toDouble() }?.key ?: TIME_BUCKETS.keys.last()
+    private fun autoBucket(
+        span: Duration,
+        maxPoints: Int,
+    ): String = TIME_BUCKETS.entries.firstOrNull { span / it.value <= maxPoints.toDouble() }?.key ?: TIME_BUCKETS.keys.last()
 
     private companion object {
         const val MAX_DIMENSION_VALUES = 500

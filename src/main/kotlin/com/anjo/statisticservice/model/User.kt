@@ -26,4 +26,8 @@ data class User(
     val hasPassword: Boolean = true,
 )
 
-data class UserPrincipal(val id: Long, val role: String, val token: String)
+data class UserPrincipal(
+    val id: Long,
+    val role: String,
+    val token: String,
+)

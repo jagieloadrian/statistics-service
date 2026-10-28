@@ -11,7 +11,10 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 
 class SourceStatusService {
-    private class MinuteCounts(var accepted: Long = 0, var rejected: Long = 0)
+    private class MinuteCounts(
+        var accepted: Long = 0,
+        var rejected: Long = 0,
+    )
 
     private class SourceActivity {
         val countsByEpochMinute = TreeMap<Long, MinuteCounts>()
@@ -22,29 +25,45 @@ class SourceStatusService {
 
     private val activities = ConcurrentHashMap<String, SourceActivity>()
 
-    fun accepted(sourceId: String, count: Int, now: Instant) =
-        record(sourceId, now, rejected = false) { activity ->
-            activity.lastRecordAt = now
-            activity.countsAt(now).accepted += count
-        }
+    fun accepted(
+        sourceId: String,
+        count: Int,
+        now: Instant,
+    ) = record(sourceId, now, rejected = false) { activity ->
+        activity.lastRecordAt = now
+        activity.countsAt(now).accepted += count
+    }
 
-    fun rejected(sourceId: String, reasons: List<String>, payload: String, now: Instant) =
-        record(sourceId, now, rejected = true) { activity ->
-            activity.countsAt(now).rejected++
-            activity.newestRejections.addFirst(Rejection(now.toString(), reasons.joinToString("; "), payload.take(EXCERPT_LENGTH)))
-            if (activity.newestRejections.size > MAX_REJECTIONS) activity.newestRejections.removeLast()
-        }
+    fun rejected(
+        sourceId: String,
+        reasons: List<String>,
+        payload: String,
+        now: Instant,
+    ) = record(sourceId, now, rejected = true) { activity ->
+        activity.countsAt(now).rejected++
+        activity.newestRejections.addFirst(Rejection(now.toString(), reasons.joinToString("; "), payload.take(EXCERPT_LENGTH)))
+        if (activity.newestRejections.size > MAX_REJECTIONS) activity.newestRejections.removeLast()
+    }
 
     fun forget(sourceId: String) {
         activities.remove(sourceId)
     }
 
-    fun view(source: Source, now: Instant = Clock.System.now()): StatusView {
+    fun view(
+        source: Source,
+        now: Instant = Clock.System.now(),
+    ): StatusView {
         val activity = activities[source.id] ?: SourceActivity()
         return synchronized(activity) {
             val minute = now.epochMinute()
 
-            fun total(since: Long, count: (MinuteCounts) -> Long) = activity.countsByEpochMinute.tailMap(since, true).values.sumOf(count)
+            fun total(
+                since: Long,
+                count: (MinuteCounts) -> Long,
+            ) = activity.countsByEpochMinute
+                .tailMap(since, true)
+                .values
+                .sumOf(count)
             val hourStart = minute - MINUTES_PER_HOUR + 1
             val dayStart = minute - MINUTES_PER_DAY + 1
             val last = activity.lastRecordAt
@@ -66,7 +85,12 @@ class SourceStatusService {
         }
     }
 
-    private fun record(sourceId: String, now: Instant, rejected: Boolean, update: (SourceActivity) -> Unit) {
+    private fun record(
+        sourceId: String,
+        now: Instant,
+        rejected: Boolean,
+        update: (SourceActivity) -> Unit,
+    ) {
         val activity = activities.computeIfAbsent(sourceId) { SourceActivity() }
         synchronized(activity) {
             update(activity)

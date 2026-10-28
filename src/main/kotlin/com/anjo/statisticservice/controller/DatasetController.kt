@@ -17,7 +17,10 @@ import io.ktor.server.util.getOrFail
 
 private const val DEFAULT_PAGE_SIZE = 50
 
-fun Route.datasetRoutes(definitions: DefinitionService, records: RecordService) {
+fun Route.datasetRoutes(
+    definitions: DefinitionService,
+    records: RecordService,
+) {
     get("/datasets") {
         call.requireRole(ADMIN, EDITOR)
         call.respond(definitions.summaries(Kind.DATASET))

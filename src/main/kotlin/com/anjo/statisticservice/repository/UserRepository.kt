@@ -14,33 +14,74 @@ import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
 
-data class Credentials(val userId: Long, val passwordHash: String?)
+data class Credentials(
+    val userId: Long,
+    val passwordHash: String?,
+)
 
-data class EmailAccount(val userId: Long, val linkedToProvider: Boolean)
+data class EmailAccount(
+    val userId: Long,
+    val linkedToProvider: Boolean,
+)
 
 object UserRepository {
     fun count(role: String? = null): Long =
-        Users.selectAll().where { Users.orgId eq Db.ORG }.apply { if (role != null) andWhere { Users.role eq role } }.count()
+        Users
+            .selectAll()
+            .where { Users.orgId eq Db.ORG }
+            .apply { if (role != null) andWhere { Users.role eq role } }
+            .count()
 
-    fun find(id: Long): User? = Users.selectAll().where { (Users.orgId eq Db.ORG) and (Users.id eq id) }.singleOrNull()?.let(::toUser)
+    fun find(id: Long): User? =
+        Users
+            .selectAll()
+            .where { (Users.orgId eq Db.ORG) and (Users.id eq id) }
+            .singleOrNull()
+            ?.let(::toUser)
 
-    fun list(): List<User> = Users.selectAll().where { Users.orgId eq Db.ORG }.orderBy(Users.id).map(::toUser)
+    fun list(): List<User> =
+        Users
+            .selectAll()
+            .where { Users.orgId eq Db.ORG }
+            .orderBy(Users.id)
+            .map(::toUser)
 
     fun credentials(email: String): Credentials? =
-        Users.select(Users.id, Users.passwordHash).where { (Users.orgId eq Db.ORG) and (Users.email eq email) }.singleOrNull()
+        Users
+            .select(Users.id, Users.passwordHash)
+            .where { (Users.orgId eq Db.ORG) and (Users.email eq email) }
+            .singleOrNull()
             ?.let { Credentials(it[Users.id], it[Users.passwordHash]) }
 
     fun passwordHash(id: Long): String? =
-        Users.select(Users.passwordHash).where { Users.id eq id }.singleOrNull()?.get(Users.passwordHash)
+        Users
+            .select(Users.passwordHash)
+            .where { Users.id eq id }
+            .singleOrNull()
+            ?.get(Users.passwordHash)
 
-    fun findByOidc(issuer: String, subject: String): Long? =
-        Users.select(Users.id).where { (Users.oidcIssuer eq issuer) and (Users.oidcSubject eq subject) }.singleOrNull()?.get(Users.id)
+    fun findByOidc(
+        issuer: String,
+        subject: String,
+    ): Long? =
+        Users
+            .select(Users.id)
+            .where { (Users.oidcIssuer eq issuer) and (Users.oidcSubject eq subject) }
+            .singleOrNull()
+            ?.get(Users.id)
 
     fun findByEmail(email: String): EmailAccount? =
-        Users.select(Users.id, Users.oidcSubject).where { Users.email eq email }.singleOrNull()
+        Users
+            .select(Users.id, Users.oidcSubject)
+            .where { Users.email eq email }
+            .singleOrNull()
             ?.let { EmailAccount(it[Users.id], linkedToProvider = it[Users.oidcSubject] != null) }
 
-    fun linkOidc(id: Long, issuer: String, subject: String) {
+    fun linkOidc(
+        id: Long,
+        issuer: String,
+        subject: String,
+    ) {
         Users.update({ Users.id eq id }) {
             it[oidcIssuer] = issuer
             it[oidcSubject] = subject
@@ -49,7 +90,14 @@ object UserRepository {
 
     fun emailTaken(email: String): Boolean = !Users.selectAll().where { Users.email eq email }.empty()
 
-    fun insert(email: String, name: String, role: String, passwordHash: String?, oidcIssuer: String? = null, oidcSubject: String? = null): Long =
+    fun insert(
+        email: String,
+        name: String,
+        role: String,
+        passwordHash: String?,
+        oidcIssuer: String? = null,
+        oidcSubject: String? = null,
+    ): Long =
         Users.insert {
             it[orgId] = Db.ORG
             it[this.email] = email
@@ -60,18 +108,28 @@ object UserRepository {
             it[this.oidcSubject] = oidcSubject
         }[Users.id]
 
-    fun update(id: Long, name: String, role: String) {
+    fun update(
+        id: Long,
+        name: String,
+        role: String,
+    ) {
         Users.update({ Users.id eq id }) {
             it[this.name] = name
             it[this.role] = role
         }
     }
 
-    fun setPrefs(id: Long, prefs: Prefs) {
+    fun setPrefs(
+        id: Long,
+        prefs: Prefs,
+    ) {
         Users.update({ Users.id eq id }) { it[this.prefs] = prefs }
     }
 
-    fun setPasswordHash(id: Long, hash: String) {
+    fun setPasswordHash(
+        id: Long,
+        hash: String,
+    ) {
         Users.update({ Users.id eq id }) { it[passwordHash] = hash }
     }
 

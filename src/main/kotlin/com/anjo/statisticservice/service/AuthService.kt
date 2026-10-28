@@ -26,7 +26,10 @@ class AuthService(
 ) {
     val config = AuthConfig(localSignIn, oidc?.let { OidcInfo(it.name) })
 
-    suspend fun bootstrapAdmin(email: String, password: String): Boolean {
+    suspend fun bootstrapAdmin(
+        email: String,
+        password: String,
+    ): Boolean {
         if (email.isBlank() || password.isBlank()) return false
         return db.tx {
             val noUsersYet = UserRepository.count() == 0L
@@ -35,7 +38,10 @@ class AuthService(
         }
     }
 
-    suspend fun login(email: String, password: String): LoginResponse {
+    suspend fun login(
+        email: String,
+        password: String,
+    ): LoginResponse {
         requireLocalSignIn()
         val credentials = db.tx { UserRepository.credentials(normalizeEmail(email)) }
         val passwordMatches = Passwords.verify(password, credentials?.passwordHash)
@@ -45,7 +51,11 @@ class AuthService(
 
     suspend fun oidcStart(redirectUri: String): OidcStartResponse = provider().start(redirectUri)
 
-    suspend fun oidcLogin(code: String, codeVerifier: String, redirectUri: String): LoginResponse {
+    suspend fun oidcLogin(
+        code: String,
+        codeVerifier: String,
+        redirectUri: String,
+    ): LoginResponse {
         val provider = provider()
         val claims = provider.redeem(code, codeVerifier, redirectUri)
         val email = claims.email?.takeIf { it.isNotBlank() }?.let(::normalizeEmail) ?: throw unauthorized("Provider sent no email")
@@ -80,7 +90,11 @@ class AuthService(
         db.tx { TokenRepository.delete(sha256(token)) }
     }
 
-    suspend fun changePassword(user: UserPrincipal, current: String, new: String) {
+    suspend fun changePassword(
+        user: UserPrincipal,
+        current: String,
+        new: String,
+    ) {
         requireLocalSignIn()
         val stored = db.tx { UserRepository.passwordHash(user.id) } ?: throw forbidden("Account has no password")
         if (!Passwords.verify(current, stored)) throw badRequest("current: wrong password")

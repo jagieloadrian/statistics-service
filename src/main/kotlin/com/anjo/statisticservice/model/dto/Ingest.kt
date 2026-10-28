@@ -6,10 +6,16 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 
 @Serializable
-data class IngestResult(val accepted: Int, val duplicates: Int)
+data class IngestResult(
+    val accepted: Int,
+    val duplicates: Int,
+)
 
 @Serializable
-data class MappingTestRequest(val payload: JsonElement, val mapping: List<Rule>? = null)
+data class MappingTestRequest(
+    val payload: JsonElement,
+    val mapping: List<Rule>? = null,
+)
 
 @Serializable
 data class MappedRecord(
@@ -21,4 +27,7 @@ data class MappedRecord(
 )
 
 @Serializable
-data class MappingTestResult(val records: List<MappedRecord>, val errors: List<String>)
+data class MappingTestResult(
+    val records: List<MappedRecord>,
+    val errors: List<String>,
+)

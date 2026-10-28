@@ -27,9 +27,14 @@ import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.JsonElement
 import java.security.MessageDigest
 
-class DefinitionService(private val db: Db, private val status: SourceStatusService) {
-    suspend fun summaries(kind: Kind, visibleTo: UserPrincipal? = null): List<DefinitionSummary> =
-        db.tx { DefinitionRepository.summaries(kind, visibleTo) }
+class DefinitionService(
+    private val db: Db,
+    private val status: SourceStatusService,
+) {
+    suspend fun summaries(
+        kind: Kind,
+        visibleTo: UserPrincipal? = null,
+    ): List<DefinitionSummary> = db.tx { DefinitionRepository.summaries(kind, visibleTo) }
 
     suspend fun datasets(): List<Dataset> = list(Kind.DATASET, Dataset.serializer())
 
@@ -41,22 +46,34 @@ class DefinitionService(private val db: Db, private val status: SourceStatusServ
 
     suspend fun sourceDocument(id: String): JsonElement = document(Kind.SOURCE, id)
 
-    suspend fun datasetDocument(user: UserPrincipal, id: String): JsonElement {
+    suspend fun datasetDocument(
+        user: UserPrincipal,
+        id: String,
+    ): JsonElement {
         requireDatasetAccess(user, id)
         return document(Kind.DATASET, id)
     }
 
-    suspend fun accessibleDataset(user: UserPrincipal, id: String): Dataset {
+    suspend fun accessibleDataset(
+        user: UserPrincipal,
+        id: String,
+    ): Dataset {
         requireDatasetAccess(user, id)
         return dataset(id) ?: throw unknown(Kind.DATASET, id)
     }
 
-    suspend fun queryableDataset(user: UserPrincipal, id: String): Dataset {
+    suspend fun queryableDataset(
+        user: UserPrincipal,
+        id: String,
+    ): Dataset {
         requireDatasetAccess(user, id)
         return dataset(id) ?: throw badRequest("Unknown dataset '$id'")
     }
 
-    suspend fun putDataset(dataset: Dataset, force: Boolean) {
+    suspend fun putDataset(
+        dataset: Dataset,
+        force: Boolean,
+    ) {
         val removed = dataset(dataset.id)?.let { it.names().toSet() - dataset.names().toSet() }.orEmpty()
         if (removed.isNotEmpty() && !force) {
             val refs = references(dataset.id, removed)
@@ -65,7 +82,10 @@ class DefinitionService(private val db: Db, private val status: SourceStatusServ
         db.tx { storeDataset(dataset) }
     }
 
-    suspend fun deleteDataset(id: String, force: Boolean) {
+    suspend fun deleteDataset(
+        id: String,
+        force: Boolean,
+    ) {
         if (!force) {
             val refs = references(id)
             if (refs.isNotEmpty()) throw conflict("Dataset '$id' is still in use; add ?force=true to delete anyway", refs)
@@ -89,34 +109,53 @@ class DefinitionService(private val db: Db, private val status: SourceStatusServ
         return token
     }
 
-    suspend fun verifyCredential(sourceId: String, token: String): Boolean {
+    suspend fun verifyCredential(
+        sourceId: String,
+        token: String,
+    ): Boolean {
         val stored = db.tx { SourceCredentialRepository.tokenHash(sourceId) } ?: return false
         return MessageDigest.isEqual(stored, sha256(token))
     }
 
-    suspend fun dashboardDocument(user: UserPrincipal, id: String): JsonElement {
+    suspend fun dashboardDocument(
+        user: UserPrincipal,
+        id: String,
+    ): JsonElement {
         val dashboard = document(Kind.DASHBOARD, id)
         if (!db.tx { DefinitionRepository.isVisible(user, id) }) throw forbidden("Dashboard '$id' is not shared with you")
         return dashboard
     }
 
-    suspend fun putDashboard(user: UserPrincipal, dashboard: Dashboard) {
+    suspend fun putDashboard(
+        user: UserPrincipal,
+        dashboard: Dashboard,
+    ) {
         val exists = find(Kind.DASHBOARD, dashboard.id, Dashboard.serializer()) != null
         if (exists && !canEdit(user, dashboard.id)) throw forbidden("Only the owner or an admin can change '${dashboard.id}'")
         db.tx { storeDashboard(dashboard, user.id) }
     }
 
-    suspend fun deleteDashboard(user: UserPrincipal, id: String) {
+    suspend fun deleteDashboard(
+        user: UserPrincipal,
+        id: String,
+    ) {
         requireEditable(user, id, "Only the owner or an admin can delete '$id'")
         delete(Kind.DASHBOARD, id)
     }
 
-    suspend fun shares(user: UserPrincipal, dashboardId: String): List<Long> {
+    suspend fun shares(
+        user: UserPrincipal,
+        dashboardId: String,
+    ): List<Long> {
         requireEditable(user, dashboardId)
         return db.tx { DashboardShareRepository.userIds(dashboardId) }
     }
 
-    suspend fun setShares(user: UserPrincipal, dashboardId: String, userIds: List<Long>) {
+    suspend fun setShares(
+        user: UserPrincipal,
+        dashboardId: String,
+        userIds: List<Long>,
+    ) {
         requireEditable(user, dashboardId)
         db.tx { DashboardShareRepository.replace(dashboardId, userIds) }
     }
@@ -138,7 +177,10 @@ class DefinitionService(private val db: Db, private val status: SourceStatusServ
             val errors = mutableListOf<String>()
             val created = mutableListOf<Boolean>()
 
-            fun attempt(what: String, store: () -> Boolean) {
+            fun attempt(
+                what: String,
+                store: () -> Boolean,
+            ) {
                 try {
                     created += store()
                 } catch (e: ApiException) {
@@ -157,24 +199,36 @@ class DefinitionService(private val db: Db, private val status: SourceStatusServ
             }
         }
 
-    private suspend fun requireDatasetAccess(user: UserPrincipal, id: String) {
+    private suspend fun requireDatasetAccess(
+        user: UserPrincipal,
+        id: String,
+    ) {
         if (user.role == VIEWER && id !in visibleDatasets(user)) throw forbidden("Dataset '$id' is not used by a dashboard you can view")
     }
 
-    private suspend fun requireEditable(user: UserPrincipal, id: String, message: String = "Not allowed for your role") {
+    private suspend fun requireEditable(
+        user: UserPrincipal,
+        id: String,
+        message: String = "Not allowed for your role",
+    ) {
         find(Kind.DASHBOARD, id, Dashboard.serializer()) ?: throw unknown(Kind.DASHBOARD, id)
         if (!canEdit(user, id)) throw forbidden(message)
     }
 
-    private suspend fun canEdit(user: UserPrincipal, dashboardId: String): Boolean =
-        user.role == ADMIN || user.role == EDITOR && db.tx { DefinitionRepository.ownerId(dashboardId) } == user.id
+    private suspend fun canEdit(
+        user: UserPrincipal,
+        dashboardId: String,
+    ): Boolean = user.role == ADMIN || (user.role == EDITOR && db.tx { DefinitionRepository.ownerId(dashboardId) } == user.id)
 
     private suspend fun visibleDatasets(user: UserPrincipal): Set<String> =
         list(Kind.DASHBOARD, Dashboard.serializer(), user)
             .flatMap { d -> d.widgets.map { it.query.dataset } + d.variables.mapNotNull { it.dataset } }
             .toSet()
 
-    private suspend fun references(datasetId: String, names: Set<String>? = null): List<String> {
+    private suspend fun references(
+        datasetId: String,
+        names: Set<String>? = null,
+    ): List<String> {
         fun uses(used: Collection<String>) = names == null || used.any { it in names }
         val dashboards =
             list(Kind.DASHBOARD, Dashboard.serializer()).flatMap { d ->
@@ -196,15 +250,27 @@ class DefinitionService(private val db: Db, private val status: SourceStatusServ
             addAll(listOfNotNull(this@uses.options.x))
         }
 
-    private suspend fun <T> list(kind: Kind, serializer: KSerializer<T>, visibleTo: UserPrincipal? = null): List<T> =
-        db.tx { DefinitionRepository.list(kind, serializer, visibleTo) }
+    private suspend fun <T> list(
+        kind: Kind,
+        serializer: KSerializer<T>,
+        visibleTo: UserPrincipal? = null,
+    ): List<T> = db.tx { DefinitionRepository.list(kind, serializer, visibleTo) }
 
-    private suspend fun <T> find(kind: Kind, id: String, serializer: KSerializer<T>): T? =
-        db.tx { DefinitionRepository.get(kind, id, serializer) }
+    private suspend fun <T> find(
+        kind: Kind,
+        id: String,
+        serializer: KSerializer<T>,
+    ): T? = db.tx { DefinitionRepository.get(kind, id, serializer) }
 
-    private suspend fun document(kind: Kind, id: String): JsonElement = find(kind, id, JsonElement.serializer()) ?: throw unknown(kind, id)
+    private suspend fun document(
+        kind: Kind,
+        id: String,
+    ): JsonElement = find(kind, id, JsonElement.serializer()) ?: throw unknown(kind, id)
 
-    private suspend fun delete(kind: Kind, id: String): Boolean =
+    private suspend fun delete(
+        kind: Kind,
+        id: String,
+    ): Boolean =
         db.tx {
             when (kind) {
                 Kind.DATASET -> RecordRepository.deleteDataset(id)
@@ -227,7 +293,10 @@ class DefinitionService(private val db: Db, private val status: SourceStatusServ
         return DefinitionRepository.upsert(Kind.SOURCE, source.id, source, Source.serializer(), null)
     }
 
-    private fun storeDashboard(dashboard: Dashboard, ownerId: Long?): Boolean {
+    private fun storeDashboard(
+        dashboard: Dashboard,
+        ownerId: Long?,
+    ): Boolean {
         validateDashboard(dashboard)
         val missing =
             dashboard.widgets
@@ -238,5 +307,8 @@ class DefinitionService(private val db: Db, private val status: SourceStatusServ
         return DefinitionRepository.upsert(Kind.DASHBOARD, dashboard.id, dashboard, Dashboard.serializer(), ownerId)
     }
 
-    private fun unknown(kind: Kind, id: String) = notFound("Unknown ${kind.key} '$id'")
+    private fun unknown(
+        kind: Kind,
+        id: String,
+    ) = notFound("Unknown ${kind.key} '$id'")
 }

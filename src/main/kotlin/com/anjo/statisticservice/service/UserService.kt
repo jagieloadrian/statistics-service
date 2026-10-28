@@ -8,17 +8,27 @@ import com.anjo.statisticservice.model.Prefs
 import com.anjo.statisticservice.model.User
 import com.anjo.statisticservice.repository.UserRepository
 
-class UserService(private val db: Db) {
+class UserService(
+    private val db: Db,
+) {
     suspend fun user(id: Long): User = db.tx { UserRepository.find(id) } ?: throw unknownUser(id)
 
     suspend fun users(): List<User> = db.tx { UserRepository.list() }
 
-    suspend fun setPrefs(id: Long, prefs: Prefs): User {
+    suspend fun setPrefs(
+        id: Long,
+        prefs: Prefs,
+    ): User {
         db.tx { UserRepository.setPrefs(id, prefs) }
         return user(id)
     }
 
-    suspend fun createUser(email: String, name: String, role: String, password: String): User {
+    suspend fun createUser(
+        email: String,
+        name: String,
+        role: String,
+        password: String,
+    ): User {
         val normalized = normalizeEmail(email)
         val hash = Passwords.hash(password)
         val id =
@@ -29,7 +39,11 @@ class UserService(private val db: Db) {
         return user(id)
     }
 
-    suspend fun updateUser(id: Long, name: String?, role: String?): User {
+    suspend fun updateUser(
+        id: Long,
+        name: String?,
+        role: String?,
+    ): User {
         db.tx {
             val current = UserRepository.find(id) ?: throw unknownUser(id)
             if (current.role == ADMIN && role != null && role != ADMIN) requireAnotherAdmin()

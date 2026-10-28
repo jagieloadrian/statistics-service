@@ -10,7 +10,10 @@ import io.ktor.server.routing.openapi.describe
 import io.ktor.server.routing.post
 import kotlin.time.Clock
 
-fun Route.queryRoutes(definitions: DefinitionService, records: RecordService) {
+fun Route.queryRoutes(
+    definitions: DefinitionService,
+    records: RecordService,
+) {
     post("/query") {
         val query = call.receive<Query>()
         val dataset = definitions.queryableDataset(call.user(), query.dataset)

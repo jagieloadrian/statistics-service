@@ -62,7 +62,9 @@ fun Application.configureRequestValidation() {
 private fun LoginRequest.violations() =
     violations {
         ensure(email.isNotBlank() && email.length <= MAX_EMAIL_LENGTH) { "email: required, at most $MAX_EMAIL_LENGTH characters" }
-        ensure(password.isNotEmpty() && password.length <= MAX_PASSWORD_LENGTH) { "password: required, at most $MAX_PASSWORD_LENGTH characters" }
+        ensure(
+            password.isNotEmpty() && password.length <= MAX_PASSWORD_LENGTH,
+        ) { "password: required, at most $MAX_PASSWORD_LENGTH characters" }
     }
 
 private fun OidcLoginRequest.violations() =

@@ -20,10 +20,18 @@ object Passwords {
     fun hash(password: String): String {
         val salt = randomBytes(SALT_BYTES)
         val key = derive(password, salt, ITERATIONS)
-        return listOf(SCHEME, ITERATIONS.toString(), encoder.encodeToString(salt), encoder.encodeToString(key)).joinToString(FIELD_SEPARATOR.toString())
+        return listOf(
+            SCHEME,
+            ITERATIONS.toString(),
+            encoder.encodeToString(salt),
+            encoder.encodeToString(key),
+        ).joinToString(FIELD_SEPARATOR.toString())
     }
 
-    fun verify(password: String, storedHash: String?): Boolean {
+    fun verify(
+        password: String,
+        storedHash: String?,
+    ): Boolean {
         val fields = (storedHash ?: timingDecoyHash).split(FIELD_SEPARATOR)
         if (fields.size != 4 || fields[0] != SCHEME) return false
         val (_, iterations, salt, key) = fields
@@ -31,7 +39,11 @@ object Passwords {
         return matches && storedHash != null
     }
 
-    private fun derive(password: String, salt: ByteArray, iterations: Int): ByteArray =
+    private fun derive(
+        password: String,
+        salt: ByteArray,
+        iterations: Int,
+    ): ByteArray =
         SecretKeyFactory
             .getInstance("PBKDF2WithHmacSHA256")
             .generateSecret(PBEKeySpec(password.toCharArray(), salt, iterations, KEY_BITS))

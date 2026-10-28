@@ -1,12 +1,22 @@
 package com.anjo.statisticservice.service.mapping
 
 object Expr {
-    fun toSql(expr: String, numberMeasures: Set<String>): String = Parser(expr, numberMeasures).parse()
+    fun toSql(
+        expr: String,
+        numberMeasures: Set<String>,
+    ): String = Parser(expr, numberMeasures).parse()
 
-    private class Parser(val s: String, val names: Set<String>) {
+    private class Parser(
+        val s: String,
+        val names: Set<String>,
+    ) {
         var i = 0
 
-        fun parse(): String = sum().also { skip(); if (i < s.length) fail("unexpected '${s[i]}'") }
+        fun parse(): String =
+            sum().also {
+                skip()
+                if (i < s.length) fail("unexpected '${s[i]}'")
+            }
 
         fun sum(): String {
             var left = product()
@@ -32,19 +42,27 @@ object Expr {
             return when {
                 c == '(' -> {
                     i++
-                    sum().also { if (peek() != ')') fail("missing ')'"); i++ }
+                    sum().also {
+                        if (peek() != ')') fail("missing ')'")
+                        i++
+                    }
                 }
+
                 c.isDigit() -> {
                     val text = take { it.isDigit() || it == '.' }
                     text.toDoubleOrNull() ?: fail("bad number '$text'")
                     "$text::float8"
                 }
+
                 c.isLetter() || c == '_' -> {
                     val name = take { it.isLetterOrDigit() || it == '_' }
                     if (name !in names) fail("'$name' is not a number measure")
                     "(vals->>'$name')::float8"
                 }
-                else -> fail("unexpected '$c'")
+
+                else -> {
+                    fail("unexpected '$c'")
+                }
             }
         }
 

@@ -20,30 +20,39 @@ class IngestService(
     private val records: RecordService,
     private val status: SourceStatusService,
 ) {
-    suspend fun ingest(sourceId: String, token: String?, body: suspend () -> String): IngestResult {
+    suspend fun ingest(
+        sourceId: String,
+        token: String?,
+        body: suspend () -> String,
+    ): IngestResult {
         val source = definitions.requireSource(sourceId)
         if (token.isNullOrEmpty() || !definitions.verifyCredential(sourceId, token)) throw unauthorized("Missing or invalid source token")
         if (source.paused) throw ApiException(HttpStatusCode.ServiceUnavailable, "paused", "Source '$sourceId' is paused")
-        val dataset = definitions.dataset(source.dataset)
-            ?: throw conflict("Dataset '${source.dataset}' no longer exists")
+        val dataset =
+            definitions.dataset(source.dataset)
+                ?: throw conflict("Dataset '${source.dataset}' no longer exists")
         val payload = body()
         val now = Clock.System.now()
-        val mapped = try {
-            Mapper.map(source, dataset, Json.parseToJsonElement(payload), now)
-        } catch (e: MappingException) {
-            status.rejected(sourceId, e.reasons, payload, now)
-            throw badRequest("Payload rejected", e.reasons)
-        } catch (e: SerializationException) {
-            val reasons = listOf("malformed JSON: ${e.message}")
-            status.rejected(sourceId, reasons, payload, now)
-            throw badRequest("Payload rejected", reasons)
-        }
+        val mapped =
+            try {
+                Mapper.map(source, dataset, Json.parseToJsonElement(payload), now)
+            } catch (e: MappingException) {
+                status.rejected(sourceId, e.reasons, payload, now)
+                throw badRequest("Payload rejected", e.reasons)
+            } catch (e: SerializationException) {
+                val reasons = listOf("malformed JSON: ${e.message}")
+                status.rejected(sourceId, reasons, payload, now)
+                throw badRequest("Payload rejected", reasons)
+            }
         val result = records.insert(mapped)
         status.accepted(sourceId, result.accepted, now)
         return result
     }
 
-    suspend fun mappingTest(sourceId: String, req: MappingTestRequest): MappingTestResult {
+    suspend fun mappingTest(
+        sourceId: String,
+        req: MappingTestRequest,
+    ): MappingTestResult {
         val stored = definitions.requireSource(sourceId)
         val source = stored.copy(mapping = req.mapping ?: stored.mapping)
         val dataset = definitions.dataset(source.dataset) ?: throw badRequest("Unknown dataset '${source.dataset}'")

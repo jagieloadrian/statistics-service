@@ -38,7 +38,10 @@ fun Route.signInRoutes(auth: AuthService) {
     }
 }
 
-fun Route.accountRoutes(auth: AuthService, users: UserService) {
+fun Route.accountRoutes(
+    auth: AuthService,
+    users: UserService,
+) {
     post("/auth/logout") {
         auth.logout(call.user().token)
         call.respond(HttpStatusCode.NoContent)
