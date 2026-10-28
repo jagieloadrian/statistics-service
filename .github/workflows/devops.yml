@@ -1,0 +1,54 @@
+name: devops
+
+on:
+  pull_request:
+    paths: ['.devops/k8s/**', '.sops.yaml', '.github/workflows/devops.yml']
+  push:
+    branches: [main]
+    paths: ['.devops/k8s/**', '.sops.yaml', '.github/workflows/devops.yml']
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash  # -eo pipefail: błąd kustomize build nie ginie w potoku
+
+env:
+  KUBECONFORM_VERSION: v0.8.0
+  CRD_SCHEMAS: https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json
+  SECRET_KEYS: DB_PASSWORD ADMIN_PASSWORD OIDC_CLIENT_SECRET
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: config.env
+        run: |
+          f=.devops/k8s/config.env
+          bad=$(grep -nvE '^[[:space:]]*(#|$)|^[A-Z][A-Z0-9_]*=' "$f" || true)
+          [ -z "$bad" ] || { echo "::error file=$f::linie spoza formatu KEY=value: $bad"; exit 1; }
+          grep -q '^DB_URL=jdbc:postgresql://' "$f" || { echo "::error file=$f::DB_URL musi zaczynać się od jdbc:postgresql://"; exit 1; }
+          for k in $SECRET_KEYS; do
+            if grep -q "^$k=" "$f"; then echo "::error file=$f::$k jest sekretem, ma być w secrets.sops.env"; exit 1; fi
+          done
+
+      - name: secrets.sops.env
+        run: |
+          f=.devops/k8s/secrets.sops.env
+          [ -f "$f" ] || { echo "::error::brak $f: sops $f (homelab-infra docs/setup.md, krok 3)"; exit 1; }
+          grep -q '^sops_version=' "$f" || { echo "::error file=$f::plik nie jest zaszyfrowany SOPS"; exit 1; }
+          for k in $SECRET_KEYS; do
+            grep -q "^$k=" "$f" || { echo "::error file=$f::brak $k"; exit 1; }
+          done
+          plain=$(grep -vE '^(#|$|sops_)' "$f" | grep -vE '^[A-Z0-9_]+=(ENC\[|$)' | cut -d= -f1 || true)
+          [ -z "$plain" ] || { echo "::error file=$f::niezaszyfrowane wartości: $plain"; exit 1; }
+          if grep -q REPLACE_WITH .sops.yaml; then echo "::error file=.sops.yaml::brak klucza publicznego age"; exit 1; fi
+
+      - name: Install kubeconform
+        run: curl -sSL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" | sudo tar xz -C /usr/local/bin kubeconform
+
+      - name: Kubernetes manifests
+        run: kustomize build .devops/k8s | kubeconform -strict -summary -schema-location default -schema-location "$CRD_SCHEMAS" -
