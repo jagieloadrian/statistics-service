@@ -18,13 +18,19 @@ import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldStartWith
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.post
+import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
+import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.Url
+import io.ktor.http.contentType
 import java.security.MessageDigest
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.hours
@@ -259,6 +265,18 @@ class OidcAuthTest : FunSpec({
             val payload = """{"deviceId":"pico-1","timestamp":"2099-01-01T00:00:00Z","temperature":21.5}"""
             anonymous.postJson("/api/v2/ingest/climate", payload, source).status shouldBe HttpStatusCode.OK
             anonymous.postJson("/api/v2/ingest/climate", payload, session).status shouldBe HttpStatusCode.Unauthorized
+        }
+    }
+
+    test("provider calls carry the trace id of the incoming request") {
+        oidcApp { idp ->
+            val traceId = "4bf92f3577b34da6a3ce929d0e0e4736"
+            anonymous.post("/api/v2/auth/oidc/start") {
+                contentType(ContentType.Application.Json)
+                header("traceparent", "00-$traceId-00f067aa0ba902b7-01")
+                setBody("""{"redirectUri":"$REDIRECT"}""")
+            }.status shouldBe HttpStatusCode.OK
+            idp.lastTraceparent.shouldNotBeNull() shouldStartWith "00-$traceId-"
         }
     }
 

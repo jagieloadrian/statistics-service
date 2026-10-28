@@ -1,10 +1,23 @@
 <configuration>
-    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <appender name="json" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <fieldNames>
+                <timestamp>timestamp</timestamp>
+                <logger>logger</logger>
+                <version>[ignore]</version>
+                <levelValue>[ignore]</levelValue>
+                <thread>[ignore]</thread>
+            </fieldNames>
+            <timeZone>UTC</timeZone>
+            <includeMdcKeyName>traceId</includeMdcKeyName>
+        </encoder>
+    </appender>
+    <appender name="plain" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%d{YYYY-MM-dd HH:mm:ss.SSS} [%thread] %X{call-id} %-5level %logger{36} - %msg%n</pattern>
+            <pattern>%d{HH:mm:ss.SSS} %-5level [%X{traceId}] %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
     <root level="INFO">
-        <appender-ref ref="STDOUT"/>
+        <appender-ref ref="${LOG_FORMAT:-json}"/>
     </root>
 </configuration>

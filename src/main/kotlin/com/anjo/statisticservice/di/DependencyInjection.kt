@@ -24,6 +24,7 @@ fun Application.configureDI(config: AppConfig) {
     val definitions = DefinitionService(db, status)
     val records = RecordService(db)
     dependencies {
+        provide { db }
         provide { auth }
         provide { UserService(db) }
         provide { definitions }

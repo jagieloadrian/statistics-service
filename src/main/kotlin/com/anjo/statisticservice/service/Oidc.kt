@@ -4,6 +4,8 @@ import com.anjo.statisticservice.config.OidcConfig
 import com.anjo.statisticservice.exception.ApiException
 import com.anjo.statisticservice.exception.unauthorized
 import com.anjo.statisticservice.model.dto.OidcStartResponse
+import com.anjo.statisticservice.observability.TRACEPARENT_HEADER
+import com.anjo.statisticservice.observability.currentTraceparent
 import com.auth0.jwk.JwkException
 import com.auth0.jwk.JwkProvider
 import com.auth0.jwk.JwkProviderBuilder
@@ -38,7 +40,8 @@ import kotlin.time.toJavaDuration
 
 private val logger = KotlinLogging.logger {}
 private val json = Json { ignoreUnknownKeys = true }
-private val TIMEOUT = 5.seconds
+private val CONNECT_TIMEOUT = 2.seconds
+private val REQUEST_TIMEOUT = 10.seconds
 private const val CLOCK_SKEW_SECONDS = 60L
 private const val JWKS_CACHE_SIZE = 10L
 private const val JWKS_CACHE_HOURS = 24L
@@ -67,7 +70,7 @@ class Oidc(private val config: OidcConfig) {
 
     private data class ProviderMetadata(val discovery: Discovery, val keys: JwkProvider)
 
-    private val http = HttpClient.newBuilder().connectTimeout(TIMEOUT.toJavaDuration()).build()
+    private val http = HttpClient.newBuilder().connectTimeout(CONNECT_TIMEOUT.toJavaDuration()).build()
 
     @Volatile
     private var metadata: ProviderMetadata? = null
@@ -168,7 +171,7 @@ class Oidc(private val config: OidcConfig) {
             check(discovery.issuer == config.issuer) { "discovery names issuer ${discovery.issuer}, OIDC_ISSUER is ${config.issuer}" }
             val keys =
                 JwkProviderBuilder(URI(discovery.jwksUri).toURL())
-                    .timeouts(TIMEOUT.inWholeMilliseconds.toInt(), TIMEOUT.inWholeMilliseconds.toInt())
+                    .timeouts(CONNECT_TIMEOUT.inWholeMilliseconds.toInt(), REQUEST_TIMEOUT.inWholeMilliseconds.toInt())
                     .cached(JWKS_CACHE_SIZE, JWKS_CACHE_HOURS, TimeUnit.HOURS)
                     .rateLimited(JWKS_FETCHES_PER_MINUTE, 1, TimeUnit.MINUTES)
                     .build()
@@ -179,7 +182,11 @@ class Oidc(private val config: OidcConfig) {
             throw unavailable(e)
         }
 
-    private fun request(uri: String): HttpRequest.Builder = HttpRequest.newBuilder(URI(uri)).timeout(TIMEOUT.toJavaDuration())
+    private fun request(uri: String): HttpRequest.Builder {
+        val builder = HttpRequest.newBuilder(URI(uri)).timeout(REQUEST_TIMEOUT.toJavaDuration())
+        currentTraceparent()?.let { builder.header(TRACEPARENT_HEADER, it) }
+        return builder
+    }
 
     private fun send(request: HttpRequest.Builder): HttpResponse<String> =
         try {

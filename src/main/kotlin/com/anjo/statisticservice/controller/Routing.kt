@@ -1,12 +1,12 @@
 package com.anjo.statisticservice.controller
 
+import com.anjo.statisticservice.db.Db
 import com.anjo.statisticservice.service.AuthService
 import com.anjo.statisticservice.service.DefinitionService
 import com.anjo.statisticservice.service.IngestService
 import com.anjo.statisticservice.service.RecordService
 import com.anjo.statisticservice.service.SourceStatusService
 import com.anjo.statisticservice.service.UserService
-import io.ktor.http.ContentType
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
 import io.ktor.server.auth.Authentication
@@ -15,8 +15,6 @@ import io.ktor.server.auth.bearer
 import io.ktor.server.plugins.di.dependencies
 import io.ktor.server.plugins.origin
 import io.ktor.server.plugins.ratelimit.RateLimit
-import io.ktor.server.response.respondText
-import io.ktor.server.routing.get
 import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
 import kotlin.time.Duration.Companion.minutes
@@ -28,6 +26,7 @@ private const val INGEST_REQUESTS_PER_SECOND = 50
 private const val LOGIN_ATTEMPTS_PER_MINUTE = 5
 
 fun Application.configureRouting() {
+    val db: Db by dependencies
     val auth: AuthService by dependencies
     val users: UserService by dependencies
     val definitions: DefinitionService by dependencies
@@ -48,8 +47,7 @@ fun Application.configureRouting() {
         bearer(USER_AUTH) { authenticate { auth.principal(it.token) } }
     }
     routing {
-        get("/health") { call.respondText("{}", ContentType.Application.Json) }
-        get("/ready") { call.respondText("{}", ContentType.Application.Json) }
+        healthRoutes(db)
         swaggerEndpoint()
         ingestRoutes(ingest)
         route(API_V2) {

@@ -34,11 +34,15 @@ class FakeOidcProvider(val clientId: String = "statistics-ui") {
     var lastTokenRequest: Map<String, String> = emptyMap()
         private set
 
+    var lastTraceparent: String? = null
+        private set
+
     private val key = rsa()
     private val otherKey = rsa()
 
     init {
         server.createContext("/.well-known/openid-configuration") {
+            lastTraceparent = it.requestHeaders.getFirst("traceparent")
             it.reply(200, """{"issuer":"$issuer","authorization_endpoint":"$issuer/authorize","token_endpoint":"$issuer/token",""" +
                     """"userinfo_endpoint":"$issuer/userinfo","jwks_uri":"$issuer/jwks"}""")
         }

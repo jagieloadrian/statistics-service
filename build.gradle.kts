@@ -14,7 +14,7 @@ kotlin {
 }
 
 application {
-    mainClass = "io.ktor.server.netty.EngineMain"
+    mainClass = "com.anjo.statisticservice.ApplicationKt"
 }
 
 dependencies {
@@ -35,7 +35,10 @@ dependencies {
     implementation(libs.ktor.server.call.id)
     implementation(libs.ktor.server.forwarded.header)
     implementation(libs.ktor.server.request.validation)
+    implementation(libs.ktor.server.metrics.micrometer)
+    implementation(libs.micrometer.registry.prometheus)
     implementation(libs.logback.classic)
+    runtimeOnly(libs.logstash.logback.encoder)
     implementation(libs.kotlin.logging)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.datetime)
