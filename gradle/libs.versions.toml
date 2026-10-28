@@ -1,7 +1,6 @@
 [versions]
 kotlin = "2.4.21"
 ktor = "3.6.0"
-khealth = "3.0.2"
 logback = "1.6.6"
 kotlin-logging = "8.0.4"
 coroutines = "1.11.0"
@@ -34,7 +33,6 @@ ktor-server-routing-openapi = { module = "io.ktor:ktor-server-routing-openapi", 
 ktor-server-call-logging = { module = "io.ktor:ktor-server-call-logging", version.ref = "ktor" }
 ktor-server-call-id = { module = "io.ktor:ktor-server-call-id", version.ref = "ktor" }
 ktor-server-test-host = { module = "io.ktor:ktor-server-test-host", version.ref = "ktor" }
-khealth = { module = "dev.hayden:khealth", version.ref = "khealth" }
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 kotlin-logging = { module = "io.github.oshai:kotlin-logging-jvm", version.ref = "kotlin-logging" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }

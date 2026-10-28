@@ -1,7 +1,6 @@
 package com.anjo.statisticservice.di
 
 import com.anjo.statisticservice.model.definitionJson
-import dev.hayden.KHealth
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.serialization.kotlinx.json.json
@@ -35,7 +34,6 @@ fun Application.configureFrameworks() {
             callId.isNotEmpty()
         }
     }
-    install(KHealth)
     install(CallLogging) {
         callIdMdc("call-id")
     }

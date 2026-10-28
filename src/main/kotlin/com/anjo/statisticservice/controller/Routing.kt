@@ -6,6 +6,7 @@ import com.anjo.statisticservice.service.IngestService
 import com.anjo.statisticservice.service.RecordService
 import com.anjo.statisticservice.service.SourceStatusService
 import com.anjo.statisticservice.service.UserService
+import io.ktor.http.ContentType
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
 import io.ktor.server.auth.Authentication
@@ -14,6 +15,8 @@ import io.ktor.server.auth.bearer
 import io.ktor.server.plugins.di.dependencies
 import io.ktor.server.plugins.origin
 import io.ktor.server.plugins.ratelimit.RateLimit
+import io.ktor.server.response.respondText
+import io.ktor.server.routing.get
 import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
 import kotlin.time.Duration.Companion.minutes
@@ -44,6 +47,9 @@ fun Application.configureRouting() {
         bearer("user") { authenticate { auth.principal(it.token) } }
     }
     routing {
+        // liveness and readiness probes, no checks
+        get("/health") { call.respondText("{}", ContentType.Application.Json) }
+        get("/ready") { call.respondText("{}", ContentType.Application.Json) }
         swaggerEndpoint()
         ingestRoutes(ingest)
         route(API_V2) {
