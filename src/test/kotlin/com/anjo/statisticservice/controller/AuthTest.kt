@@ -8,6 +8,7 @@ import com.anjo.statisticservice.service.Passwords
 import com.anjo.statisticservice.testutils.ADMIN_EMAIL
 import com.anjo.statisticservice.testutils.ADMIN_PASSWORD
 import com.anjo.statisticservice.testutils.Pg
+import com.anjo.statisticservice.testutils.TestApp
 import com.anjo.statisticservice.testutils.json
 import com.anjo.statisticservice.testutils.postJson
 import com.anjo.statisticservice.testutils.putJson
@@ -17,8 +18,13 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldStartWith
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.contentType
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -49,6 +55,24 @@ class AuthTest : FunSpec({
                 .jsonObject["role"]!!.jsonPrimitive.content shouldBe "admin"
             anonymous.postJson("/api/v2/auth/login", creds(ADMIN_EMAIL, "x")).status shouldBe HttpStatusCode.Unauthorized
             anonymous.postJson("/api/v2/auth/login", creds(ADMIN_EMAIL, ADMIN_PASSWORD)).status shouldBe HttpStatusCode.TooManyRequests
+        }
+    }
+
+    test("login limit keys on the last X-Forwarded-For entry only behind a trusted proxy") {
+        suspend fun TestApp.attempt(forwardedFor: String) = anonymous.post("/api/v2/auth/login") {
+            header(HttpHeaders.XForwardedFor, forwardedFor)
+            contentType(ContentType.Application.Json)
+            setBody(creds(ADMIN_EMAIL, "not-the-password"))
+        }.status
+        testApp(mapOf("ktor.deployment.trustProxy" to "true")) {
+            repeat(5) { attempt("10.0.0.9, 203.0.113.1") shouldBe HttpStatusCode.Unauthorized }
+            attempt("10.0.0.8, 203.0.113.1") shouldBe HttpStatusCode.TooManyRequests // same client, other spoofed first entry
+            attempt("10.0.0.9, 203.0.113.2") shouldBe HttpStatusCode.Unauthorized
+        }
+        testApp {
+            // one key for everyone; testApp's admin sign-in was the first attempt
+            (1..4).map { attempt("203.0.113.$it") } shouldBe List(4) { HttpStatusCode.Unauthorized }
+            attempt("203.0.113.5") shouldBe HttpStatusCode.TooManyRequests
         }
     }
 

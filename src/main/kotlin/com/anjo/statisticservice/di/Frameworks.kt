@@ -12,6 +12,7 @@ import io.ktor.server.plugins.calllogging.CallLogging
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.plugins.defaultheaders.DefaultHeaders
+import io.ktor.server.plugins.forwardedheaders.XForwardedHeaders
 
 fun Application.configureFrameworks() {
     install(DefaultHeaders) {
@@ -25,6 +26,11 @@ fun Application.configureFrameworks() {
         allowHeader(HttpHeaders.Authorization)
         allowMethod(HttpMethod.Put)
         allowMethod(HttpMethod.Delete)
+    }
+    // behind a reverse proxy the client IP (login rate limit) is the entry the proxy appended last;
+    // off without one, or clients could pick their own IP
+    if (environment.config.propertyOrNull("ktor.deployment.trustProxy")?.getString() == "true") {
+        install(XForwardedHeaders) { useLastProxy() }
     }
     install(CallId) {
         header(HttpHeaders.XRequestId)

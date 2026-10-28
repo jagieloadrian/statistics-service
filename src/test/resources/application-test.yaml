@@ -4,6 +4,7 @@ ktor:
       - com.anjo.statisticservice.ApplicationKt.module
   deployment:
     port: 8080
+    trustProxy: "${TRUST_PROXY:false}"
     environment: test
   db:
     url: "${DB_URL:jdbc:postgresql://localhost:5432/stats}"

@@ -18,6 +18,7 @@ ADMIN_EMAIL=admin@local ADMIN_PASSWORD='change-me-now' ./gradlew run
 | `DB_URL`, `DB_USER`, `DB_PASSWORD` | `jdbc:postgresql://localhost:5432/stats`, `stats`, `stats` | database; the schema is created on start |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | empty | first admin, created only while there are no users; see sign-in methods |
 | `CORS_HOSTS` | `localhost:8081` | comma-separated frontend hosts |
+| `TRUST_PROXY` | `false` | `true` behind a reverse proxy (e.g. the Istio gateway): the login rate limit keys on the last `X-Forwarded-For` entry; keep `false` without one, clients could spoof it |
 
 API: `http://localhost:8080/api/v2`, Swagger UI at `/api/v2/swagger`.
 

@@ -33,6 +33,7 @@ dependencies {
     implementation(libs.ktor.server.routing.openapi)
     implementation(libs.ktor.server.call.logging)
     implementation(libs.ktor.server.call.id)
+    implementation(libs.ktor.server.forwarded.header)
     implementation(libs.logback.classic)
     implementation(libs.kotlin.logging)
     implementation(libs.kotlinx.coroutines.core)
