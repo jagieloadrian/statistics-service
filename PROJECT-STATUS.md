@@ -91,7 +91,8 @@ compile; checked in headless Chrome against a mock backend at 390 and 1280 px, l
   Email from userinfo when the token lacks it. Email/name are not synced after creation.
 - `GET /auth/config` omits `oidc` when no provider is set (API-wide `explicitNulls = false`).
 - Accent colours are Material 2 "500" seeds; the UI builds the M3 scheme in CIELAB (tone = L*), so contrast
-  holds for every hue. Theme and accent save the moment they are picked; other prefs wait for Save.
+  holds for every hue. Theme and accent preview app-wide while picked; Save sends all prefs in one PUT, and
+  leaving Account without Save drops the edits.
 - Deleting users and sources is deferred behind a 10 s Undo snackbar (no server support needed); dataset
   delete keeps its confirm click because it drops records and can answer 409.
 - Desktop loopback uses an ephemeral port; Authelia (its oauth2-provider) accepts any port for a
