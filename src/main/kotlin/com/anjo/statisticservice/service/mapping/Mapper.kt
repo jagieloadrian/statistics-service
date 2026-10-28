@@ -144,7 +144,7 @@ object Mapper {
             }
             val vals = (obj["vals"] as? JsonObject).orEmpty().mapNotNull { (k, v) ->
                 if (ds.measures.none { it.name == k }) null.also { reasons += "[$i].vals.$k: not declared in dataset" }
-                else value("$k", FieldSpec(path = "[$i].vals.$k"), v, ds, reasons)?.let { k to it }
+                else value(k, FieldSpec(path = "[$i].vals.$k"), v, ds, reasons)?.let { k to it }
             }.toMap()
             if (reasons.size > before) null else Record(ds.id, parsed ?: now, parsed == null, dims, vals, null)
         }

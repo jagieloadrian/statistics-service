@@ -5,6 +5,7 @@ import com.anjo.statisticservice.model.Dashboard
 import com.anjo.statisticservice.model.Dataset
 import com.anjo.statisticservice.model.Prefs
 import com.anjo.statisticservice.model.Source
+import com.anjo.statisticservice.model.names
 import com.anjo.statisticservice.model.numberMeasures
 import com.anjo.statisticservice.service.mapping.Expr
 import java.time.ZoneId
@@ -25,7 +26,7 @@ fun validateDataset(d: Dataset) {
     val r = mutableListOf<String>()
     ensure(d.version == 1, r) { "version: must be 1" }
     ensure(ID.matches(d.id), r) { "id: '${d.id}' must match ${ID.pattern}" }
-    val names = d.measures.map { it.name } + d.dimensions.map { it.name } + d.calculated.keys
+    val names = d.names()
     names.filterNot { NAME.matches(it) }.forEach { r += "name: '$it' must match ${NAME.pattern}" }
     names.groupBy { it }.filter { it.value.size > 1 }.keys.forEach { r += "name: '$it' is declared more than once" }
     ensure("ts" !in names, r) { "name: 'ts' is reserved" }

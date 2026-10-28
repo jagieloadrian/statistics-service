@@ -11,5 +11,3 @@ data class Record(
     val vals: Map<String, JsonPrimitive>,
     val ident: String?,
 )
-
-data class InsertResult(val accepted: Int, val duplicates: Int)

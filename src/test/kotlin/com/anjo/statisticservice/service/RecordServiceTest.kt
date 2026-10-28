@@ -5,12 +5,12 @@ import com.anjo.statisticservice.db.Records
 import com.anjo.statisticservice.exception.ApiException
 import com.anjo.statisticservice.model.Dataset
 import com.anjo.statisticservice.model.Dimension
-import com.anjo.statisticservice.model.InsertResult
 import com.anjo.statisticservice.model.Measure
 import com.anjo.statisticservice.model.Query
 import com.anjo.statisticservice.model.QueryMeasure
 import com.anjo.statisticservice.model.Record
 import com.anjo.statisticservice.model.dto.DimensionValue
+import com.anjo.statisticservice.model.dto.IngestResult
 import com.anjo.statisticservice.model.dto.QueryResult
 import com.anjo.statisticservice.testutils.Pg
 import io.kotest.assertions.throwables.shouldThrow
@@ -49,8 +49,8 @@ class RecordServiceTest : FunSpec({
     suspend fun seed() = store.insert(listOf(rec(40, "a", 3.0), rec(10, "a", 1.0), rec(70, "a", 5.0)))
 
     test("insert counts duplicates by identity") {
-        store.insert(listOf(rec(0, "a", 1.0, "k1"), rec(1, "a", 2.0, "k1"), rec(2, "a", 3.0))) shouldBe InsertResult(2, 1)
-        store.insert(listOf(rec(0, "a", 1.0, "k1"))) shouldBe InsertResult(0, 1)
+        store.insert(listOf(rec(0, "a", 1.0, "k1"), rec(1, "a", 2.0, "k1"), rec(2, "a", 3.0))) shouldBe IngestResult(2, 1)
+        store.insert(listOf(rec(0, "a", 1.0, "k1"))) shouldBe IngestResult(0, 1)
     }
 
     test("raw query is ordered by ts") {

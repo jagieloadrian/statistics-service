@@ -127,8 +127,8 @@ class DefinitionService(private val db: Db, private val status: SourceStatusServ
         list(Kind.DASHBOARD, Dashboard.serializer(), u).flatMap { d -> d.widgets.map { it.query.dataset } + d.variables.mapNotNull { it.dataset } }.toSet()
 
     /** Everything for admins; for others their visible dashboards plus the datasets those use, no sources. */
-    suspend fun export(u: UserPrincipal? = null): Bundle {
-        if (u == null || u.role == ADMIN) {
+    suspend fun export(u: UserPrincipal): Bundle {
+        if (u.role == ADMIN) {
             return Bundle(
                 datasets = list(Kind.DATASET, Dataset.serializer()),
                 sources = list(Kind.SOURCE, Source.serializer()),

@@ -3,11 +3,11 @@ package com.anjo.statisticservice.service
 import com.anjo.statisticservice.db.Db
 import com.anjo.statisticservice.exception.badRequest
 import com.anjo.statisticservice.model.Dataset
-import com.anjo.statisticservice.model.InsertResult
 import com.anjo.statisticservice.model.Query
 import com.anjo.statisticservice.model.QueryMeasure
 import com.anjo.statisticservice.model.Record
 import com.anjo.statisticservice.model.dto.DimensionValue
+import com.anjo.statisticservice.model.dto.IngestResult
 import com.anjo.statisticservice.model.dto.QueryResult
 import com.anjo.statisticservice.model.dto.Series
 import com.anjo.statisticservice.repository.RecordRepository
@@ -22,9 +22,9 @@ import kotlin.time.Instant
 
 class RecordService(private val db: Db) {
 
-    suspend fun insert(records: List<Record>): InsertResult = db.tx {
+    suspend fun insert(records: List<Record>): IngestResult = db.tx {
         val inserted = records.count { RecordRepository.insert(it) }
-        InsertResult(inserted, records.size - inserted)
+        IngestResult(inserted, records.size - inserted)
     }
 
     suspend fun purgeRetention(datasets: List<Dataset>) {

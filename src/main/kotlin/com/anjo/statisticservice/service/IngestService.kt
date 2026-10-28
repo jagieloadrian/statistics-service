@@ -44,7 +44,7 @@ class IngestService(
         }
         val result = records.insert(mapped)
         status.accepted(sourceId, result.accepted, now)
-        return IngestResult(result.accepted, result.duplicates)
+        return result
     }
 
     /** Runs [req]'s mapping, or the stored one, against a sample payload; stores nothing. */

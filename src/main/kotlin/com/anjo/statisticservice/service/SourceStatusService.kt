@@ -21,12 +21,12 @@ class SourceStatusService {
 
     private val entries = ConcurrentHashMap<String, Entry>()
 
-    fun accepted(sourceId: String, count: Int, now: Instant = Clock.System.now()) = update(sourceId, now, rejected = false) { e ->
+    fun accepted(sourceId: String, count: Int, now: Instant) = update(sourceId, now, rejected = false) { e ->
         e.lastRecordAt = now
         bucket(e, now)[0] += count.toLong()
     }
 
-    fun rejected(sourceId: String, reasons: List<String>, payload: String, now: Instant = Clock.System.now()) =
+    fun rejected(sourceId: String, reasons: List<String>, payload: String, now: Instant) =
         update(sourceId, now, rejected = true) { e ->
             bucket(e, now)[1]++
             e.rejections.addFirst(Rejection(now.toString(), reasons.joinToString("; "), payload.take(500)))
