@@ -1,12 +1,12 @@
 # Project Status
 
-Updated 2026-10-27. Features: [spec 004 universal stats platform](specs/004-universal-stats-platform/spec.md)
+Updated 2026-10-28. Features: [spec 004 universal stats platform](specs/004-universal-stats-platform/spec.md)
 (tasks: [tasks.md](specs/004-universal-stats-platform/tasks.md)), [spec 005 OIDC sign-in](specs/005-oidc-login/spec.md)
 (tasks: [tasks.md](specs/005-oidc-login/tasks.md)).
 
 ## Completed
 
-Backend (this repo, branch `feature-2/update-ktor-plugin`):
+Backend (this repo, spec 004 built on branch `feature-2/update-ktor-plugin`):
 
 | Slice | Commit | Content |
 |-------|--------|---------|
@@ -45,6 +45,9 @@ OIDC sign-in (spec 005, branch `005-oidc-login` in both repos):
 Backend `./gradlew build` green, 65 tests (18 new in `OidcAuthTest`, offline against an in-test
 provider). Frontend `jvmTest` 20 green (callback parser, loopback receiver); js/wasm compile; `jvmJar` builds.
 
+Cleanup (branch `feature-6/cleaning-and-refactoring`, 85f6fbe..a836372): unused Ktor modules and KHealth
+dropped (plain `/health` and `/ready` routes, no jitpack repo), dead code removed; still 65 tests green.
+
 ## Decisions
 
 - Old v1 API dropped entirely; RPi devices get the new URL + source token (`.docs/Device_Ingest.md`).
@@ -58,8 +61,8 @@ provider). Frontend `jvmTest` 20 green (callback parser, loopback receiver); js/
 - Schema via Flyway (`db/migration/V1__init.sql`, `baselineOnMigrate`: databases from the old
   startup schema are marked V1). SQL through Exposed DSL; analytic measures stay checked SQL text.
 - Services own transactions (`db.tx`), repositories run inside them; models only in `model/`.
-- KHealth no longer wraps its routes in `hide()`: in Ktor 3.6 that hid the whole routing root
-  from OpenAPI.
+- Health probes are plain routes (`GET /health`, `GET /ready` → 200 `{}`), no KHealth; its `hide()` wrap
+  hid the whole routing root from OpenAPI in Ktor 3.6.
 - OIDC: the backend redeems the code and answers the existing opaque session token, so every route,
   expiry and logout stay as they were; IdP tokens are discarded, no refresh tokens, no RP logout.
   PKCE verifier + state are made by the backend and kept by the client (no crypto in KMP).

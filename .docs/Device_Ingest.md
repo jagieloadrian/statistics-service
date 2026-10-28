@@ -1,7 +1,7 @@
 # Device Ingest
 
-How a device or collector app sends data to the platform. Replaces the archived
-`archive/RPI_*_Contract.md` files; full API: `specs/004-universal-stats-platform/contracts/api-v2.md`.
+How a device or collector app sends data to the platform. Full API:
+`specs/004-universal-stats-platform/contracts/api-v2.md`.
 
 ## Setup (admin, once per source)
 
