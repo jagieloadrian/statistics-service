@@ -52,10 +52,35 @@ class IngestRoutesTest :
             }
         }
 
+        test("dimension values page by limit and offset and ignore unreadable numbers") {
+            testApp {
+                val token = client.climateSource()
+                listOf("pico-1", "pico-2").forEach {
+                    client.postJson("/api/v2/ingest/climate", payload.replace("pico-1", it), token).status shouldBe HttpStatusCode.OK
+                }
+
+                suspend fun values(query: String) =
+                    client
+                        .get("/api/v2/datasets/climate/dimensions/device/values$query")
+                        .json()
+                        .jsonArray
+                        .map {
+                            it.jsonObject
+                                .getValue("value")
+                                .jsonPrimitive.content
+                        }
+                values("").toSet() shouldBe setOf("pico-1", "pico-2")
+                values("?limit=1&offset=1").size shouldBe 1
+                values("?limit=1&offset=2") shouldBe emptyList()
+                values("?limit=many&offset=none").toSet() shouldBe setOf("pico-1", "pico-2")
+            }
+        }
+
         test("missing or rotated token gives 401, unknown source 404") {
             testApp {
                 val old = client.climateSource()
                 client.postJson("/api/v2/ingest/climate", payload).status shouldBe HttpStatusCode.Unauthorized
+                anonymous.postJson("/api/v2/ingest/climate", payload).status shouldBe HttpStatusCode.Unauthorized
                 client.postJson("/api/v2/sources/climate/credential", "")
                 client.postJson("/api/v2/ingest/climate", payload, old).status shouldBe HttpStatusCode.Unauthorized
                 client.postJson("/api/v2/ingest/nope", payload, old).status shouldBe HttpStatusCode.NotFound

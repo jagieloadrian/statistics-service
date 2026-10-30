@@ -102,7 +102,7 @@ class FakeOidcProvider(
             .withIssuer(tokenIssuer ?: issuer)
             .withAudience(audience)
             .withIssuedAt(now.toJavaInstant())
-            .withExpiresAt((expiresAt ?: now + 5.minutes).toJavaInstant())
+            .withExpiresAt(((expiresAt ?: (now + 5.minutes))).toJavaInstant())
             .withPayload(claims)
             .sign(Algorithm.RSA256(signingKey.public as RSAPublicKey, signingKey.private as RSAPrivateKey))
     }

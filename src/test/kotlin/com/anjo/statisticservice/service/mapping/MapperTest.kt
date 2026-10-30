@@ -173,6 +173,128 @@ class MapperTest :
                 listOf("[0].dims.room: not declared in dataset", "[0].vals.pressure: not declared in dataset")
         }
 
+        test("each walks arrays by index and reports a path that is not a collection") {
+            val list =
+                source.copy(
+                    mapping =
+                        listOf(
+                            Rule(
+                                each = "readings",
+                                identity = listOf("@.id"),
+                                dims = mapOf("device" to FieldSpec(path = "@key")),
+                                vals = mapOf("temperature" to FieldSpec(path = "@.t")),
+                            ),
+                        ),
+                )
+            map("""{"readings":[{"id":"a","t":1},{"id":"b","t":2}]}""", list).map {
+                Triple(it.dims["device"], it.vals["temperature"], it.ident)
+            } shouldBe
+                listOf(Triple("0", JsonPrimitive(1.0), "a|0"), Triple("1", JsonPrimitive(2.0), "b|1"))
+            reasons("""{"readings":5}""", list) shouldBe listOf("mapping[0].each: no object or array at path 'readings'")
+            reasons("""{}""", list) shouldBe listOf("mapping[0].each: no object or array at path 'readings'")
+        }
+
+        test("paths walk into arrays by index and stop at anything else") {
+            val nested =
+                source.copy(
+                    mapping =
+                        listOf(
+                            Rule(
+                                dims = mapOf("device" to FieldSpec(path = "devices.1.id")),
+                                vals =
+                                    mapOf(
+                                        "temperature" to FieldSpec(path = "devices.first.t", required = false),
+                                        "humidity" to FieldSpec(path = "devices.0.id.deep", required = false),
+                                        "note" to FieldSpec(constValue = JsonPrimitive("fixed")),
+                                    ),
+                            ),
+                        ),
+                )
+            val r = map("""{"devices":[{"id":"a","t":1},{"id":"b"}]}""", nested).single()
+            r.dims shouldBe mapOf("device" to "b")
+            r.vals shouldBe mapOf("note" to JsonPrimitive("fixed"))
+            reasons("""{"devices":[{"id":"a"}]}""", nested) shouldBe listOf("dims.device: missing at path 'devices.1.id'")
+        }
+
+        test("key and item paths outside each, nested or null values and missing identity are reasons") {
+            val loose =
+                source.copy(
+                    mapping =
+                        listOf(
+                            Rule(
+                                identity = listOf("serial"),
+                                dims = mapOf("device" to FieldSpec(path = "@key")),
+                                vals = mapOf("temperature" to FieldSpec(path = "@.t"), "note" to FieldSpec(path = "note")),
+                            ),
+                        ),
+                )
+            reasons("""{"note":{"text":"hi"}}""", loose) shouldContainExactlyInAnyOrder
+                listOf(
+                    "dims.device: missing at path '@key'",
+                    "vals.temperature: missing at path '@.t'",
+                    "vals.note: expected a value at path 'note'",
+                    "identity: missing at path 'serial'",
+                )
+            val dims = source.copy(mapping = listOf(Rule(dims = mapOf("device" to FieldSpec(path = "d")))))
+            reasons("""{"d":null}""", dims) shouldBe listOf("dims.device: missing at path 'd'")
+            reasons("""{"d":[1]}""", dims) shouldBe listOf("dims.device: expected a value at path 'd'")
+            val blankOk = source.copy(mapping = listOf(Rule(dims = mapOf("device" to FieldSpec(path = "d", notBlank = false)))))
+            map("""{"d":" "}""", blankOk).single().dims shouldBe mapOf("device" to " ")
+        }
+
+        test("timestamps that are null or not values fall back to arrival time, unreadable ones are reasons") {
+            val iso =
+                source.copy(
+                    mapping = listOf(Rule(timestamp = TimestampSpec("at"), vals = mapOf("temperature" to FieldSpec(path = "t")))),
+                )
+            listOf("""{"at":null,"t":1}""", """{"at":{"s":1},"t":1}""").forEach { json ->
+                val r = map(json, iso).single()
+                r.ts shouldBe now
+                r.tsEstimated shouldBe true
+            }
+            map("""{"at":"2020-01-01T00:00:00Z","t":1}""", iso).single().ts shouldBe Instant.parse("2020-01-01T00:00:00Z")
+            reasons("""{"at":"soon","t":1}""", iso) shouldBe listOf("timestamp: cannot parse 'soon' as iso")
+            listOf("epoch_ms", "epoch_s").forEach { format ->
+                val epoch = iso.copy(mapping = listOf(iso.mapping[0].copy(timestamp = TimestampSpec("at", format))))
+                reasons("""{"at":"soon","t":1}""", epoch) shouldBe listOf("timestamp: cannot parse 'soon' as $format")
+                map("""{"at":"1793091600","t":1}""", epoch).single().tsEstimated shouldBe false
+            }
+        }
+
+        test("optional values may be null, text must not be blank unless allowed") {
+            val text =
+                source.copy(
+                    mapping =
+                        listOf(
+                            Rule(
+                                vals =
+                                    mapOf(
+                                        "temperature" to FieldSpec(path = "t", required = false),
+                                        "note" to FieldSpec(path = "n"),
+                                        "heating" to FieldSpec(path = "h", required = false),
+                                    ),
+                            ),
+                        ),
+                )
+            map("""{"t":null,"n":"x","h":false}""", text).single().vals shouldBe
+                mapOf("note" to JsonPrimitive("x"), "heating" to JsonPrimitive(false))
+            reasons("""{"n":" "}""", text) shouldBe listOf("vals.note: must not be blank")
+            val blankOk = text.copy(mapping = listOf(Rule(vals = mapOf("note" to FieldSpec(path = "n", notBlank = false)))))
+            map("""{"n":" "}""", blankOk).single().vals shouldBe mapOf("note" to JsonPrimitive(" "))
+        }
+
+        test("native format reports the body shape, items, timestamps and values it cannot use") {
+            val native = source.copy(mapping = emptyList())
+            reasons("42", native) shouldBe listOf("body: expected a record object or an array of records")
+            reasons("""[1,{"ts":"soon","vals":{"temperature":"warm"}}]""", native) shouldContainExactlyInAnyOrder
+                listOf("[0]: expected an object", "[1].ts: cannot parse 'soon'", "vals.temperature: expected a number, got 'warm'")
+            val r = map("""{"ts":null,"dims":{"device":{"nested":true}},"vals":5}""", native).single()
+            r.tsEstimated shouldBe true
+            r.dims shouldBe mapOf("device" to "")
+            r.vals shouldBe emptyMap()
+            map("""{"dims":"none","vals":{"note":"n"}}""", native).single().dims shouldBe emptyMap()
+        }
+
         test("epidemic sample payload gives total plus one record per byType entry") {
             val bundle = Json.decodeFromString(Bundle.serializer(), java.io.File("definitions/epidemic.json").readText())
             val payload = Json.parseToJsonElement(checkNotNull(javaClass.getResource("/payloads/epidemic.json")).readText())

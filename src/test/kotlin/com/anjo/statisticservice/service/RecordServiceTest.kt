@@ -7,12 +7,14 @@ import com.anjo.statisticservice.model.Dataset
 import com.anjo.statisticservice.model.Dimension
 import com.anjo.statisticservice.model.MAX_RAW_ROWS
 import com.anjo.statisticservice.model.Measure
+import com.anjo.statisticservice.model.MeasureType
 import com.anjo.statisticservice.model.Query
 import com.anjo.statisticservice.model.QueryMeasure
 import com.anjo.statisticservice.model.Record
 import com.anjo.statisticservice.model.dto.DimensionValue
 import com.anjo.statisticservice.model.dto.IngestResult
 import com.anjo.statisticservice.model.dto.QueryResult
+import com.anjo.statisticservice.repository.RecordRepository
 import com.anjo.statisticservice.testutils.Pg
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
@@ -186,6 +188,73 @@ class RecordServiceTest :
             ).cells() shouldBe listOf(listOf(listOf("2.0", "1.0", "2026-10-27T10:00:00Z", "2026-10-27T10:00:20Z")))
             shouldThrow<ApiException> { q("none", QueryMeasure("gen", "at_max")) }
             shouldThrow<ApiException> { q("none", QueryMeasure("ts", "avg")) }
+        }
+
+        test("text and boolean default to last and ts to max, records without the grouped dimension form an empty group") {
+            val mixed = ds.copy(measures = ds.measures + Measure("note", MeasureType.TEXT) + Measure("on", MeasureType.BOOLEAN))
+
+            fun mixedRec(
+                atSeconds: Int,
+                dims: Map<String, String>,
+                note: String,
+                on: Boolean,
+            ) = Record("t", base + atSeconds.seconds, false, dims, mapOf("note" to JsonPrimitive(note), "on" to JsonPrimitive(on)), null)
+            store.insert(
+                listOf(
+                    mixedRec(0, mapOf("device" to "a"), "early", false),
+                    mixedRec(10, mapOf("device" to "a"), "late", true),
+                    mixedRec(20, emptyMap(), "orphan", false),
+                ),
+            )
+            val measures = listOf(QueryMeasure("note"), QueryMeasure("on"), QueryMeasure("ts"))
+            val grouped =
+                store.query(
+                    Query("t", measures, groupBy = listOf("device"), from = base.toString(), to = now.toString(), bucket = "none"),
+                    mixed,
+                    now,
+                )
+            grouped.series.map { it.dims } shouldBe listOf(mapOf("device" to "a"), mapOf("device" to ""))
+            grouped.series.first().columns shouldBe listOf("note", "on", "ts")
+            grouped.cells() shouldBe
+                listOf(
+                    listOf(listOf("late", "true", "2026-10-27T10:00:10Z")),
+                    listOf(listOf("orphan", "false", "2026-10-27T10:00:20Z")),
+                )
+            store
+                .query(Query("t", measures.take(2), from = base.toString(), to = now.toString(), bucket = "raw"), mixed, now)
+                .cells() shouldBe
+                listOf(
+                    listOf(
+                        listOf("2026-10-27T10:00:00Z", "early", "false"),
+                        listOf("2026-10-27T10:00:10Z", "late", "true"),
+                        listOf("2026-10-27T10:00:20Z", "orphan", "false"),
+                    ),
+                )
+        }
+
+        test("auto falls back to daily buckets when even those exceed maxPoints") {
+            store
+                .query(
+                    Query("t", listOf(QueryMeasure("temp")), from = (now - 3.days).toString(), to = now.toString(), maxPoints = 1),
+                    ds,
+                    now,
+                ).bucket shouldBe "1d"
+        }
+
+        test("dimension values ignore a blank search and refuse unknown dimensions") {
+            store.insert(listOf(rec(0, "alpha", 1.0)))
+            store.dimensionValues(ds, "device", " ", 50, 0).map { it.value } shouldBe listOf("alpha")
+            shouldThrow<ApiException> { store.dimensionValues(ds, "room", null, 50, 0) }.message shouldBe "Unknown dimension 'room'"
+        }
+
+        test("the repository refuses measures and aggregations that skipped validation") {
+            suspend fun unvalidated(m: QueryMeasure) =
+                shouldThrow<IllegalStateException> {
+                    db.tx { RecordRepository.query(ds, Query("t", listOf(m)), base, now, raw = false, bucketSeconds = null, limit = null) }
+                }.message
+            unvalidated(QueryMeasure("temp", "median")) shouldBe "Unvalidated aggregation 'median'"
+            unvalidated(QueryMeasure("pressure", "avg")) shouldBe "Unvalidated measure 'pressure'"
+            unvalidated(QueryMeasure("temp", "at_max")) shouldBe "Unvalidated 'by' of 'temp'"
         }
 
         test("calculated measure works raw and bucketed, division by zero is null") {
