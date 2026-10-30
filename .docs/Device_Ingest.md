@@ -37,6 +37,7 @@ Timestamps: ISO-8601 instant, or a local date-time read as UTC (`2026-01-05T15:3
 | 400 `{"details": [ … ]}` | payload rejected, nothing stored; one reason per failed field | fix the payload, do not retry as is |
 | 401 | missing, wrong or rotated token | stop, needs a new token |
 | 404 | unknown source id | stop, check the URL |
+| 409 | the source takes data over pub/sub | publish to the broker instead ([Collector_Apps.md](Collector_Apps.md)) |
 | 429 + `Retry-After` | over 50 requests/s for this source | wait `Retry-After` seconds |
 | 503 + `Retry-After` | source paused by an admin | retry later |
 

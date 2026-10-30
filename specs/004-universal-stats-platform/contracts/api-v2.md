@@ -27,8 +27,34 @@ source has no mapping.
 | unknown source | 404 | — |
 | over `rateLimitPerSecond` | 429 | `Retry-After` header |
 | source paused | 503 | `Retry-After` header |
+| source has channel `pubsub` | 409 | — |
 
 Rejections (400) are also recorded in source status.
+
+### Pub/sub
+
+Sources with `"channel": {"type": "pubsub"}` take messages from the one broker
+the app is configured with (`BROKER=kafka|jetstream`; `none` = no consumer).
+
+| | Kafka | NATS JetStream |
+|-|-------|----------------|
+| Address | topic `KAFKA_TOPIC` (default `stats.ingest`), record key = source id | subject `<NATS_SUBJECT_PREFIX>.<sourceId>` (default `stats.ingest.<sourceId>`) in stream `NATS_STREAM` (default `STATS_INGEST`, subjects `<prefix>.>`) |
+| Consumer | group `KAFKA_GROUP_ID` (default `statistics-service`), starts at the earliest offset | durable pull consumer `NATS_DURABLE` (default `statistics-service`), explicit ack; the app creates or updates the stream (file storage, `NATS_STREAM_MAX_AGE` default 7d, `NATS_STREAM_MAX_BYTES` default 256 MiB) |
+| Header | `Authorization: Bearer <source token>` | `Authorization: Bearer <source token>` |
+| Value | UTF-8 body exactly as for `POST /ingest/{sourceId}` | same |
+
+Delivery is at least once. A message is acked (JetStream) or its offset
+committed (Kafka) only after its records are stored; a redelivered message is
+deduplicated by the source's `identity` (native records without identity are
+stored again). Messages that can never be stored — unknown source, missing or
+wrong token, `push` source, paused source, mapping or JSON errors — are acked,
+counted and logged (without payload or token); when the source exists they are
+recorded in its status like a 400. Storage failures (database down) are not
+acked: the consumer backs off (1 s doubling to 30 s) and the broker redelivers.
+No per-source rate limit applies; the consumer reads at its own pace.
+Readiness does not depend on the broker; `/metrics` exposes
+`statistics_broker_consuming`, `statistics_broker_pending_messages` and
+`statistics_broker_messages_total{outcome="stored|rejected|retried"}`.
 
 ## Query
 
@@ -98,7 +124,7 @@ ordered by `lastSeen` desc.
 
 | Method + path | Role | Notes |
 |---------------|------|-------|
-| `GET /auth/config` | public | enabled sign-in methods: `{"local": true, "oidc": {"name": "Authelia"}}`; `oidc` omitted (null) when no provider is configured. No secrets, no URLs |
+| `GET /auth/config` | public | enabled sign-in methods: `{"local": true, "oidc": {"name": "Authelia"}, "pubsub": {"broker": "kafka", "address": "stats.ingest"}}`; `oidc` omitted (null) when no provider is configured; `pubsub` omitted when `BROKER=none`, else `broker` is `kafka` (`address` = topic) or `jetstream` (`address` = subject prefix), used by the source editor to show where a `pubsub` source's collector publishes. No secrets, no URLs |
 | `POST /auth/login` | public | `{email, password}` → `{token, user}`; 401 with one generic message; 5 attempts/min per IP; local sign-in off (`AUTH_LOCAL=false`) → 403 |
 | `POST /auth/oidc/start` | public | `{redirectUri}` → `{authorizationUrl, state, codeVerifier}`; the client keeps `state` + `codeVerifier` and sends the user to `authorizationUrl` (provider `authorization_endpoint` with `response_type=code`, `client_id`, `redirect_uri`, `scope=openid email profile`, `state`, `code_challenge`, `code_challenge_method=S256`); no provider → 404; provider unreachable → 503 (`unavailable`); shares the login limit |
 | `POST /auth/oidc` | public | `{code, codeVerifier, redirectUri}` → `{token, user}` like `/auth/login`. Known provider identity → that account; else the account with the same email is linked if the provider verified the email and it has no other identity; else a new account (admin when the verified email is `ADMIN_EMAIL`, otherwise viewer; no password). Code refused, invalid/expired/foreign ID token, no email, unverified email of an existing account, account linked to another identity → 401; no provider → 404; provider unreachable → 503; shares the login limit |

@@ -1,6 +1,6 @@
 # Project Status
 
-Updated 2026-10-28. Features: [spec 004 universal stats platform](specs/004-universal-stats-platform/spec.md)
+Updated 2026-10-30. Features: [spec 004 universal stats platform](specs/004-universal-stats-platform/spec.md)
 (tasks: [tasks.md](specs/004-universal-stats-platform/tasks.md)), [spec 005 OIDC sign-in](specs/005-oidc-login/spec.md)
 (tasks: [tasks.md](specs/005-oidc-login/tasks.md)).
 
@@ -65,6 +65,14 @@ for deleting users and sources, list editors that wrap on narrow windows, 18 acc
 in prefs (validated against the 18 ids). Frontend `jvmTest` green (incl. contrast check of every accent), js/wasm
 compile; checked in headless Chrome against a mock backend at 390 and 1280 px, light and dark.
 
+Pub/sub ingestion (branch `feature-7/pubsub-ingestion` in both repos, constitution 2.5.0): `BROKER=none|kafka|jetstream`
+picks one broker; sources opt in with channel `pubsub` (HTTP push to them → 409). One consumer thread per app
+(`BrokerConsumer`) shares token check, mapping (`IngestService`), rejection recording, metrics and back-off;
+`KafkaBroker` / `JetStreamBroker` only poll and commit/ack. Kafka: topic + key = source id; JetStream: subject
+`<prefix>.<sourceId>`, stream created/updated by the app, durable pull consumer. `/auth/config` gains `pubsub`
+for the source editor's address hint. Local `.devops/kafka-compose`, `.devops/nats-compose`. 89 tests green
+(Kafka + NATS in Testcontainers); verified by hand with both composes (late broker start, DB outage, NATS restart).
+
 ## Decisions
 
 - Old v1 API dropped entirely; RPi devices get the new URL + source token (`.docs/Device_Ingest.md`).
@@ -97,6 +105,10 @@ compile; checked in headless Chrome against a mock backend at 390 and 1280 px, l
   delete keeps its confirm click because it drops records and can answer 409.
 - Desktop loopback uses an ephemeral port; Authelia (its oauth2-provider) accepts any port for a
   registered `http://127.0.0.1/callback` (RFC 8252 §7.3).
+- Pub/sub: broker is app config, not part of the source (the per-source `kafka` channel draft is replaced by
+  `pubsub`). At least once; ack/commit after the DB commit. `ApiException` and SQL data errors (22xxx/23xxx) are
+  final → acked + recorded in source status; other SQL errors retry with 1→30 s back-off. Paused pubsub sources
+  drop (ack) messages. No per-source rate limit on the broker path. Readiness ignores the broker.
 
 ## Measured
 
@@ -122,6 +134,7 @@ objects to `clusters/home/image-automation.yaml`, register the OIDC client
    is now set in `main()`, so it also applies under jvmRun/hot reload; still needs a manual close test.
    Kotest on js/wasm needs the `io.kotest` plugin + KSP (tests compile, not discovered yet).
 4. Reprogram the RPi devices (quickstart §7): new URL `/api/v2/ingest/{temperature|epidemic}` + header.
-5. US5 channels (pull, Kafka, gRPC) only when a real producer exists.
+5. US5 channels: pub/sub done; pull and gRPC only when a real producer exists. Homelab: `BROKER=jetstream` +
+   `NATS_PASSWORD` in the SOPS secret once the NATS rollout in homelab-infra is live.
 6. Small UI gaps noted by `ponytail:` comments: the dashboard JSON has no owner, so the Edit button
    shows for editors on other people's dashboards (the server answers 403).

@@ -69,7 +69,7 @@ dimensions (name, label), calculated measures (name → expression),
   referencing widgets unless `?force=true` (spec edge case).
 
 ### Source (`definitions.kind = 'source'`)
-Channel (`push`; later `pull`, `kafka`, `grpc`), channel settings, rate
+Channel (`push`, `pubsub`; later `pull`, `grpc`), channel settings, rate
 limit, target dataset, mapping (empty = native record format, FR-025),
 `paused`. Credential lives in `source_credentials`, never in the document.
 - Target dataset must exist; mapping outputs only declared names.
@@ -90,7 +90,8 @@ State (stored `paused` + derived from in-memory status):
    │ resume → waiting-for-data / receiving
    └ (any state) last N attempts all rejected → erroring (cleared by next accepted record)
 ```
-Paused push sources answer `503` with `Retry-After`.
+Paused push sources answer `503` with `Retry-After`; messages for paused
+`pubsub` sources are acked and recorded as rejections.
 
 ### Mapping (embedded in Source)
 Ordered list of record rules; one payload → 1..N records. Each rule:

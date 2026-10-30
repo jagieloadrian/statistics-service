@@ -76,6 +76,72 @@ curl -s -X POST $API/sources/temperature/credential -H "Authorization: Bearer $T
 Devices and collector apps: [.docs/Device_Ingest.md](.docs/Device_Ingest.md),
 [.docs/Collector_Apps.md](.docs/Collector_Apps.md).
 
+## Pub/sub ingestion (Kafka / NATS JetStream)
+
+Besides HTTP push, sources with `"channel": {"type": "pubsub"}` take messages
+from one broker chosen by `BROKER`; switching the broker changes no definition.
+Message contract: [api-v2.md, Pub/sub](specs/004-universal-stats-platform/contracts/api-v2.md#pubsub);
+for collectors: [.docs/Collector_Apps.md](.docs/Collector_Apps.md).
+
+| Env | Default | Meaning |
+|-----|---------|---------|
+| `BROKER` | `none` | `none`, `kafka` or `jetstream`; anything else stops the start |
+| `KAFKA_BOOTSTRAP_SERVERS` | empty | required with `kafka`, e.g. `kafka:9092` |
+| `KAFKA_TOPIC` | `stats.ingest` | the one topic; record key = source id |
+| `KAFKA_GROUP_ID` | `statistics-service` | consumer group (starts at the earliest offset) |
+| `KAFKA_SECURITY_PROTOCOL` | `PLAINTEXT` | or `SSL`, `SASL_PLAINTEXT`, `SASL_SSL` |
+| `KAFKA_SASL_MECHANISM` | `PLAIN` | `PLAIN`, `SCRAM-SHA-256` or `SCRAM-SHA-512`, used with `SASL_*` |
+| `KAFKA_USER`, `KAFKA_PASSWORD` | empty | required with `SASL_*`, not allowed without |
+| `NATS_URL` | empty | required with `jetstream`, `nats://…` or `tls://…` |
+| `NATS_STREAM` | `STATS_INGEST` | created or updated on every start: subjects `<prefix>.>`, file storage |
+| `NATS_SUBJECT_PREFIX` | `stats.ingest` | subject = `<prefix>.<sourceId>` |
+| `NATS_DURABLE` | `statistics-service` | durable pull consumer, explicit ack |
+| `NATS_STREAM_MAX_AGE`, `NATS_STREAM_MAX_BYTES` | `7d`, `268435456` | stream limits; the oldest messages go first |
+| `NATS_USER` + `NATS_PASSWORD`, or `NATS_TOKEN` | empty | broker credentials |
+
+- At least once: a message is acked (JetStream) or committed (Kafka) only after
+  its records are stored. Messages that can never be stored (bad token, unknown
+  or `push` source, paused source, mapping errors) are acked, counted and shown
+  in the source status; database failures are retried with back-off (1 s → 30 s).
+- The consumer starts with the app, keeps retrying while the broker is down and
+  never affects `/health/ready`. `/metrics`: `statistics_broker_consuming`,
+  `statistics_broker_pending_messages`,
+  `statistics_broker_messages_total{outcome="stored|rejected|retried"}`.
+- HTTP push to a `pubsub` source answers 409.
+
+Locally (with Postgres already up as above), pick one broker:
+
+```bash
+docker compose -f .devops/kafka-compose/compose.yaml up -d   # apache/kafka 4.4.0, KRaft, localhost:9092
+BROKER=kafka KAFKA_BOOTSTRAP_SERVERS=localhost:9092 ./gradlew runLocal
+
+docker compose -f .devops/nats-compose/compose.yaml up -d    # nats 2.15.2 with JetStream, localhost:4222
+BROKER=jetstream NATS_URL=nats://localhost:4222 ./gradlew runLocal
+```
+
+With the example definitions loaded (`API`, `TOKEN` as above), switch
+`temperature` to pub/sub and send one reading:
+
+```bash
+curl -s $API/sources/temperature -H "Authorization: Bearer $TOKEN" | jq '.channel.type = "pubsub"' |
+  curl -s -X PUT $API/sources/temperature -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d @-
+SOURCE_TOKEN=$(curl -s -X POST $API/sources/temperature/credential -H "Authorization: Bearer $TOKEN" | jq -r .token)
+PAYLOAD="{\"deviceId\":\"pico-1\",\"timestamp\":\"$(date -u +%FT%TZ)\",\"temperature\":21.5,\"humidity\":40}"
+
+# Kafka: key = source id, header Authorization (tab-separated: headers, key, value)
+printf 'Authorization:Bearer %s\ttemperature\t%s\n' "$SOURCE_TOKEN" "$PAYLOAD" |
+  docker compose -f .devops/kafka-compose/compose.yaml exec -T kafka /opt/kafka/bin/kafka-console-producer.sh \
+    --bootstrap-server localhost:9092 --topic stats.ingest --reader-property parse.key=true --reader-property parse.headers=true
+
+# NATS: subject stats.ingest.<source id>, header Authorization
+docker run --rm --network host natsio/nats-box:0.20.1 \
+  nats pub -s nats://localhost:4222 stats.ingest.temperature "$PAYLOAD" -H "Authorization:Bearer $SOURCE_TOKEN"
+
+curl -s $API/sources/temperature/status -H "Authorization: Bearer $TOKEN"   # accepted.hour = 1
+```
+
+Stop with `docker compose -f .devops/<kafka|nats>-compose/compose.yaml down` (broker data is not kept).
+
 ## Kubernetes (homelab platform)
 
 Deployed per the homelab platform contract ("Homelab Platform Contract —
@@ -91,8 +157,11 @@ homelab-infra `clusters/home/apps/statistics-service.yaml`); CI rewrites the
 - Route: HTTPRoute on `home-gateway`, host `statistics.home.arpa`, path
   `/api/`; everything else belongs to `statistics-ui` (same origin).
 - Callers: `home-gateway` only (AuthorizationPolicy admits
-  `istio-ingress/home-gateway-istio`). Callees: Postgres (platform-managed)
-  and the OIDC provider.
+  `istio-ingress/home-gateway-istio`). Callees: Postgres (platform-managed),
+  the OIDC provider and, when `BROKER` is not `none`, the broker:
+  NATS `nats.apps.svc.cluster.local:4222` (user `statistics-service`: `$JS.API.>`,
+  `$JS.ACK.>`, subscribe `stats.ingest.>` and `_INBOX.>`) or Kafka. Collectors
+  publish to the broker, not to this service.
 - Backup: the service is stateless; the database is backed up by the platform.
 - One replica: login rate limits and source status are kept in memory.
 
@@ -102,10 +171,13 @@ kustomize generators (a change rolls the Deployment):
 - [config.env](.devops/k8s/config.env), plain → ConfigMap
   `statistics-service-config`: `DB_URL`, `DB_USER`, `ADMIN_EMAIL`,
   `AUTH_LOCAL`, `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_NAME`, `CORS_HOSTS`,
-  `TRUST_PROXY`, `LOG_FORMAT`.
+  `TRUST_PROXY`, `LOG_FORMAT`, `BROKER` (`none`), `KAFKA_*` (no password) and
+  `NATS_*` (no password/token; `NATS_URL` already points at the in-cluster NATS).
+  Turning on JetStream = `BROKER=jetstream` here + `NATS_PASSWORD` in the secret.
 - `.devops/k8s/secrets.sops.env`, SOPS/age-encrypted, decrypted by Flux →
   Secret `statistics-service-secrets`: `DB_PASSWORD`, `ADMIN_PASSWORD`,
-  `OIDC_CLIENT_SECRET`. Create/edit only with `sops .devops/k8s/secrets.sops.env`
+  `OIDC_CLIENT_SECRET`, and with a broker `NATS_PASSWORD` (or `NATS_TOKEN`) or
+  `KAFKA_PASSWORD`. Create/edit only with `sops .devops/k8s/secrets.sops.env`
   (plaintext never touches the disk); the age key is in [.sops.yaml](.sops.yaml).
 
 - Database: role and schema `statistics` in database `statistics` on the
@@ -127,12 +199,13 @@ kustomize generators (a change rolls the Deployment):
 | Endpoint / env | Meaning |
 |----------------|---------|
 | `GET /health/live` | 200 while the process runs; touches no dependency |
-| `GET /health/ready` | 200 when the database answers, 503 otherwise |
-| `GET /metrics` | Prometheus metrics (not under `/api/`, so not routed by the gateway) |
+| `GET /health/ready` | 200 when the database answers, 503 otherwise; the broker is never checked |
+| `GET /metrics` | Prometheus metrics (not under `/api/`, so not routed by the gateway), incl. `statistics_broker_*` |
 | `LOG_FORMAT` | `json` (default): one JSON object per line with `timestamp`, `level`, `message`, `logger`, `traceId`; `plain` for local reading |
 
-- SIGTERM: stops taking new calls, waits up to 15 s for in-flight calls and
-  exits 0; `preStop` sleeps 3 s, `terminationGracePeriodSeconds` is 30.
+- SIGTERM: stops taking new calls, waits up to 15 s for in-flight calls,
+  lets the broker consumer finish its batch, ack/commit and close (up to 5 s)
+  and exits 0; `preStop` sleeps 3 s, `terminationGracePeriodSeconds` is 30.
 - Outbound OIDC calls: connect timeout 2 s, request timeout 10 s, W3C
   `traceparent` propagated; `traceId` comes from the incoming `traceparent`.
 - Invalid configuration (e.g. `DB_URL` not `jdbc:postgresql://`, `AUTH_LOCAL`
@@ -155,11 +228,14 @@ kustomize generators (a change rolls the Deployment):
 - [ ] Secret `statistics-service-secrets` in `.devops/k8s/secrets.sops.env` (SOPS)
 - [ ] OIDC client registered with redirect URI `http://statistics.home.arpa/`
 - [x] Registered in homelab-infra (`clusters/home/apps/statistics-service.yaml`)
+- [ ] Pub/sub (optional): `BROKER=jetstream` in config.env, `NATS_PASSWORD` in
+  the secret (not digits-only), NATS AuthorizationPolicy admits
+  `cluster.local/ns/apps/sa/statistics-service`
 
 ## Build & test
 
 `./gradlew check` runs ktlint and all tests (warnings are errors); tests start
-PostgreSQL through Testcontainers, so Docker must be running.
+PostgreSQL, Kafka and NATS through Testcontainers, so Docker must be running.
 `./gradlew jibDockerBuild` builds the image into the local Docker daemon.
 
 ## Docs

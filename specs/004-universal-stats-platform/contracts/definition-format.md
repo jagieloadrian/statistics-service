@@ -82,9 +82,16 @@ Rejection reasons are human-readable, one per failed constraint, e.g.
 | `type` | Settings | Status |
 |--------|----------|--------|
 | `push` | none (address = `/api/v2/ingest/{id}`) | S1 |
+| `pubsub` | none (address = the broker the app is configured with: Kafka topic + record key `{id}`, or JetStream subject `<prefix>.{id}`; see [api-v2.md](./api-v2.md#pubsub)) | built (2026-10-30) |
 | `pull` | `url`, `intervalSeconds` (≥ 10), `headers` (secret values referenced, not stored inline), `itemsPath?` | when a producer exists |
-| `kafka` | `bootstrapServers`, `topic`, `groupId` | when a producer exists |
 | `grpc` | none (address = gRPC `Ingest.Write` with `source_id`) | when a producer exists |
+
+Any other `type` is rejected with 400. A source takes data over its channel
+only: HTTP push to a `pubsub` source answers 409, a broker message for a `push`
+source is rejected. The broker is app configuration (`BROKER`), not part of the
+definition, so moving from Kafka to JetStream changes no source; the earlier
+per-source `kafka` channel draft (`bootstrapServers`, `topic`, `groupId`) is
+replaced by `pubsub`.
 
 ## Epidemic (shows `each` + calculated)
 

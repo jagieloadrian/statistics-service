@@ -1,6 +1,20 @@
 <!--
 Sync Impact Report
-Version change: 2.3.0 → 2.4.0 (MINOR, 2026-10-28) — the homelab platform contract
+Version change: 2.4.0 → 2.5.0 (MINOR, 2026-10-30) — pub/sub ingestion is built:
+  its producer exists (spec 004 US5). One broker, Kafka or NATS JetStream, is
+  chosen by app configuration (`BROKER`); sources opt in with channel type
+  `pubsub`, so switching the broker never touches definitions. Messages carry
+  the same payload and mapping model as HTTP push plus the source credential
+  (`Authorization: Bearer`); a message is acked/committed only after its records
+  are durably stored. Readiness never depends on the broker. Expanded guidance,
+  no principle removed or redefined, so not MAJOR.
+Modified principles:
+  - I. Configuration Over Code — channel list names pub/sub (Kafka or NATS JetStream).
+  - IV. Local-First, Minimal-Ops Simplicity — pub/sub moved from "build on demand"
+    to built; pull and gRPC still wait for a producer.
+Modified sections: Technology & Architecture Constraints (ingestion, operations).
+Templates: plan/spec/tasks templates ✅ no channel references, no change needed.
+Previous: 2.3.0 → 2.4.0 (MINOR, 2026-10-28) — the homelab platform contract
   (homelab repo, "Homelab Platform Contract — wymagania dla aplikacji") is the
   deployment target: Jib multi-arch image pushed by CI, kustomize manifests with
   HTTPRoute on home-gateway + AuthorizationPolicy, Flux image automation, secrets
@@ -58,8 +72,8 @@ domain-specific types, routes, screens or URLs in the backend or the frontend
 (spec 004 FR-018, SC-002). Adding a new data source MUST NOT require code
 changes, rebuilds or redeploys of either side. Logic that declarative mapping
 cannot express MUST live in a separate collector app (any language) that
-feeds the platform over a supported channel (HTTP push, HTTP pull, Kafka,
-gRPC) with a source credential. The platform MUST NOT load plugins or
+feeds the platform over a supported channel (HTTP push, pub/sub over Kafka or
+NATS JetStream, later HTTP pull or gRPC) with a source credential. The platform MUST NOT load plugins or
 extensions in-process (no ServiceLoader, no jar drop-in, no per-domain Gradle
 modules).
 
@@ -118,8 +132,10 @@ build provider-specific IdP code, IdP-managed roles or user provisioning,
 multi-organization, alerting, push-to-browser streaming, data export,
 multi-host orchestration beyond the platform manifests (Helm, operators,
 autoscaling) or analytics-store migrations until a concrete, confirmed need
-exists. A new ingestion channel (pull, Kafka, gRPC) is built only when a real
-producer for it exists. Follow YAGNI: no abstraction beyond what the generic
+exists. Pub/sub ingestion is built because its producer exists: one broker,
+Kafka or NATS JetStream, chosen by configuration, never both at once. Any
+other new ingestion channel (pull, gRPC) is built only when a real producer
+for it exists. Follow YAGNI: no abstraction beyond what the generic
 source → dataset → query → widget model itself needs.
 
 **Rationale**: a user panel is now an explicit requirement (spec 004 US4), so
@@ -161,9 +177,15 @@ minimal, and the abstraction keeps the later upgrade path open.
   (v2 because v1 was the removed plugin API). RESTful, plural nouns, nesting ≤ 3 levels,
   filtering/sorting/pagination via query params or query body, not new
   endpoints.
-- Ingestion: HTTP push is the baseline channel; HTTP pull, Kafka and gRPC use
-  the same mapping model and are added only when a producer exists. A record
-  is acknowledged only after it is durably stored.
+- Ingestion: HTTP push is the baseline channel. Pub/sub (channel `pubsub`)
+  consumes one broker chosen by config (`BROKER=none|kafka|jetstream`): Kafka
+  topic with the source id as record key, or JetStream subject
+  `<prefix>.<sourceId>` on a durable pull consumer; the message carries the push
+  payload and `Authorization: Bearer <source token>`, delivery is at least once.
+  HTTP pull and gRPC use the same mapping model and are added only when a
+  producer exists. A record is acknowledged (HTTP 200, broker ack or offset
+  commit) only after it is durably stored; messages that can never be stored
+  are acked and recorded as rejections, never redelivered forever.
 - Validation: declarative, per source mapping, always server-side; never
   trust device/client input. Every source has its own rotatable credential;
   data without a valid one is rejected.
@@ -173,9 +195,11 @@ minimal, and the abstraction keeps the later upgrade path open.
   AuthorizationPolicy and ConfigMap for namespace `apps`;
   `.devops/flux/` holds the Flux ImageRepository/ImagePolicy. Secrets live
   SOPS-encrypted in the homelab repo, never in this repo or the image. No
-  Helm, no operators. Local dev: Docker Compose for Postgres.
+  Helm, no operators. Local dev: Docker Compose for Postgres (and Kafka or
+  NATS when working on pub/sub).
 - Operations: `/health/live` (no dependencies), `/health/ready` (database,
-  503 when down), Prometheus `/metrics`, JSON logs with `traceId` (plain via
+  503 when down; never the broker), Prometheus `/metrics` (incl. broker
+  consumer state, pending messages and outcomes), JSON logs with `traceId` (plain via
   `LOG_FORMAT=plain`), SIGTERM drains in-flight calls and exits 0, outbound
   calls time out (connect ≤ 2 s, request ≤ 10 s) and carry `traceparent`,
   invalid configuration fails fast at startup.
@@ -219,4 +243,4 @@ clarification), and (3) propagation check against
 verify compliance with Core Principles; deviations MUST be justified in the
 plan's Complexity Tracking section or rejected.
 
-**Version**: 2.4.0 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-10-28
+**Version**: 2.5.0 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-10-30
