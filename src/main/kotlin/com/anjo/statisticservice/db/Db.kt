@@ -26,6 +26,8 @@ class Db(
                 this.password = password
                 maximumPoolSize = MAX_POOL_SIZE
                 connectionTimeout = CONNECTION_TIMEOUT_MILLIS
+                addDataSourceProperty("connectTimeout", CONNECT_TIMEOUT_SECONDS.toString())
+                addDataSourceProperty("socketTimeout", SOCKET_TIMEOUT_SECONDS.toString())
             },
         )
 
@@ -58,6 +60,8 @@ class Db(
         const val ORG: Short = 1
         private const val MAX_POOL_SIZE = 10
         private const val CONNECTION_TIMEOUT_MILLIS = 5_000L
+        private const val CONNECT_TIMEOUT_SECONDS = 2
+        private const val SOCKET_TIMEOUT_SECONDS = 60
         private const val VALIDATION_TIMEOUT_SECONDS = 1
         private val READINESS_TIMEOUT = 2.seconds
     }

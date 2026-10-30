@@ -210,6 +210,8 @@ kustomize generators (a change rolls the Deployment):
   messages are redelivered). `preStop` sleeps 3 s, `terminationGracePeriodSeconds` is 30.
 - Outbound OIDC calls: connect timeout 2 s, request timeout 10 s, W3C
   `traceparent` propagated; `traceId` comes from the incoming `traceparent`.
+- Postgres (pgjdbc): connect timeout 2 s, socket timeout 60 s, so a dead
+  database connection frees its thread instead of hanging.
 - Invalid configuration (e.g. `DB_URL` not `jdbc:postgresql://`, `AUTH_LOCAL`
   not a boolean, only one of `OIDC_ISSUER`/`OIDC_CLIENT_ID`) logs one JSON
   error line and exits 1.

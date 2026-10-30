@@ -25,6 +25,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import java.sql.Connection
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.measureTime
 
@@ -52,6 +53,7 @@ class ApplicationTest :
         test("an unreachable database is reported as not ready") {
             val db = Db(Pg.container.jdbcUrl, Pg.container.username, Pg.container.password)
             db.isReachable() shouldBe true
+            db.tx { (connection.connection as Connection).networkTimeout } shouldBe 60_000
             db.close()
             db.isReachable() shouldBe false
         }
