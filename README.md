@@ -203,9 +203,11 @@ kustomize generators (a change rolls the Deployment):
 | `GET /metrics` | Prometheus metrics (not under `/api/`, so not routed by the gateway), incl. `statistics_broker_*` |
 | `LOG_FORMAT` | `json` (default): one JSON object per line with `timestamp`, `level`, `message`, `logger`, `traceId`; `plain` for local reading |
 
-- SIGTERM: stops taking new calls, waits up to 15 s for in-flight calls,
-  lets the broker consumer finish its batch, ack/commit and close (up to 5 s)
-  and exits 0; `preStop` sleeps 3 s, `terminationGracePeriodSeconds` is 30.
+- SIGTERM: waits up to 8 s for in-flight calls, closes Netty (`shutdownTimeout`
+  2 s), gives the broker consumer 3 s to finish its message and ack/commit,
+  then closes the database pool and exits 0: at most ~17 s, measured 12.1 s
+  with a query and a broker message both blocked on a table lock (unfinished
+  messages are redelivered). `preStop` sleeps 3 s, `terminationGracePeriodSeconds` is 30.
 - Outbound OIDC calls: connect timeout 2 s, request timeout 10 s, W3C
   `traceparent` propagated; `traceId` comes from the incoming `traceparent`.
 - Invalid configuration (e.g. `DB_URL` not `jdbc:postgresql://`, `AUTH_LOCAL`

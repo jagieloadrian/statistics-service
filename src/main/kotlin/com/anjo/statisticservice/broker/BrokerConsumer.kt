@@ -24,6 +24,7 @@ import kotlin.time.Duration.Companion.seconds
 private val logger = KotlinLogging.logger {}
 private val MIN_BACKOFF = 1.seconds
 private val MAX_BACKOFF = 30.seconds
+private val STOP_TIMEOUT = 3.seconds
 private val UNSTORABLE_SQL_STATE_CLASSES = setOf("22", "23")
 private val STATUS_UNTRACKED = setOf(HttpStatusCode.NotFound, HttpStatusCode.BadRequest)
 
@@ -43,7 +44,8 @@ class BrokerConsumer(
     private val ingest: IngestService,
     private val status: SourceStatusService,
     registry: MeterRegistry,
-) {
+    private val stopTimeout: Duration = STOP_TIMEOUT,
+) : AutoCloseable {
     private val stopped = CountDownLatch(1)
     private val worker = thread(start = false, isDaemon = true, name = "$name-consumer") { consume() }
     private val consuming = AtomicInteger()
@@ -60,9 +62,9 @@ class BrokerConsumer(
 
     fun start() = worker.start()
 
-    fun stop(timeout: Duration) {
+    override fun close() {
         stopped.countDown()
-        worker.join(timeout.inWholeMilliseconds)
+        worker.join(stopTimeout.inWholeMilliseconds)
     }
 
     private fun consume() {

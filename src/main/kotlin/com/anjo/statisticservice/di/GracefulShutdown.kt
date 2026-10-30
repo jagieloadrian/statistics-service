@@ -9,7 +9,7 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 
-private val DRAIN_TIMEOUT = 15.seconds
+private val DRAIN_TIMEOUT = 8.seconds
 private val DRAIN_POLL_INTERVAL = 50.milliseconds
 
 fun Application.drainInFlightCallsOnStop(timeout: Duration = DRAIN_TIMEOUT) {

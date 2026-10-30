@@ -10,12 +10,8 @@ import com.anjo.statisticservice.service.IngestService
 import com.anjo.statisticservice.service.SourceStatusService
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationStarted
-import io.ktor.server.application.ApplicationStopping
 import io.ktor.server.plugins.di.dependencies
 import io.micrometer.core.instrument.MeterRegistry
-import kotlin.time.Duration.Companion.seconds
-
-private val CONSUMER_STOP_TIMEOUT = 5.seconds
 
 fun Application.configureBrokerIngestion(
     config: BrokerConfig?,
@@ -24,11 +20,14 @@ fun Application.configureBrokerIngestion(
     if (config == null) return
     val ingest: IngestService by dependencies
     val status: SourceStatusService by dependencies
-    val consumer =
-        when (config) {
-            is KafkaConfig -> BrokerConsumer("kafka", { KafkaBroker(config) }, ingest, status, registry)
-            is JetStreamConfig -> BrokerConsumer("jetstream", { JetStreamBroker(config) }, ingest, status, registry)
+    dependencies {
+        provide {
+            when (config) {
+                is KafkaConfig -> BrokerConsumer("kafka", { KafkaBroker(config) }, ingest, status, registry)
+                is JetStreamConfig -> BrokerConsumer("jetstream", { JetStreamBroker(config) }, ingest, status, registry)
+            }
         }
+    }
+    val consumer: BrokerConsumer by dependencies
     monitor.subscribe(ApplicationStarted) { consumer.start() }
-    monitor.subscribe(ApplicationStopping) { consumer.stop(CONSUMER_STOP_TIMEOUT) }
 }
