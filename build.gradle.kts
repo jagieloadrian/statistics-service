@@ -121,6 +121,25 @@ tasks.jacocoTestReport {
     }
 }
 
+tasks.jacocoTestCoverageVerification {
+    dependsOn(tasks.test)
+    violationRules {
+        rule {
+            listOf("INSTRUCTION", "LINE", "BRANCH").forEach {
+                limit {
+                    counter = it
+                    value = "COVEREDRATIO"
+                    minimum = "0.88".toBigDecimal()
+                }
+            }
+        }
+    }
+}
+
+tasks.check {
+    dependsOn(tasks.jacocoTestCoverageVerification)
+}
+
 tasks.withType<Test> {
     useJUnitPlatform()
     finalizedBy(tasks.jacocoTestReport)
