@@ -98,7 +98,12 @@ object RecordRepository {
                 else -> null
             }
         val groups = q.groupBy.map(::DimText)
-        val select = listOfNotNull(time) + groups + q.measures.map { Sql(measureSql(it, ds, raw)) }
+        val select =
+            buildList {
+                addAll(listOfNotNull(time))
+                addAll(groups)
+                q.measures.mapTo(this) { Sql(this@RecordRepository.measureSql(it, ds, raw)) }
+            }
         val query =
             Records
                 .select(select)
