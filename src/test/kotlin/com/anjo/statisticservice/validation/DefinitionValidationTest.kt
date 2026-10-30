@@ -8,6 +8,8 @@ import com.anjo.statisticservice.model.Dimension
 import com.anjo.statisticservice.model.FieldSpec
 import com.anjo.statisticservice.model.Measure
 import com.anjo.statisticservice.model.MeasureType
+import com.anjo.statisticservice.model.PUBSUB_CHANNEL
+import com.anjo.statisticservice.model.PUSH_CHANNEL
 import com.anjo.statisticservice.model.Query
 import com.anjo.statisticservice.model.QueryMeasure
 import com.anjo.statisticservice.model.Rule
@@ -121,6 +123,17 @@ class DefinitionValidationTest :
                     "mapping[0].temp: exactly one of path/const",
                     "mapping[0].timestamp.format: iso | epoch_ms | epoch_s",
                 )
+        }
+
+        test("a pubsub source needs identity in every mapping rule") {
+            val rule = Rule(identity = listOf("id", "ts"), vals = mapOf("temp" to FieldSpec(path = "t")))
+            val pubsub = Source(id = "pico", dataset = "climate", channel = Channel(PUBSUB_CHANNEL), mapping = listOf(rule))
+            sourceViolations(pubsub).shouldBeEmpty()
+            sourceViolations(pubsub.copy(mapping = emptyList())) shouldBe
+                listOf("mapping: pubsub sources need rules with identity")
+            sourceViolations(pubsub.copy(mapping = listOf(rule, rule.copy(identity = emptyList())))) shouldBe
+                listOf("mapping[1].identity: required for pubsub sources")
+            sourceViolations(pubsub.copy(channel = Channel(PUSH_CHANNEL), mapping = emptyList())).shouldBeEmpty()
         }
 
         test("a source may only map names its dataset declares") {

@@ -61,9 +61,9 @@ push to it then answers 409.
 | Header | `Authorization: Bearer <source token>` | `Authorization: Bearer <source token>` |
 | Value | the same JSON body as for HTTP push (native records or the device payload) | same |
 
-- Delivery is at least once: give records an `identity` in the source mapping
-  if a redelivered message must not be stored twice (native records without a
-  mapping have no dedup).
+- Delivery is at least once: a `pubsub` source must have a mapping with an
+  `identity` in every rule (saving it otherwise answers 400), so a redelivered
+  message is not stored twice. Native records without a mapping are push-only.
 - There is no reply. Rejected messages (wrong token, unknown source, mapping
   errors, paused source) are dropped and show up in
   `GET /api/v2/sources/{sourceId}/status`; check it after setting up.

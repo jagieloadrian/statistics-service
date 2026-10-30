@@ -6,6 +6,7 @@ import com.anjo.statisticservice.model.Dashboard
 import com.anjo.statisticservice.model.Dataset
 import com.anjo.statisticservice.model.MeasureType
 import com.anjo.statisticservice.model.NUMBER_AGGREGATIONS
+import com.anjo.statisticservice.model.PUBSUB_CHANNEL
 import com.anjo.statisticservice.model.Query
 import com.anjo.statisticservice.model.QueryMeasure
 import com.anjo.statisticservice.model.RANKED_AGGREGATIONS
@@ -59,7 +60,10 @@ fun sourceViolations(s: Source): List<String> =
         ensure(s.channel.type in CHANNEL_TYPES) { "channel.type: ${CHANNEL_TYPES.joinToString(" | ")}" }
         ensure(s.rateLimitPerSecond > 0) { "rateLimitPerSecond: must be > 0" }
         ensure(s.silentAfterMinutes > 0) { "silentAfterMinutes: must be > 0" }
+        val pubsub = s.channel.type == PUBSUB_CHANNEL
+        ensure(!pubsub || s.mapping.isNotEmpty()) { "mapping: pubsub sources need rules with identity" }
         s.mapping.forEachIndexed { i, rule ->
+            ensure(!pubsub || rule.identity.isNotEmpty()) { "mapping[$i].identity: required for pubsub sources" }
             (rule.dims + rule.vals).forEach { (name, spec) ->
                 ensure((spec.path == null) != (spec.constValue == null)) { "mapping[$i].$name: exactly one of path/const" }
             }

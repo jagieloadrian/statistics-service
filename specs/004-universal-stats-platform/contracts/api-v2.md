@@ -45,8 +45,9 @@ the app is configured with (`BROKER=kafka|jetstream`; `none` = no consumer).
 
 Delivery is at least once. A message is acked (JetStream) or its offset
 committed (Kafka) only after its records are stored; a redelivered message is
-deduplicated by the source's `identity` (native records without identity are
-stored again). Messages that can never be stored — unknown source, missing or
+deduplicated by the source's `identity`. That is why a `pubsub` source must have
+at least one mapping rule and an `identity` in every rule (saving it otherwise
+answers 400): native records without a mapping are push-only. Messages that can never be stored — unknown source, missing or
 wrong token, `push` source, paused source, mapping or JSON errors — are acked,
 counted and logged (without payload or token); when the source exists they are
 recorded in its status like a 400. Storage failures (database down) are not

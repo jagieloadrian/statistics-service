@@ -108,6 +108,8 @@ for collectors: [.docs/Collector_Apps.md](.docs/Collector_Apps.md).
   `statistics_broker_pending_messages`,
   `statistics_broker_messages_total{outcome="stored|rejected|retried"}`.
 - HTTP push to a `pubsub` source answers 409.
+- A `pubsub` source needs a mapping with an `identity` in every rule (400
+  otherwise), so redelivered messages are not stored twice.
 
 Locally (with Postgres already up as above), pick one broker:
 

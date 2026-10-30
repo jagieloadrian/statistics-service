@@ -88,7 +88,9 @@ Rejection reasons are human-readable, one per failed constraint, e.g.
 
 Any other `type` is rejected with 400. A source takes data over its channel
 only: HTTP push to a `pubsub` source answers 409, a broker message for a `push`
-source is rejected. The broker is app configuration (`BROKER`), not part of the
+source is rejected. A `pubsub` source needs at least one mapping rule and an
+`identity` in every rule (400 otherwise), because redelivered messages are only
+deduplicated by it. The broker is app configuration (`BROKER`), not part of the
 definition, so moving from Kafka to JetStream changes no source; the earlier
 per-source `kafka` channel draft (`bootstrapServers`, `topic`, `groupId`) is
 replaced by `pubsub`.
