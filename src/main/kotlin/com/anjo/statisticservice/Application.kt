@@ -3,6 +3,7 @@ package com.anjo.statisticservice
 import com.anjo.statisticservice.config.toAppConfig
 import com.anjo.statisticservice.controller.configureRouting
 import com.anjo.statisticservice.controller.configureStatusPages
+import com.anjo.statisticservice.di.configureBrokerIngestion
 import com.anjo.statisticservice.di.configureDI
 import com.anjo.statisticservice.di.configureFrameworks
 import com.anjo.statisticservice.di.configureMonitoring
@@ -38,12 +39,13 @@ fun main(args: Array<String>) {
 fun Application.module() {
     val config = environment.config.toAppConfig()
     drainInFlightCallsOnStop()
-    configureMonitoring()
+    val registry = configureMonitoring()
     configureFrameworks(config)
     configureStatusPages()
     configureRequestValidation()
     configureDI(config)
     configureRouting()
+    configureBrokerIngestion(config.broker, registry)
     launchRetention()
 }
 

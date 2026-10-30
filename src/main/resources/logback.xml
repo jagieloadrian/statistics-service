@@ -1,5 +1,6 @@
 <configuration>
     <include resource="logback-${LOG_FORMAT:-json}.xml"/>
+    <logger name="org.apache.kafka" level="WARN"/>
     <root level="INFO">
         <appender-ref ref="console"/>
     </root>

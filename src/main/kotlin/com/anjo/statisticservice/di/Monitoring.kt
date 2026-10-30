@@ -17,6 +17,7 @@ import io.ktor.server.request.path
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
+import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.prometheusmetrics.PrometheusConfig
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 
@@ -24,7 +25,7 @@ private const val METRICS_PATH = "/metrics"
 private const val HEALTH_PATH_PREFIX = "/health/"
 private val PROMETHEUS_TEXT = ContentType.parse("text/plain; version=0.0.4; charset=utf-8")
 
-fun Application.configureMonitoring() {
+fun Application.configureMonitoring(): MeterRegistry {
     val registry = PrometheusMeterRegistry(PrometheusConfig.DEFAULT)
     install(MicrometerMetrics) {
         this.registry = registry
@@ -42,4 +43,5 @@ fun Application.configureMonitoring() {
     routing {
         get(METRICS_PATH) { call.respondText(registry.scrape(), PROMETHEUS_TEXT) }
     }
+    return registry
 }

@@ -26,9 +26,13 @@ const val CLIMATE_SOURCE = """{"id":"climate","dataset":"climate","mapping":[{
   "dims":{"device":{"path":"deviceId"}},
   "vals":{"temperature":{"path":"temperature"},"humidity":{"path":"humidity","required":false}}}]}"""
 
-suspend fun HttpClient.climateSource(): String {
+const val PUBSUB_CLIMATE_SOURCE = """{"channel":{"type":"pubsub"},"id":"climate","dataset":"climate","mapping":[{
+  "timestamp":{"path":"timestamp"},"identity":["deviceId","timestamp"],
+  "dims":{"device":{"path":"deviceId"}},"vals":{"temperature":{"path":"temperature"}}}]}"""
+
+suspend fun HttpClient.climateSource(source: String = CLIMATE_SOURCE): String {
     putJson("/api/v2/datasets/climate", CLIMATE_DATASET).status shouldBe HttpStatusCode.OK
-    putJson("/api/v2/sources/climate", CLIMATE_SOURCE).status shouldBe HttpStatusCode.OK
+    putJson("/api/v2/sources/climate", source).status shouldBe HttpStatusCode.OK
     return postJson("/api/v2/sources/climate/credential", "")
         .json()
         .jsonObject
@@ -115,6 +119,13 @@ class IngestRoutesTest :
                     .jsonPrimitive.content shouldBe
                     "vals.temperature: missing at path 'temperature'"
                 status.getValue("state").jsonPrimitive.content shouldBe "waiting-for-data"
+            }
+        }
+
+        test("a pubsub source refuses HTTP push with 409") {
+            testApp {
+                val token = client.climateSource(PUBSUB_CLIMATE_SOURCE)
+                client.postJson("/api/v2/ingest/climate", payload, token).status shouldBe HttpStatusCode.Conflict
             }
         }
 

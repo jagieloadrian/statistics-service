@@ -2,6 +2,9 @@ package com.anjo.statisticservice.di
 
 import com.anjo.statisticservice.db.Db
 import com.anjo.statisticservice.model.AppConfig
+import com.anjo.statisticservice.model.JetStreamConfig
+import com.anjo.statisticservice.model.KafkaConfig
+import com.anjo.statisticservice.model.dto.PubSubInfo
 import com.anjo.statisticservice.service.AuthService
 import com.anjo.statisticservice.service.DefinitionService
 import com.anjo.statisticservice.service.IngestService
@@ -20,7 +23,13 @@ private val logger = KotlinLogging.logger {}
 fun Application.configureDI(config: AppConfig) {
     val db = Db(config.db.url, config.db.user, config.db.password)
     monitor.subscribe(ApplicationStopped) { db.close() }
-    val auth = AuthService(db, config.localSignIn, config.adminEmail, config.oidc?.let(::Oidc))
+    val pubsub =
+        when (val broker = config.broker) {
+            is KafkaConfig -> PubSubInfo("kafka", broker.topic)
+            is JetStreamConfig -> PubSubInfo("jetstream", broker.subjectPrefix)
+            null -> null
+        }
+    val auth = AuthService(db, config.localSignIn, config.adminEmail, config.oidc?.let(::Oidc), pubsub)
     if (runBlocking { auth.bootstrapAdmin(config.adminEmail, config.adminPassword) }) logger.info { "Created admin ${config.adminEmail}" }
     val status = SourceStatusService()
     val definitions = DefinitionService(db, status)

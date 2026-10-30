@@ -4,9 +4,13 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonPrimitive
 
+const val PUSH_CHANNEL = "push"
+const val PUBSUB_CHANNEL = "pubsub"
+val CHANNEL_TYPES = setOf(PUSH_CHANNEL, PUBSUB_CHANNEL)
+
 @Serializable
 data class Channel(
-    val type: String = "push",
+    val type: String = PUSH_CHANNEL,
 )
 
 @Serializable

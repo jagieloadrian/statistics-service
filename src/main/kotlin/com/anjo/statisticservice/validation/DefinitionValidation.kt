@@ -1,6 +1,7 @@
 package com.anjo.statisticservice.validation
 
 import com.anjo.statisticservice.model.AGGREGATIONS
+import com.anjo.statisticservice.model.CHANNEL_TYPES
 import com.anjo.statisticservice.model.Dashboard
 import com.anjo.statisticservice.model.Dataset
 import com.anjo.statisticservice.model.MeasureType
@@ -55,7 +56,7 @@ fun sourceViolations(s: Source): List<String> =
     violations {
         ensure(s.version == SUPPORTED_VERSION) { "version: must be $SUPPORTED_VERSION" }
         ensure(ID.matches(s.id)) { "id: '${s.id}' must match ${ID.pattern}" }
-        ensure(s.channel.type == "push") { "channel.type: '${s.channel.type}' not supported yet" }
+        ensure(s.channel.type in CHANNEL_TYPES) { "channel.type: ${CHANNEL_TYPES.joinToString(" | ")}" }
         ensure(s.rateLimitPerSecond > 0) { "rateLimitPerSecond: must be > 0" }
         ensure(s.silentAfterMinutes > 0) { "silentAfterMinutes: must be > 0" }
         s.mapping.forEachIndexed { i, rule ->

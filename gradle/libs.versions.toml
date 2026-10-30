@@ -20,6 +20,8 @@ java-jwt = "4.6.2"
 jwks-rsa = "0.24.1"
 micrometer = "1.17.2"
 logstash-logback = "9.0"
+kafka = "4.4.0"
+jnats = "2.26.4"
 
 [libraries]
 ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
@@ -61,6 +63,9 @@ junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher
 kotest-assertions = { module = "io.kotest:kotest-assertions-core-jvm", version.ref = "kotest" }
 kotest-runner = { module = "io.kotest:kotest-runner-junit5-jvm", version.ref = "kotest" }
 testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql", version.ref = "testcontainers" }
+testcontainers-kafka = { module = "org.testcontainers:testcontainers-kafka", version.ref = "testcontainers" }
+kafka-clients = { module = "org.apache.kafka:kafka-clients", version.ref = "kafka" }
+jnats = { module = "io.nats:jnats", version.ref = "jnats" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

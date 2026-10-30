@@ -114,7 +114,7 @@ class DefinitionValidationTest :
                 listOf(
                     "version: must be 1",
                     "id: '' must match ^[A-Za-z_][A-Za-z0-9_-]{0,62}$",
-                    "channel.type: 'poll' not supported yet",
+                    "channel.type: push | pubsub",
                     "rateLimitPerSecond: must be > 0",
                     "silentAfterMinutes: must be > 0",
                     "mapping[0].device: exactly one of path/const",

@@ -56,6 +56,8 @@ class DefinitionRoutesTest :
                 client.putJson("/api/v2/sources/climate", CLIMATE_SOURCE.replace("\"humidity\":{", "\"pressure\":{")).status shouldBe
                     HttpStatusCode.BadRequest
                 client.putJson("/api/v2/datasets/other", CLIMATE_DATASET).status shouldBe HttpStatusCode.BadRequest
+                client.putJson("/api/v2/sources/climate", PUBSUB_CLIMATE_SOURCE.replace("pubsub", "grpc")).status shouldBe
+                    HttpStatusCode.BadRequest
             }
         }
 

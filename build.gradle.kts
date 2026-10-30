@@ -66,12 +66,15 @@ dependencies {
     runtimeOnly(libs.flyway.postgresql)
     implementation(libs.java.jwt)
     implementation(libs.jwks.rsa)
+    implementation(libs.kafka.clients)
+    implementation(libs.jnats)
 
     testImplementation(libs.ktor.server.test.host)
     testRuntimeOnly(libs.junit.platform.launcher)
     testImplementation(libs.kotest.runner)
     testImplementation(libs.kotest.assertions)
     testImplementation(libs.testcontainers.postgresql)
+    testImplementation(libs.testcontainers.kafka)
 }
 
 jib {

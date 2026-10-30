@@ -22,3 +22,23 @@ ktor:
       name: "${OIDC_NAME:SSO}"
   cors:
     hosts: "${CORS_HOSTS:localhost:8081}"
+  broker:
+    type: "${BROKER:none}"
+    kafka:
+      bootstrapServers: "${KAFKA_BOOTSTRAP_SERVERS:}"
+      groupId: "${KAFKA_GROUP_ID:statistics-service}"
+      topic: "${KAFKA_TOPIC:stats.ingest}"
+      securityProtocol: "${KAFKA_SECURITY_PROTOCOL:PLAINTEXT}"
+      saslMechanism: "${KAFKA_SASL_MECHANISM:PLAIN}"
+      user: "${KAFKA_USER:}"
+      password: "${KAFKA_PASSWORD:}"
+    jetstream:
+      url: "${NATS_URL:}"
+      stream: "${NATS_STREAM:STATS_INGEST}"
+      subjectPrefix: "${NATS_SUBJECT_PREFIX:stats.ingest}"
+      durable: "${NATS_DURABLE:statistics-service}"
+      maxAge: "${NATS_STREAM_MAX_AGE:7d}"
+      maxBytes: "${NATS_STREAM_MAX_BYTES:268435456}"
+      user: "${NATS_USER:}"
+      password: "${NATS_PASSWORD:}"
+      token: "${NATS_TOKEN:}"

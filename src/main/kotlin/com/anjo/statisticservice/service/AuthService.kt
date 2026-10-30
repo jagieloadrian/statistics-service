@@ -12,6 +12,7 @@ import com.anjo.statisticservice.model.dto.AuthConfig
 import com.anjo.statisticservice.model.dto.LoginResponse
 import com.anjo.statisticservice.model.dto.OidcInfo
 import com.anjo.statisticservice.model.dto.OidcStartResponse
+import com.anjo.statisticservice.model.dto.PubSubInfo
 import com.anjo.statisticservice.repository.TokenRepository
 import com.anjo.statisticservice.repository.UserRepository
 import kotlin.time.Clock
@@ -23,8 +24,9 @@ class AuthService(
     private val localSignIn: Boolean = true,
     private val adminEmail: String = "",
     private val oidc: Oidc? = null,
+    pubsub: PubSubInfo? = null,
 ) {
-    val config = AuthConfig(localSignIn, oidc?.let { OidcInfo(it.name) })
+    val config = AuthConfig(localSignIn, oidc?.let { OidcInfo(it.name) }, pubsub)
 
     suspend fun bootstrapAdmin(
         email: String,

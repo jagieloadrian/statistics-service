@@ -23,11 +23,14 @@ class IngestService(
 ) {
     suspend fun ingest(
         sourceId: String,
-        token: String?,
+        authorization: String?,
+        channel: String,
         body: suspend () -> String,
     ): IngestResult {
         val source = definitions.requireSource(sourceId)
+        val token = authorization?.removePrefix("Bearer ")?.trim()
         if (token.isNullOrEmpty() || !definitions.verifyCredential(sourceId, token)) throw unauthorized("Missing or invalid source token")
+        if (source.channel.type != channel) throw conflict("Source '$sourceId' takes data over ${source.channel.type}, not $channel")
         if (source.paused) throw ApiException(HttpStatusCode.ServiceUnavailable, "paused", "Source '$sourceId' is paused")
         val dataset =
             definitions.dataset(source.dataset)
