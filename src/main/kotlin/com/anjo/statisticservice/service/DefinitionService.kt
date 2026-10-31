@@ -70,8 +70,10 @@ class DefinitionService(
         id: String,
     ): Dataset {
         requireDatasetAccess(user, id)
-        return dataset(id) ?: throw badRequest("Unknown dataset '$id'")
+        return referencedDataset(id)
     }
+
+    suspend fun referencedDataset(id: String): Dataset = dataset(id) ?: throw unknownReference(Kind.DATASET, id)
 
     suspend fun putDataset(
         dataset: Dataset,
@@ -291,7 +293,7 @@ class DefinitionService(
     private fun storeSource(source: Source): Boolean {
         val dataset =
             DefinitionRepository.get(Kind.DATASET, source.dataset, Dataset.serializer())
-                ?: throw badRequest("Unknown dataset '${source.dataset}'")
+                ?: throw unknownReference(Kind.DATASET, source.dataset)
         validateSource(source, dataset)
         return DefinitionRepository.upsert(Kind.SOURCE, source.id, source, Source.serializer(), null)
     }
@@ -314,4 +316,9 @@ class DefinitionService(
         kind: Kind,
         id: String,
     ) = notFound("Unknown ${kind.key} '$id'")
+
+    private fun unknownReference(
+        kind: Kind,
+        id: String,
+    ) = badRequest("Unknown ${kind.key} '$id'")
 }

@@ -62,6 +62,6 @@ class UserService(
     private fun requireAnotherAdmin() {
         if (UserRepository.count(ADMIN) <= 1) throw conflict("The last admin cannot be demoted or deleted")
     }
-
-    private fun unknownUser(id: Long) = notFound("Unknown user $id")
 }
+
+internal fun unknownUser(id: Long) = notFound("Unknown user $id")

@@ -118,7 +118,7 @@ class AuthService(
         val user =
             db.tx {
                 TokenRepository.insert(sha256(token), userId)
-                UserRepository.find(userId) ?: throw notFound("Unknown user $userId")
+                UserRepository.find(userId) ?: throw unknownUser(userId)
             }
         return LoginResponse(token, user)
     }
