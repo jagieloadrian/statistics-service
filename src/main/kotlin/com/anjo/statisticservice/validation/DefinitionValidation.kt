@@ -2,6 +2,7 @@ package com.anjo.statisticservice.validation
 
 import com.anjo.statisticservice.model.AGGREGATIONS
 import com.anjo.statisticservice.model.CHANNEL_TYPES
+import com.anjo.statisticservice.model.DEFINITION_VERSION
 import com.anjo.statisticservice.model.Dashboard
 import com.anjo.statisticservice.model.Dataset
 import com.anjo.statisticservice.model.MeasureType
@@ -25,13 +26,12 @@ private val ID = Regex("^[A-Za-z_][A-Za-z0-9_-]{0,62}$")
 private val WIDGET_TYPES = setOf("line", "area", "bar", "stat", "gauge", "table")
 private val VISIBILITIES = setOf("private", "users", "all")
 private val TIMESTAMP_FORMATS = setOf("iso", "epoch_ms", "epoch_s")
-private const val SUPPORTED_VERSION = 1
 private const val MIN_REFRESH_SECONDS = 5
 private const val GRID_COLUMNS = 12
 
 fun datasetViolations(d: Dataset): List<String> =
     violations {
-        ensure(d.version == SUPPORTED_VERSION) { "version: must be $SUPPORTED_VERSION" }
+        ensure(d.version == DEFINITION_VERSION) { "version: must be $DEFINITION_VERSION" }
         ensure(ID.matches(d.id)) { "id: '${d.id}' must match ${ID.pattern}" }
         ensure(d.label?.isNotBlank() ?: true) { "label: must not be blank" }
         ensure(d.measures.isNotEmpty()) { "measures: at least one is required" }
@@ -55,7 +55,7 @@ fun datasetViolations(d: Dataset): List<String> =
 
 fun sourceViolations(s: Source): List<String> =
     violations {
-        ensure(s.version == SUPPORTED_VERSION) { "version: must be $SUPPORTED_VERSION" }
+        ensure(s.version == DEFINITION_VERSION) { "version: must be $DEFINITION_VERSION" }
         ensure(ID.matches(s.id)) { "id: '${s.id}' must match ${ID.pattern}" }
         ensure(s.channel.type in CHANNEL_TYPES) { "channel.type: ${CHANNEL_TYPES.joinToString(" | ")}" }
         ensure(s.rateLimitPerSecond > 0) { "rateLimitPerSecond: must be > 0" }
@@ -75,7 +75,7 @@ fun sourceViolations(s: Source): List<String> =
 
 fun dashboardViolations(d: Dashboard): List<String> =
     violations {
-        ensure(d.version == SUPPORTED_VERSION) { "version: must be $SUPPORTED_VERSION" }
+        ensure(d.version == DEFINITION_VERSION) { "version: must be $DEFINITION_VERSION" }
         ensure(ID.matches(d.id)) { "id: '${d.id}' must match ${ID.pattern}" }
         ensure(d.visibility in VISIBILITIES) { "visibility: ${VISIBILITIES.joinToString(" | ")}" }
         ensure(d.refreshSeconds == null || d.refreshSeconds >= MIN_REFRESH_SECONDS) { "refreshSeconds: null or >= $MIN_REFRESH_SECONDS" }

@@ -8,6 +8,7 @@ import com.anjo.statisticservice.exception.forbidden
 import com.anjo.statisticservice.exception.notFound
 import com.anjo.statisticservice.model.ADMIN
 import com.anjo.statisticservice.model.Bundle
+import com.anjo.statisticservice.model.DEFINITION_VERSION
 import com.anjo.statisticservice.model.Dashboard
 import com.anjo.statisticservice.model.Dataset
 import com.anjo.statisticservice.model.EDITOR
@@ -192,7 +193,7 @@ class DefinitionService(
                     errors += (listOf("$what: ${e.message}") + e.details).joinToString("; ")
                 }
             }
-            if (bundle.version != 1) errors += "version: must be 1"
+            if (bundle.version != DEFINITION_VERSION) errors += "version: must be $DEFINITION_VERSION"
             bundle.datasets.forEach { attempt("dataset ${it.id}") { storeDataset(it) } }
             bundle.sources.forEach { attempt("source ${it.id}") { storeSource(it) } }
             bundle.dashboards.forEach { attempt("dashboard ${it.id}") { storeDashboard(it, ownerId = null) } }
@@ -247,13 +248,8 @@ class DefinitionService(
         return dashboards + sources
     }
 
-    private fun Widget.uses() =
-        buildList {
-            this@uses.query.measures.flatMapTo(this) { listOfNotNull(it.field, it.by) }
-            addAll(this@uses.query.filter.keys)
-            addAll(this@uses.query.groupBy)
-            addAll(listOfNotNull(this@uses.options.x))
-        }
+    private fun Widget.uses(): List<String> =
+        query.measures.flatMap { listOfNotNull(it.field, it.by) } + query.filter.keys + query.groupBy + listOfNotNull(options.x)
 
     private suspend fun <T> list(
         kind: Kind,

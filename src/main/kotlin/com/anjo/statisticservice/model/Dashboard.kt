@@ -43,7 +43,7 @@ data class Variable(
 
 @Serializable
 data class Dashboard(
-    val version: Int = 1,
+    val version: Int = DEFINITION_VERSION,
     val kind: String = "dashboard",
     val id: String,
     val title: String = "",

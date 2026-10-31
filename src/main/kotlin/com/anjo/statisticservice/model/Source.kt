@@ -43,7 +43,7 @@ data class Rule(
 
 @Serializable
 data class Source(
-    val version: Int = 1,
+    val version: Int = DEFINITION_VERSION,
     val kind: String = "source",
     val id: String,
     val label: String? = null,

@@ -97,20 +97,16 @@ object RecordRepository {
                 bucketSeconds != null -> Sql("date_bin('$bucketSeconds seconds'::interval, ts, TIMESTAMPTZ '1970-01-01')")
                 else -> null
             }
+        val timeColumn = listOfNotNull(time)
         val groups = q.groupBy.map(::DimText)
-        val select =
-            buildList {
-                addAll(listOfNotNull(time))
-                addAll(groups)
-                q.measures.mapTo(this) { Sql(this@RecordRepository.measureSql(it, ds, raw)) }
-            }
+        val select = timeColumn + groups + q.measures.map { Sql(measureSql(it, ds, raw)) }
         val query =
             Records
                 .select(select)
                 .where { of(ds.id) and (Records.ts greaterEq from) and (Records.ts less to) }
         q.filter.forEach { (k, v) -> query.andWhere { DimText(k) inList v } }
-        if (!raw && (time != null || groups.isNotEmpty())) query.groupBy(*(listOfNotNull(time) + groups).toTypedArray())
-        query.orderBy(*(groups + listOfNotNull(time)).map { it to SortOrder.ASC }.toTypedArray())
+        if (!raw && (timeColumn + groups).isNotEmpty()) query.groupBy(*(timeColumn + groups).toTypedArray())
+        query.orderBy(*(groups + timeColumn).map { it to SortOrder.ASC }.toTypedArray())
         limit?.let(query::limit)
         return query.map { row -> select.map { json(row[it]) } }
     }
