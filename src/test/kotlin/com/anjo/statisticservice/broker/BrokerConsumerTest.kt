@@ -1,6 +1,5 @@
 package com.anjo.statisticservice.broker
 
-import com.anjo.statisticservice.db.Db
 import com.anjo.statisticservice.model.BrokerMessage
 import com.anjo.statisticservice.model.Delivery
 import com.anjo.statisticservice.service.DefinitionService
@@ -40,7 +39,7 @@ private class HangingBroker : Broker {
 
 class BrokerConsumerTest :
     FunSpec({
-        val db = Db(Pg.container.jdbcUrl, Pg.container.username, Pg.container.password)
+        val db = Pg.db()
         val status = SourceStatusService()
         val ingest = IngestService(DefinitionService(db, status), RecordService(db), status)
 

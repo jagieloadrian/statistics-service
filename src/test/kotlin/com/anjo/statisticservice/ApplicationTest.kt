@@ -1,6 +1,5 @@
 package com.anjo.statisticservice
 
-import com.anjo.statisticservice.db.Db
 import com.anjo.statisticservice.di.drainInFlightCallsOnStop
 import com.anjo.statisticservice.testutils.Pg
 import com.anjo.statisticservice.testutils.json
@@ -51,7 +50,7 @@ class ApplicationTest :
         }
 
         test("an unreachable database is reported as not ready") {
-            val db = Db(Pg.container.jdbcUrl, Pg.container.username, Pg.container.password)
+            val db = Pg.db()
             db.isReachable() shouldBe true
             db.tx { (connection.connection as Connection).networkTimeout } shouldBe 60_000
             db.close()

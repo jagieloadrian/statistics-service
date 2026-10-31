@@ -1,6 +1,5 @@
 package com.anjo.statisticservice.controller
 
-import com.anjo.statisticservice.db.Db
 import com.anjo.statisticservice.model.EDITOR
 import com.anjo.statisticservice.model.VIEWER
 import com.anjo.statisticservice.service.AuthService
@@ -189,7 +188,7 @@ class AuthTest :
 
         test("bootstrap admin only while there are no users") {
             testApp {
-                Db(Pg.container.jdbcUrl, Pg.container.username, Pg.container.password).use { db ->
+                Pg.db().use { db ->
                     AuthService(db).bootstrapAdmin("second@test.local", "long-enough-1") shouldBe false
                 }
                 client

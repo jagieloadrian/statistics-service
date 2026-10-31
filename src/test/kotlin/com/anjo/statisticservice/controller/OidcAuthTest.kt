@@ -1,6 +1,5 @@
 package com.anjo.statisticservice.controller
 
-import com.anjo.statisticservice.db.Db
 import com.anjo.statisticservice.repository.UserRepository
 import com.anjo.statisticservice.service.AuthService
 import com.anjo.statisticservice.testutils.ADMIN_EMAIL
@@ -274,7 +273,7 @@ class OidcAuthTest :
         }
 
         test("no admin password, no bootstrap admin") {
-            Db(Pg.container.jdbcUrl, Pg.container.username, Pg.container.password).use { db ->
+            Pg.db().use { db ->
                 AuthService(db).bootstrapAdmin("boss@test.local", "") shouldBe false
                 db.tx { UserRepository.count() } shouldBe 0L
             }

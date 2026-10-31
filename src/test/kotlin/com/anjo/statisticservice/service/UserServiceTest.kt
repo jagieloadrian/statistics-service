@@ -1,6 +1,5 @@
 package com.anjo.statisticservice.service
 
-import com.anjo.statisticservice.db.Db
 import com.anjo.statisticservice.exception.ApiException
 import com.anjo.statisticservice.model.ADMIN
 import com.anjo.statisticservice.model.EDITOR
@@ -14,7 +13,7 @@ import io.ktor.http.HttpStatusCode
 
 class UserServiceTest :
     FunSpec({
-        val db = Db(Pg.container.jdbcUrl, Pg.container.username, Pg.container.password)
+        val db = Pg.db()
         val users = UserService(db)
 
         beforeTest { Pg.truncateAll() }

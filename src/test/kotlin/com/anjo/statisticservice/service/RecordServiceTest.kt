@@ -1,6 +1,5 @@
 package com.anjo.statisticservice.service
 
-import com.anjo.statisticservice.db.Db
 import com.anjo.statisticservice.db.Records
 import com.anjo.statisticservice.exception.ApiException
 import com.anjo.statisticservice.model.Dataset
@@ -29,7 +28,7 @@ import kotlin.time.Instant
 
 class RecordServiceTest :
     FunSpec({
-        val db = Db(Pg.container.jdbcUrl, Pg.container.username, Pg.container.password)
+        val db = Pg.db()
         val store = RecordService(db)
         val base = Instant.parse("2026-10-27T10:00:00Z")
         val now = Instant.parse("2026-10-27T12:00:00Z")

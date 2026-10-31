@@ -1,6 +1,5 @@
 package com.anjo.statisticservice.service
 
-import com.anjo.statisticservice.db.Db
 import com.anjo.statisticservice.exception.ApiException
 import com.anjo.statisticservice.model.ADMIN
 import com.anjo.statisticservice.model.Bundle
@@ -30,7 +29,7 @@ import kotlin.time.Instant
 
 class DefinitionServiceTest :
     FunSpec({
-        val db = Db(Pg.container.jdbcUrl, Pg.container.username, Pg.container.password)
+        val db = Pg.db()
         val status = SourceStatusService()
         val defs = DefinitionService(db, status)
         val users = UserService(db)

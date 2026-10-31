@@ -26,11 +26,13 @@ import org.testcontainers.postgresql.PostgreSQLContainer
 import java.sql.DriverManager
 
 object Pg {
-    val container: PostgreSQLContainer =
-        PostgreSQLContainer("postgres:16").apply {
-            start()
-            Db(jdbcUrl, username, password).close()
-        }
+    val container: PostgreSQLContainer = PostgreSQLContainer("postgres:16").apply { start() }
+
+    init {
+        db().close()
+    }
+
+    fun db() = Db(container.jdbcUrl, container.username, container.password)
 
     fun config() =
         MapApplicationConfig(
@@ -64,31 +66,9 @@ class TestApp(
     suspend fun login(
         email: String,
         password: String,
-    ): HttpClient =
-        withToken(
-            anonymous
-                .postJson(
-                    "/api/v2/auth/login",
-                    """{"email":"$email","password":"$password"}""",
-                ).json()
-                .jsonObject
-                .getValue("token")
-                .jsonPrimitive.content,
-        )
+    ): HttpClient = builder.signedInClient(email, password)
 
-    fun withToken(token: String): HttpClient {
-        val bearer =
-            createClientPlugin("userToken") {
-                onRequest { req, _ ->
-                    if (HttpHeaders.Authorization !in
-                        req.headers
-                    ) {
-                        req.headers[HttpHeaders.Authorization] = "Bearer $token"
-                    }
-                }
-            }
-        return builder.createClient { install(bearer) }
-    }
+    fun withToken(token: String): HttpClient = builder.clientWithToken(token)
 
     suspend fun userClient(
         email: String,
@@ -108,7 +88,30 @@ fun testApp(
     environment { config = cfg }
     startApplication()
     val admin = cfg.property("ktor.auth.local").getString() != "false" && cfg.property("ktor.auth.adminPassword").getString().isNotBlank()
-    TestApp(this, client).run { TestApp(this@testApplication, if (admin) login(ADMIN_EMAIL, ADMIN_PASSWORD) else anonymous).block() }
+    TestApp(this, if (admin) signedInClient(ADMIN_EMAIL, ADMIN_PASSWORD) else client).block()
+}
+
+private suspend fun ApplicationTestBuilder.signedInClient(
+    email: String,
+    password: String,
+): HttpClient =
+    clientWithToken(
+        client
+            .postJson("/api/v2/auth/login", """{"email":"$email","password":"$password"}""")
+            .json()
+            .jsonObject
+            .getValue("token")
+            .jsonPrimitive.content,
+    )
+
+private fun ApplicationTestBuilder.clientWithToken(token: String): HttpClient {
+    val bearer =
+        createClientPlugin("userToken") {
+            onRequest { req, _ ->
+                if (HttpHeaders.Authorization !in req.headers) req.headers[HttpHeaders.Authorization] = "Bearer $token"
+            }
+        }
+    return createClient { install(bearer) }
 }
 
 private fun HttpRequestBuilder.json(

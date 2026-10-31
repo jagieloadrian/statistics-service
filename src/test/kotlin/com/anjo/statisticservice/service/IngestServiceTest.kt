@@ -1,6 +1,5 @@
 package com.anjo.statisticservice.service
 
-import com.anjo.statisticservice.db.Db
 import com.anjo.statisticservice.exception.ApiException
 import com.anjo.statisticservice.model.Counts
 import com.anjo.statisticservice.model.Dataset
@@ -22,7 +21,7 @@ import kotlinx.serialization.json.JsonPrimitive
 
 class IngestServiceTest :
     FunSpec({
-        val db = Db(Pg.container.jdbcUrl, Pg.container.username, Pg.container.password)
+        val db = Pg.db()
         val status = SourceStatusService()
         val defs = DefinitionService(db, status)
         val ingest = IngestService(defs, RecordService(db), status)
