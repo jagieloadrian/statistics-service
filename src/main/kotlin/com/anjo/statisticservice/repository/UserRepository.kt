@@ -20,28 +20,28 @@ object UserRepository {
     fun count(role: String? = null): Long =
         Users
             .selectAll()
-            .where { Users.orgId eq Db.ORG }
+            .where { inOrg() }
             .apply { if (role != null) andWhere { Users.role eq role } }
             .count()
 
     fun find(id: Long): User? =
         Users
             .selectAll()
-            .where { (Users.orgId eq Db.ORG) and (Users.id eq id) }
+            .where { inOrg() and (Users.id eq id) }
             .singleOrNull()
             ?.let(::toUser)
 
     fun list(): List<User> =
         Users
             .selectAll()
-            .where { Users.orgId eq Db.ORG }
+            .where { inOrg() }
             .orderBy(Users.id)
             .map(::toUser)
 
     fun credentials(email: String): Credentials? =
         Users
             .select(Users.id, Users.passwordHash)
-            .where { (Users.orgId eq Db.ORG) and (Users.email eq email) }
+            .where { inOrg() and (Users.email eq email) }
             .singleOrNull()
             ?.let { Credentials(it[Users.id], it[Users.passwordHash]) }
 
@@ -79,8 +79,6 @@ object UserRepository {
             it[oidcSubject] = subject
         }
     }
-
-    fun emailTaken(email: String): Boolean = !Users.selectAll().where { Users.email eq email }.empty()
 
     fun insert(
         email: String,
@@ -128,6 +126,8 @@ object UserRepository {
     fun delete(id: Long) {
         Users.deleteWhere { Users.id eq id }
     }
+
+    private fun inOrg() = Users.orgId eq Db.ORG
 
     private fun toUser(r: ResultRow) =
         User(r[Users.id], r[Users.email], r[Users.name], r[Users.role], r[Users.prefs], hasPassword = r[Users.passwordHash] != null)

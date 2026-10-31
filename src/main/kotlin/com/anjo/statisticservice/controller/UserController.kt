@@ -14,7 +14,6 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.openapi.describe
 import io.ktor.server.routing.post
 import io.ktor.server.routing.put
-import io.ktor.server.util.getOrFail
 
 fun Route.userRoutes(users: UserService) {
     get("/users") {
@@ -29,11 +28,11 @@ fun Route.userRoutes(users: UserService) {
     put("/users/{id}") {
         call.requireRole(ADMIN)
         val update = call.receive<UserUpdate>()
-        call.respond(users.updateUser(call.parameters.getOrFail<Long>("id"), update.name, update.role))
+        call.respond(users.updateUser(call.numericId, update.name, update.role))
     }.describe { summary = "Change a user's name or role; the last admin stays admin" }
     delete("/users/{id}") {
         call.requireRole(ADMIN)
-        users.deleteUser(call.parameters.getOrFail<Long>("id"))
+        users.deleteUser(call.numericId)
         call.respond(HttpStatusCode.NoContent)
     }.describe { summary = "Delete a user; the last admin cannot be deleted" }
 }

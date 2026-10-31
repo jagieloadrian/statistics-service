@@ -33,7 +33,7 @@ class UserService(
         val hash = Passwords.hash(password)
         val id =
             db.tx {
-                if (UserRepository.emailTaken(normalized)) throw conflict("email: already in use")
+                if (UserRepository.findByEmail(normalized) != null) throw conflict("email: already in use")
                 UserRepository.insert(normalized, name, role, hash)
             }
         return user(id)

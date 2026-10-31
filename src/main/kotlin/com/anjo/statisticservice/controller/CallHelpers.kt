@@ -14,6 +14,8 @@ fun RoutingCall.requireRole(vararg roles: String): UserPrincipal = user().also {
 
 val RoutingCall.id: String get() = parameters.getOrFail("id")
 
+val RoutingCall.numericId: Long get() = parameters.getOrFail<Long>("id")
+
 val RoutingCall.force: Boolean get() = request.queryParameters["force"] == "true"
 
 fun requireSameId(

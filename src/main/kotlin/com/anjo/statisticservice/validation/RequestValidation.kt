@@ -102,14 +102,14 @@ private fun PasswordChange.violations() =
 private fun NewUser.violations() =
     violations {
         ensure(EMAIL.matches(email) && email.length <= MAX_EMAIL_LENGTH) { "email: not an email address" }
-        ensure(name.length <= MAX_NAME_LENGTH) { "name: at most $MAX_NAME_LENGTH characters" }
+        name(name)
         role(role)
         newPassword(password)
     }
 
 private fun UserUpdate.violations() =
     violations {
-        ensure(name == null || name.length <= MAX_NAME_LENGTH) { "name: at most $MAX_NAME_LENGTH characters" }
+        name?.let { name(it) }
         role?.let { role(it) }
     }
 
@@ -147,6 +147,8 @@ private fun MutableList<String>.newPassword(password: String) =
     ensure(password.length in MIN_PASSWORD_LENGTH..MAX_PASSWORD_LENGTH) {
         "password: at least $MIN_PASSWORD_LENGTH characters, at most $MAX_PASSWORD_LENGTH"
     }
+
+private fun MutableList<String>.name(name: String) = ensure(name.length <= MAX_NAME_LENGTH) { "name: at most $MAX_NAME_LENGTH characters" }
 
 private fun MutableList<String>.role(role: String) = ensure(role in ROLES) { "role: ${ROLES.joinToString(" | ")}" }
 
