@@ -6,6 +6,7 @@ import com.anjo.statisticservice.model.DbConfig
 import com.anjo.statisticservice.model.JetStreamConfig
 import com.anjo.statisticservice.model.KafkaConfig
 import com.anjo.statisticservice.model.OidcConfig
+import com.anjo.statisticservice.model.SERVICE_NAME
 import io.ktor.server.config.ApplicationConfig
 import java.net.URI
 import kotlin.time.Duration
@@ -20,32 +21,12 @@ private const val DEFAULT_STREAM_MAX_BYTES = "268435456"
 
 fun ApplicationConfig.toAppConfig(): AppConfig {
     val problems = mutableListOf<String>()
-
-    fun flag(
-        key: String,
-        envName: String,
-        default: Boolean,
-    ): Boolean =
-        when (setting(key).ifBlank { default.toString() }) {
-            "true" -> true
-            "false" -> false
-            else -> default.also { problems += "$envName must be true or false" }
-        }
-
     val db = DbConfig(setting("ktor.db.url"), setting("ktor.db.user"), setting("ktor.db.password"))
     if (!db.url.startsWith("jdbc:postgresql://")) problems += "DB_URL must be a jdbc:postgresql:// URL"
     if (db.user.isBlank()) problems += "DB_USER is required"
 
-    val localSignIn = flag("ktor.auth.local", "AUTH_LOCAL", default = true)
-    val issuer = setting("ktor.auth.oidc.issuer")
-    val clientId = setting("ktor.auth.oidc.clientId")
-    val oidc =
-        when {
-            issuer.isBlank() && clientId.isBlank() -> null
-            issuer.isBlank() || clientId.isBlank() -> null.also { problems += "OIDC_ISSUER and OIDC_CLIENT_ID must be set together" }
-            !issuer.isHttpUrl() -> null.also { problems += "OIDC_ISSUER must be an absolute http(s) URL" }
-            else -> OidcConfig(issuer, clientId, setting("ktor.auth.oidc.clientSecret"), setting("ktor.auth.oidc.name").ifBlank { "SSO" })
-        }
+    val localSignIn = flag("ktor.auth.local", "AUTH_LOCAL", default = true, problems)
+    val oidc = oidcConfig(problems)
     if (!localSignIn && oidc == null) problems += "Enable local sign-in (AUTH_LOCAL=true) or configure OIDC_ISSUER and OIDC_CLIENT_ID"
 
     val config =
@@ -56,7 +37,7 @@ fun ApplicationConfig.toAppConfig(): AppConfig {
             adminPassword = setting("ktor.auth.adminPassword"),
             oidc = oidc,
             corsHosts = setting("ktor.cors.hosts").split(',').map(String::trim).filter(String::isNotEmpty),
-            trustProxy = flag("ktor.deployment.trustProxy", "TRUST_PROXY", default = false),
+            trustProxy = flag("ktor.deployment.trustProxy", "TRUST_PROXY", default = false, problems),
             broker = brokerConfig(problems),
         )
     check(problems.isEmpty()) { "Invalid configuration: ${problems.joinToString("; ")}" }
@@ -64,6 +45,29 @@ fun ApplicationConfig.toAppConfig(): AppConfig {
 }
 
 private fun ApplicationConfig.setting(key: String) = propertyOrNull(key)?.getString().orEmpty()
+
+private fun ApplicationConfig.flag(
+    key: String,
+    envName: String,
+    default: Boolean,
+    problems: MutableList<String>,
+): Boolean =
+    when (setting(key).ifBlank { default.toString() }) {
+        "true" -> true
+        "false" -> false
+        else -> default.also { problems += "$envName must be true or false" }
+    }
+
+private fun ApplicationConfig.oidcConfig(problems: MutableList<String>): OidcConfig? {
+    val issuer = setting("ktor.auth.oidc.issuer")
+    val clientId = setting("ktor.auth.oidc.clientId")
+    return when {
+        issuer.isBlank() && clientId.isBlank() -> null
+        issuer.isBlank() || clientId.isBlank() -> null.also { problems += "OIDC_ISSUER and OIDC_CLIENT_ID must be set together" }
+        !issuer.isHttpUrl() -> null.also { problems += "OIDC_ISSUER must be an absolute http(s) URL" }
+        else -> OidcConfig(issuer, clientId, setting("ktor.auth.oidc.clientSecret"), setting("ktor.auth.oidc.name").ifBlank { "SSO" })
+    }
+}
 
 private fun ApplicationConfig.brokerConfig(problems: MutableList<String>): BrokerConfig? =
     when (val type = setting("ktor.broker.type").trim().ifBlank { "none" }) {
@@ -78,7 +82,7 @@ private fun ApplicationConfig.kafkaConfig(problems: MutableList<String>): KafkaC
     val config =
         KafkaConfig(
             bootstrapServers = kafka("bootstrapServers"),
-            groupId = kafka("groupId").ifBlank { "statistics-service" },
+            groupId = kafka("groupId").ifBlank { SERVICE_NAME },
             topic = kafka("topic").ifBlank { "stats.ingest" },
             securityProtocol = kafka("securityProtocol").ifBlank { "PLAINTEXT" },
             saslMechanism = kafka("saslMechanism").ifBlank { "PLAIN" },
@@ -114,7 +118,7 @@ private fun ApplicationConfig.jetStreamConfig(problems: MutableList<String>): Je
             url = nats("url"),
             stream = nats("stream").ifBlank { "STATS_INGEST" },
             subjectPrefix = nats("subjectPrefix").ifBlank { "stats.ingest" },
-            durable = nats("durable").ifBlank { "statistics-service" },
+            durable = nats("durable").ifBlank { SERVICE_NAME },
             maxAge = maxAge ?: Duration.ZERO,
             maxBytes = maxBytes ?: 0,
             user = nats("user"),

@@ -2,6 +2,8 @@ package com.anjo.statisticservice.model
 
 import kotlin.time.Duration
 
+const val SERVICE_NAME = "statistics-service"
+
 data class DbConfig(
     val url: String,
     val user: String,

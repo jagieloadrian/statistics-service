@@ -3,6 +3,7 @@ package com.anjo.statisticservice.broker
 import com.anjo.statisticservice.model.BrokerMessage
 import com.anjo.statisticservice.model.Delivery
 import com.anjo.statisticservice.model.JetStreamConfig
+import com.anjo.statisticservice.model.SERVICE_NAME
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.HttpHeaders
 import io.nats.client.Connection
@@ -30,7 +31,6 @@ private val FETCH_OPTIONS =
         .maxMessages(FETCH_MAX_MESSAGES)
         .expiresIn(FETCH_EXPIRES_MS)
         .build()
-private const val CONNECTION_NAME = "statistics-service"
 
 class JetStreamBroker(
     private val config: JetStreamConfig,
@@ -86,7 +86,7 @@ private fun JetStreamConfig.options(): Options =
     Options
         .builder()
         .server(url)
-        .connectionName(CONNECTION_NAME)
+        .connectionName(SERVICE_NAME)
         .connectionTimeout(CONNECT_TIMEOUT)
         .maxReconnects(-1)
         .errorListener(LoggingErrorListener)
