@@ -46,31 +46,8 @@ object Mapper {
         root: JsonElement,
         now: Instant,
         reasons: MutableList<String>,
-    ): List<Record> {
-        val items: List<Pair<String?, JsonElement?>> =
-            when (val each = rule.each) {
-                null -> {
-                    listOf(null to null)
-                }
-
-                else -> {
-                    when (val coll = lookup(root, each)) {
-                        is JsonObject -> {
-                            coll.entries.map { it.key to it.value }
-                        }
-
-                        is JsonArray -> {
-                            coll.mapIndexed { i, e -> i.toString() to e }
-                        }
-
-                        else -> {
-                            reasons += "mapping[$index].each: no object or array at path '$each'"
-                            return emptyList()
-                        }
-                    }
-                }
-            }
-        return items.mapNotNull { (key, item) ->
+    ): List<Record> =
+        items(rule, index, root, reasons).mapNotNull { (key, item) ->
             fun resolve(path: String): JsonElement? =
                 when {
                     path == "@key" -> key?.let(::JsonPrimitive)
@@ -80,35 +57,57 @@ object Mapper {
 
             val before = reasons.size
             val (ts, estimated) = timestamp(rule, ::resolve, now, reasons)
-            val dims =
-                buildMap {
-                    rule.dims.forEach { (name, f) ->
-                        val v = f.valueIn(::resolve)
-                        when {
-                            v == null || v is JsonNull -> reasons += "dims.$name: missing at path '${f.path}'"
-                            v !is JsonPrimitive -> reasons += "dims.$name: expected a value at path '${f.path}'"
-                            f.notBlank && v.content.isBlank() -> reasons += "dims.$name: must not be blank"
-                            else -> put(name, v.content)
-                        }
-                    }
-                    putAll(rule.constDims)
-                }
-            val vals =
-                buildMap {
-                    rule.vals.forEach { (name, f) -> value(name, f, f.valueIn(::resolve), ds, reasons)?.let { put(name, it) } }
-                }
-            val ident =
-                if (rule.identity.isEmpty()) {
-                    null
-                } else {
-                    val parts =
-                        rule.identity.map { p ->
-                            (resolve(p) as? JsonPrimitive)?.content ?: "".also { reasons += "identity: missing at path '$p'" }
-                        }
-                    (parts + listOfNotNull(key)).joinToString("|")
-                }
+            val dims = dims(rule, ::resolve, reasons)
+            val vals = rule.vals.mapNotNull { (name, f) -> value(name, f, f.valueIn(::resolve), ds, reasons)?.let { name to it } }.toMap()
+            val ident = identity(rule, key, ::resolve, reasons)
             if (reasons.size > before) null else Record(ds.id, ts, estimated, dims, vals, ident)
         }
+
+    private fun items(
+        rule: Rule,
+        index: Int,
+        root: JsonElement,
+        reasons: MutableList<String>,
+    ): List<Pair<String?, JsonElement?>> {
+        val each = rule.each ?: return listOf(null to null)
+        return when (val items = lookup(root, each)) {
+            is JsonObject -> items.entries.map { it.key to it.value }
+            is JsonArray -> items.mapIndexed { i, e -> i.toString() to e }
+            else -> emptyList<Pair<String?, JsonElement?>>().also { reasons += "mapping[$index].each: no object or array at path '$each'" }
+        }
+    }
+
+    private fun dims(
+        rule: Rule,
+        resolve: (String) -> JsonElement?,
+        reasons: MutableList<String>,
+    ): Map<String, String> =
+        buildMap {
+            rule.dims.forEach { (name, f) ->
+                val v = f.valueIn(resolve)
+                when {
+                    v == null || v is JsonNull -> reasons += "dims.$name: missing at path '${f.path}'"
+                    v !is JsonPrimitive -> reasons += "dims.$name: expected a value at path '${f.path}'"
+                    f.notBlank && v.content.isBlank() -> reasons += "dims.$name: must not be blank"
+                    else -> put(name, v.content)
+                }
+            }
+            putAll(rule.constDims)
+        }
+
+    private fun identity(
+        rule: Rule,
+        key: String?,
+        resolve: (String) -> JsonElement?,
+        reasons: MutableList<String>,
+    ): String? {
+        if (rule.identity.isEmpty()) return null
+        val parts =
+            rule.identity.map { p ->
+                (resolve(p) as? JsonPrimitive)?.content
+                    ?: "".also { reasons += "identity: missing at path '$p'" }
+            }
+        return (parts + listOfNotNull(key)).joinToString("|")
     }
 
     private fun timestamp(
