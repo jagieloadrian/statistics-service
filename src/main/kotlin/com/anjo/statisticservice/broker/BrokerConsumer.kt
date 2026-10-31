@@ -28,16 +28,6 @@ private val STOP_TIMEOUT = 3.seconds
 private val UNSTORABLE_SQL_STATE_CLASSES = setOf("22", "23")
 private val STATUS_UNTRACKED = setOf(HttpStatusCode.NotFound, HttpStatusCode.BadRequest)
 
-interface Broker : AutoCloseable {
-    fun connect()
-
-    fun poll(handle: (BrokerMessage) -> Delivery): Delivery
-
-    fun isConsuming(): Boolean
-
-    fun pending(): Long
-}
-
 class BrokerConsumer(
     private val name: String,
     private val newBroker: () -> Broker,

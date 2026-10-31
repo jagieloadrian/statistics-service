@@ -18,18 +18,14 @@ import io.nats.client.api.ConsumerConfiguration
 import io.nats.client.api.DeliverPolicy
 import io.nats.client.api.StorageType
 import io.nats.client.api.StreamConfiguration
-import java.time.Duration
 import kotlin.time.toJavaDuration
 
 private val logger = KotlinLogging.logger {}
-private val CONNECT_TIMEOUT = Duration.ofSeconds(2)
-private const val FETCH_MAX_MESSAGES = 100
-private const val FETCH_EXPIRES_MS = 1_000L
 private val FETCH_OPTIONS =
     FetchConsumeOptions
         .builder()
-        .maxMessages(FETCH_MAX_MESSAGES)
-        .expiresIn(FETCH_EXPIRES_MS)
+        .maxMessages(BATCH_SIZE)
+        .expiresIn(POLL_WAIT.inWholeMilliseconds)
         .build()
 
 class JetStreamBroker(
@@ -82,12 +78,14 @@ class JetStreamBroker(
         )
 }
 
+private val JetStreamConfig.subjects get() = "$subjectPrefix.>"
+
 private fun JetStreamConfig.options(): Options =
     Options
         .builder()
         .server(url)
         .connectionName(SERVICE_NAME)
-        .connectionTimeout(CONNECT_TIMEOUT)
+        .connectionTimeout(CONNECT_TIMEOUT.toJavaDuration())
         .maxReconnects(-1)
         .errorListener(LoggingErrorListener)
         .apply { if (user.isNotBlank()) userInfo(user, password) }
@@ -98,7 +96,7 @@ private fun JetStreamConfig.streamConfiguration(): StreamConfiguration =
     StreamConfiguration
         .builder()
         .name(stream)
-        .subjects("$subjectPrefix.>")
+        .subjects(subjects)
         .storageType(StorageType.File)
         .maxAge(maxAge.toJavaDuration())
         .maxBytes(maxBytes)
@@ -108,7 +106,7 @@ private fun JetStreamConfig.consumerConfiguration(): ConsumerConfiguration =
     ConsumerConfiguration
         .builder()
         .durable(durable)
-        .filterSubject("$subjectPrefix.>")
+        .filterSubject(subjects)
         .ackPolicy(AckPolicy.Explicit)
         .deliverPolicy(DeliverPolicy.All)
         .build()

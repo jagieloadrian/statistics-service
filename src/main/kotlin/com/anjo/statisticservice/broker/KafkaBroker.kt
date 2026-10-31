@@ -15,11 +15,9 @@ import org.apache.kafka.common.config.SaslConfigs
 import org.apache.kafka.common.serialization.StringDeserializer
 import java.time.Duration
 import java.util.Properties
+import kotlin.time.toJavaDuration
 
-private val POLL_TIMEOUT = Duration.ofSeconds(1)
 private val CLOSE_TIMEOUT = Duration.ofSeconds(3)
-private const val MAX_POLL_RECORDS = 100
-private const val CONNECT_TIMEOUT_MS = 2_000
 private const val REQUEST_TIMEOUT_MS = 10_000
 private const val RECONNECT_BACKOFF_MAX_MS = 10_000
 
@@ -31,7 +29,7 @@ class KafkaBroker(
     override fun connect() = consumer.subscribe(listOf(config.topic))
 
     override fun poll(handle: (BrokerMessage) -> Delivery): Delivery {
-        val records = consumer.poll(POLL_TIMEOUT)
+        val records = consumer.poll(POLL_WAIT.toJavaDuration())
         val handled = mutableMapOf<TopicPartition, OffsetAndMetadata>()
         var delivery = Delivery.DONE
         for (record in records) {
@@ -68,11 +66,11 @@ private fun KafkaConfig.properties() =
         put(ConsumerConfig.GROUP_ID_CONFIG, groupId)
         put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false)
         put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
-        put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, MAX_POLL_RECORDS)
+        put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, BATCH_SIZE)
         put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer::class.java)
         put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer::class.java)
-        put(CommonClientConfigs.SOCKET_CONNECTION_SETUP_TIMEOUT_MS_CONFIG, CONNECT_TIMEOUT_MS)
-        put(CommonClientConfigs.SOCKET_CONNECTION_SETUP_TIMEOUT_MAX_MS_CONFIG, CONNECT_TIMEOUT_MS)
+        put(CommonClientConfigs.SOCKET_CONNECTION_SETUP_TIMEOUT_MS_CONFIG, CONNECT_TIMEOUT.inWholeMilliseconds)
+        put(CommonClientConfigs.SOCKET_CONNECTION_SETUP_TIMEOUT_MAX_MS_CONFIG, CONNECT_TIMEOUT.inWholeMilliseconds)
         put(CommonClientConfigs.REQUEST_TIMEOUT_MS_CONFIG, REQUEST_TIMEOUT_MS)
         put(CommonClientConfigs.DEFAULT_API_TIMEOUT_MS_CONFIG, REQUEST_TIMEOUT_MS)
         put(CommonClientConfigs.RECONNECT_BACKOFF_MAX_MS_CONFIG, RECONNECT_BACKOFF_MAX_MS)
