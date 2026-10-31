@@ -1,6 +1,6 @@
 # Project Status
 
-Updated 2026-10-30. Features: [spec 004 universal stats platform](specs/004-universal-stats-platform/spec.md)
+Updated 2026-10-31. Features: [spec 004 universal stats platform](specs/004-universal-stats-platform/spec.md)
 (tasks: [tasks.md](specs/004-universal-stats-platform/tasks.md)), [spec 005 OIDC sign-in](specs/005-oidc-login/spec.md)
 (tasks: [tasks.md](specs/005-oidc-login/tasks.md)).
 
@@ -70,8 +70,13 @@ picks one broker; sources opt in with channel `pubsub` (HTTP push to them → 40
 (`BrokerConsumer`) shares token check, mapping (`IngestService`), rejection recording, metrics and back-off;
 `KafkaBroker` / `JetStreamBroker` only poll and commit/ack. Kafka: topic + key = source id; JetStream: subject
 `<prefix>.<sourceId>`, stream created/updated by the app, durable pull consumer. `/auth/config` gains `pubsub`
-for the source editor's address hint. Local `.devops/kafka-compose`, `.devops/nats-compose`. 89 tests green
-(Kafka + NATS in Testcontainers); verified by hand with both composes (late broker start, DB outage, NATS restart).
+for the source editor's address hint. Local `.devops/kafka-compose`, `.devops/nats-compose`. Verified by hand with
+both composes (late broker start, DB outage, NATS restart). Rebased on feature-6 (jacoco 88% gate). Follow-ups:
+SIGTERM budget 8 s drain + 2 s Netty + 3 s consumer (DI closes the consumer before the pool; measured 12.1 s with a
+blocked query and a blocked broker message), pgjdbc connect 2 s / socket 60 s, pubsub sources need `identity` in
+every rule (backend + UI). Then a DRY/conventions pass in both repos (errors, users, definitions, mapping, config,
+broker, OIDC, test setup; UI roles/kinds, PlatformApi, no comments, visibility). 151 tests green, coverage
+instruction 95.5 %, line 97.2 %, branch 92.9 %; UI jvmTest 45 green.
 
 ## Decisions
 
@@ -109,6 +114,10 @@ for the source editor's address hint. Local `.devops/kafka-compose`, `.devops/na
   `pubsub`). At least once; ack/commit after the DB commit. `ApiException` and SQL data errors (22xxx/23xxx) are
   final → acked + recorded in source status; other SQL errors retry with 1→30 s back-off. Paused pubsub sources
   drop (ack) messages. No per-source rate limit on the broker path. Readiness ignores the broker.
+  Pubsub sources must have identity in every mapping rule (native records are push-only).
+- Shutdown order: HTTP drain (StopPreparing), Netty, then DI closes dependencies in reverse declaration order,
+  so the broker consumer (declared after `Db`) stops before the pool. socketTimeout 60 s also bounds Flyway
+  migrations and dataset deletes; raise it if one ever needs longer.
 
 ## Measured
 
