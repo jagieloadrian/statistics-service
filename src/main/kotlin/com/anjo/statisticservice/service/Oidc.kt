@@ -72,7 +72,7 @@ class Oidc(
                     "redirect_uri" to redirectUri,
                     "scope" to "openid email profile",
                     "state" to state,
-                    "code_challenge" to b64url(sha256(verifier)),
+                    "code_challenge" to base64Url(sha256(verifier)),
                     "code_challenge_method" to "S256",
                 )
             val separator = if ('?' in endpoint) "&" else "?"
@@ -90,7 +90,7 @@ class Oidc(
             val idToken = verify(tokens.idToken, discovery, keys)
             val claims =
                 OidcClaims(
-                    subject = idToken.subject ?: throw unauthorized("Invalid ID token"),
+                    subject = idToken.subject ?: throw invalidIdToken(),
                     email = idToken.getClaim("email").asString(),
                     emailVerified = idToken.getClaim("email_verified").asBoolean() == true,
                     name = idToken.getClaim("name").asString(),
@@ -123,10 +123,7 @@ class Oidc(
             request.header("Authorization", "Basic " + Base64.getEncoder().encodeToString(credentials.toByteArray()))
         }
         val response = send(request.POST(HttpRequest.BodyPublishers.ofString(form(*fields.toTypedArray()))))
-        return response
-            .takeIf { it.isSuccessful() }
-            ?.let { runCatching { json.decodeFromString<OidcTokens>(it.body()) }.getOrNull() }
-            ?: throw unauthorized("Provider refused sign-in")
+        return response.parsedOrRefused { json.decodeFromString<OidcTokens>(it) }
     }
 
     private fun verify(
@@ -136,7 +133,7 @@ class Oidc(
     ): DecodedJWT =
         try {
             val decoded = JWT.decode(token)
-            val key = keys.get(decoded.keyId).publicKey as? RSAPublicKey ?: throw unauthorized("Invalid ID token")
+            val key = keys.get(decoded.keyId).publicKey as? RSAPublicKey ?: throw invalidIdToken()
             JWT
                 .require(Algorithm.RSA256(key, null))
                 .withIssuer(discovery.issuer)
@@ -147,9 +144,9 @@ class Oidc(
         } catch (e: NetworkException) {
             throw unavailable(e)
         } catch (e: JwkException) {
-            throw unauthorized("Invalid ID token")
+            throw invalidIdToken()
         } catch (e: JWTVerificationException) {
-            throw unauthorized("Invalid ID token")
+            throw invalidIdToken()
         }
 
     private fun userinfo(
@@ -158,11 +155,7 @@ class Oidc(
         claims: OidcClaims,
     ): OidcClaims {
         val response = send(request(endpoint).header("Authorization", "Bearer $accessToken").GET())
-        val info =
-            response
-                .takeIf { it.isSuccessful() }
-                ?.let { runCatching { json.parseToJsonElement(it.body()).jsonObject }.getOrNull() }
-                ?: throw unauthorized("Provider refused sign-in")
+        val info = response.parsedOrRefused { json.parseToJsonElement(it).jsonObject }
         if (info.claim("sub")?.contentOrNull != claims.subject) throw unauthorized("Provider answered for another user")
         return claims.copy(
             email = info.claim("email")?.contentOrNull,
@@ -213,12 +206,15 @@ class Oidc(
     }
 }
 
-private fun HttpResponse<String>.isSuccessful() = statusCode() in 200..299
+private fun <T> HttpResponse<String>.parsedOrRefused(parse: (String) -> T): T =
+    takeIf { statusCode() in 200..299 }
+        ?.let { runCatching { parse(body()) }.getOrNull() }
+        ?: throw unauthorized("Provider refused sign-in")
+
+private fun invalidIdToken() = unauthorized("Invalid ID token")
 
 private fun JsonObject.claim(key: String) = runCatching { get(key)?.jsonPrimitive }.getOrNull()
 
 private fun enc(value: String) = URLEncoder.encode(value, Charsets.UTF_8)
 
 private fun form(vararg fields: Pair<String, String>) = fields.joinToString("&") { (key, value) -> "$key=${enc(value)}" }
-
-private fun b64url(bytes: ByteArray) = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
