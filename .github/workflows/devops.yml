@@ -2,24 +2,23 @@ name: devops
 
 on:
   pull_request:
-    paths: ['.devops/helm/**', '.sops.yaml', '.github/workflows/devops.yml']
+    paths: ['.devops/helm/**', '.github/workflows/devops.yml']
   push:
     branches: [main]
-    paths: ['.devops/helm/**', '.sops.yaml', '.github/workflows/devops.yml']
+    paths: ['.devops/helm/**', '.github/workflows/devops.yml']
 
 permissions:
   contents: read
 
 defaults:
   run:
-    shell: bash  # -eo pipefail: błąd kustomize build / helm template nie ginie w potoku
+    shell: bash  # -eo pipefail: błąd helm template nie ginie w potoku
 
 env:
   KUBECONFORM_VERSION: v0.8.0
   CRD_SCHEMAS: https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json
-  SECRET_KEYS: DB_PASSWORD ADMIN_PASSWORD OIDC_CLIENT_SECRET
+  SECRET_KEYS: DB_PASSWORD ADMIN_PASSWORD OIDC_CLIENT_SECRET NATS_PASSWORD NATS_TOKEN KAFKA_PASSWORD
   RELEASE: .devops/helm/release.yaml
-  SECRETS: .devops/helm/secrets.sops.yaml
 
 jobs:
   validate:
@@ -38,28 +37,14 @@ jobs:
         run: |
           yq -e '.spec.values.env.DB_URL | test("^jdbc:postgresql://")' "$RELEASE" >/dev/null || { echo "::error file=$RELEASE::DB_URL musi zaczynać się od jdbc:postgresql://"; exit 1; }
           for k in $SECRET_KEYS; do
-            if [ "$(K=$k yq '.spec.values.env | has(strenv(K))' "$RELEASE")" = true ]; then echo "::error file=$RELEASE::$k jest sekretem, ma być w secrets.sops.yaml"; exit 1; fi
+            if [ "$(K=$k yq '.spec.values.env | has(strenv(K))' "$RELEASE")" = true ]; then echo "::error file=$RELEASE::$k jest sekretem, ma być w Vault secret/apps/statistics-service"; exit 1; fi
           done
-
-      - name: secrets.sops.yaml
-        run: |
-          [ -f "$SECRETS" ] || { echo "::error::brak $SECRETS: sops $SECRETS (homelab-infra docs/setup.md, krok 3)"; exit 1; }
-          yq -e '.sops.age' "$SECRETS" >/dev/null || { echo "::error file=$SECRETS::plik nie jest zaszyfrowany SOPS"; exit 1; }
-          for k in $SECRET_KEYS; do
-            K=$k yq -e '.secretEnv | has(strenv(K))' "$SECRETS" >/dev/null || { echo "::error file=$SECRETS::brak secretEnv.$k"; exit 1; }
-          done
-          plain=$(yq '.secretEnv | to_entries | .[] | select(.value != "" and (.value | test("^ENC\\[") | not)) | .key' "$SECRETS")
-          [ -z "$plain" ] || { echo "::error file=$SECRETS::niezaszyfrowane wartości: $plain"; exit 1; }
-          if grep -q REPLACE_WITH .sops.yaml; then echo "::error file=.sops.yaml::brak klucza publicznego age"; exit 1; fi
 
       - name: Install kubeconform
         run: curl -sSL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" | sudo tar xz -C /usr/local/bin kubeconform
 
       - name: Kubernetes manifests
         run: |
-          kc() { kubeconform -strict -summary -schema-location default -schema-location "$CRD_SCHEMAS" -; }
-          kustomize build .devops/helm | kc
-          # sekrety są zaszyfrowane, więc do renderu idą tylko klucze z atrapą
-          yq '.spec.values' "$RELEASE" > values.yaml
-          yq '{"secretEnv": (.secretEnv | with_entries(.value = "ci"))}' "$SECRETS" > secrets.yaml
-          helm template "$(yq .metadata.name "$RELEASE")" homelab-infra/charts/app -f values.yaml -f secrets.yaml | kc
+          kc() { kubeconform -strict -summary -schema-location default -schema-location "$CRD_SCHEMAS" "$@"; }
+          kc .devops/helm
+          yq '.spec.values' "$RELEASE" | helm template "$(yq .metadata.name "$RELEASE")" homelab-infra/charts/app -f - | kc -

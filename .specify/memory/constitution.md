@@ -3,8 +3,8 @@ Sync Impact Report
 Version change: 2.5.0 → 2.6.0 (MINOR, 2026-11-02) — deploy moves from plain
   kustomize manifests in `.devops/k8s/` to a Flux HelmRelease in `.devops/helm/`
   using the shared homelab-infra chart `charts/app`: values inline in
-  `release.yaml`, secrets as a SOPS-encrypted Helm values file
-  (`secrets.sops.yaml`). CI commits the image tag to `release.yaml`; no Flux
+  `release.yaml`, secrets in Vault `secret/apps/statistics-service`
+  (ExternalSecret from the chart, `secrets: true`). CI commits the image tag to `release.yaml`; no Flux
   image automation (`.devops/flux/` dropped earlier). Same rendered contract
   (HTTPRoute, AuthorizationPolicy, ConfigMap, Secret), so not MAJOR.
 Modified principles:
@@ -129,9 +129,9 @@ without over-testing what isn't load-bearing.
 Default to self-hosted, low-friction deployment at home-lab scale. The
 deployment target is the homelab Kubernetes platform, following its platform
 contract (homelab repo): a Flux HelmRelease in `.devops/helm/` using the
-shared homelab-infra chart `charts/app` (values inline, secrets as a
-SOPS-encrypted values file), no own Helm charts or operators; the platform
-owns Postgres, the gateway and secret decryption.
+shared homelab-infra chart `charts/app` (values inline, secrets in Vault
+`secret/apps/statistics-service` via ExternalSecret), no own Helm charts or
+operators; the platform owns Postgres, the gateway and Vault.
 Local development stays Docker Compose for dependencies plus `./gradlew run`;
 the app MUST keep running outside the cluster. In scope: platform-managed accounts, sign-in,
 roles admin / editor / viewer, dashboard sharing, user preferences, and
@@ -207,9 +207,9 @@ minimal, and the abstraction keeps the later upgrade path open.
   image (eclipse-temurin:21-jre, user 10001); `.devops/helm/release.yaml` is
   a Flux HelmRelease of the shared homelab-infra chart `charts/app`, which
   renders ServiceAccount, Deployment, Service, HTTPRoute on `home-gateway`,
-  AuthorizationPolicy, ConfigMap and Secret for namespace `apps`; CI commits
+  AuthorizationPolicy, ConfigMap and ExternalSecret for namespace `apps`; CI commits
   the image tag to `release.yaml`, no Flux image automation. Secrets live
-  SOPS-encrypted in `.devops/helm/secrets.sops.yaml`, never in plaintext in
+  in Vault `secret/apps/statistics-service` (keys = env names), never in
   this repo or in the image. No own Helm charts, no operators. Local dev:
   Docker Compose for Postgres (and Kafka or
   NATS when working on pub/sub).

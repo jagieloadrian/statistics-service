@@ -168,8 +168,8 @@ by Flux from `main` of this repo (registered in homelab-infra
 - Backup: the service is stateless; the database is backed up by the platform.
 - One replica: login rate limits and source status are kept in memory.
 
-Environment comes from two sets of Helm values turned into a ConfigMap and a
-Secret by the chart (a change rolls the Deployment):
+Environment comes from a ConfigMap (Helm values, a change rolls the Deployment)
+and a Secret synced from Vault:
 
 - `values.env` in [release.yaml](.devops/helm/release.yaml), plain → ConfigMap
   `statistics-service-config`: `DB_URL`, `DB_USER`, `ADMIN_EMAIL`,
@@ -177,13 +177,12 @@ Secret by the chart (a change rolls the Deployment):
   `TRUST_PROXY`, `LOG_FORMAT`, `BROKER` (`none`), `KAFKA_*` (no password) and
   `NATS_*` (no password/token; `NATS_URL` already points at the in-cluster NATS).
   Turning on JetStream = `BROKER=jetstream` here + `NATS_PASSWORD` in the secret.
-- `secretEnv` in `.devops/helm/secrets.sops.yaml`, SOPS/age-encrypted Helm
-  values, decrypted by Flux and passed to the HelmRelease via `valuesFrom`
-  (secretGenerator in [kustomization.yaml](.devops/helm/kustomization.yaml)) →
-  Secret `statistics-service-secrets`: `DB_PASSWORD`, `ADMIN_PASSWORD`,
-  `OIDC_CLIENT_SECRET`, and with a broker `NATS_PASSWORD` (or `NATS_TOKEN`) or
-  `KAFKA_PASSWORD`. Create/edit only with `sops .devops/helm/secrets.sops.yaml`
-  (plaintext never touches the disk); the age key is in [.sops.yaml](.sops.yaml).
+- Vault `secret/apps/statistics-service` (keys = env names, set with
+  `vault kv put`, homelab-infra `docs/vault.md`) → ExternalSecret from the chart
+  (`secrets: true` in `release.yaml`) → Secret `statistics-service-secrets`:
+  `DB_PASSWORD`, `ADMIN_PASSWORD`, `OIDC_CLIENT_SECRET`, and with a broker
+  `NATS_PASSWORD` (or `NATS_TOKEN`) or `KAFKA_PASSWORD`. Nothing secret in git,
+  CI needs no keys; after a change `kubectl -n apps rollout restart deploy/statistics-service`.
 
 - Database: role and schema `statistics` in database `statistics` on the
   Postgres running on the Wyse host, reached as
@@ -229,17 +228,16 @@ Secret by the chart (a change rolls the Deployment):
   against the image (read-only root filesystem, 384 Mi limit)
 - [x] Readiness 503 while Postgres is down, 200 after it returns — verified
 - [x] Fail-fast config, single JSON error line, exit 1 — verified
-- [ ] `kustomize build .devops/helm` + `helm template` (homelab-infra
-  `charts/app`) + `kubeconform -strict` incl. HTTPRoute, AuthorizationPolicy
+- [ ] `helm template` (homelab-infra `charts/app`) + `kubeconform -strict` incl. HTTPRoute, AuthorizationPolicy
   and Flux CRDs (CI `devops.yml`); `istioctl validate`
 - [x] CI workflow — `actionlint` clean
 - [x] `DB_URL` points at the platform Postgres (`postgres.apps.svc.cluster.local`)
 - [ ] Role + schema `statistics` created on the Wyse Postgres
-- [ ] Secret `statistics-service-secrets` via `.devops/helm/secrets.sops.yaml` (SOPS)
+- [ ] Secrets in Vault `secret/apps/statistics-service` (homelab-infra `docs/vault.md`)
 - [ ] OIDC client registered with redirect URI `http://statistics.home.arpa/`
 - [x] Registered in homelab-infra (`clusters/home/apps/statistics-service.yaml`)
 - [ ] Pub/sub (optional): `BROKER: jetstream` in `values.env` (`release.yaml`), `NATS_PASSWORD` in
-  `secretEnv` (not digits-only), NATS AuthorizationPolicy admits
+  Vault (not digits-only), NATS AuthorizationPolicy admits
   `cluster.local/ns/apps/sa/statistics-service`
 
 ## Build & test

@@ -14,10 +14,9 @@ spec:
         kind: GitRepository
         name: flux-system
         namespace: flux-system
-  valuesFrom:
-    - kind: Secret
-      name: statistics-service-values # secrets.sops.yaml (kustomization.yaml)
   values:
+    # Secret statistics-service-secrets from Vault secret/apps/statistics-service (homelab-infra docs/vault.md)
+    secrets: true
     image: ghcr.io/jagieloadrian/statistics-service:main-20261028120000-abc1234
     resources:
       requests:
@@ -28,7 +27,7 @@ spec:
     route:
       hostname: statistics.home.arpa
       pathPrefix: /api/
-    # Jawna konfiguracja -> ConfigMap statistics-service-config. Sekrety: secrets.sops.yaml.
+    # Jawna konfiguracja -> ConfigMap statistics-service-config. Sekrety: Vault (secrets wyżej).
     # Opis zmiennych: homelab-infra docs/setup.md.
     env:
       DB_URL: jdbc:postgresql://postgres.apps.svc.cluster.local:5432/statistics?currentSchema=statistics
