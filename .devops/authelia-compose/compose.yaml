@@ -1,4 +1,3 @@
-# Dev-only OIDC provider for trying provider sign-in; see README.md
 services:
   authelia:
     image: authelia/authelia:4.39.28

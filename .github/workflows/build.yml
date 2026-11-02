@@ -7,7 +7,7 @@ on:
     tags: ['v*']
 
 permissions:
-  contents: write # deploy step commits the new image tag to .devops/helm/release.yaml
+  contents: write
   packages: write
 
 env:
@@ -54,7 +54,6 @@ jobs:
           -Djib.to.auth.username=${{ github.actor }}
           -Djib.to.auth.password=${{ secrets.GITHUB_TOKEN }}
 
-      # Flux reads .devops/helm from main; a push made with GITHUB_TOKEN does not trigger another run.
       - name: Deploy (bump image tag)
         if: github.ref == 'refs/heads/main'
         run: |

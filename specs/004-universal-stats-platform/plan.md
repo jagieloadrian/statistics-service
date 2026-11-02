@@ -92,45 +92,45 @@ violations.
 specs/004-universal-stats-platform/
 ├── spec.md
 ├── plan.md
-├── research.md            # build-vs-buy + Phase 0 decisions (§5)
+├── research.md
 ├── data-model.md
 ├── quickstart.md
 ├── contracts/
-│   ├── api-v2.md          # ingest, query, dims, definitions, status, auth, users
-│   └── definition-format.md  # source/dataset/dashboard JSON + temperature/epidemic examples
+│   ├── api-v2.md
+│   └── definition-format.md
 ├── checklists/requirements.md
-└── tasks.md               # /speckit-tasks
+└── tasks.md
 ```
 
 ### Source Code — backend (this repo)
 
 ```text
-.devops/postgres-compose/compose.yaml          # NEW postgres:16
-definitions/temperature.json                   # NEW example domain as data (dataset+source+dashboard)
-definitions/epidemic.json                      # NEW
-src/main/resources/db/migration/V1__init.sql   # Flyway; databases from the old startup schema are baselined at V1
-src/main/resources/application.yaml            # MODIFIED db url/user/pass, bootstrap admin, rate limit
+.devops/postgres-compose/compose.yaml
+definitions/temperature.json
+definitions/epidemic.json
+src/main/resources/db/migration/V1__init.sql
+src/main/resources/application.yaml
 src/main/kotlin/com/anjo/statisticservice/
-├── Application.kt                             # module wiring + hourly retention purge
-├── controller/                                # routes per resource: Auth, User, Dataset, Source, Dashboard,
-│                                              #   Bundle (import/export), Query, Ingest; Routing, error handling,
-│                                              #   Swagger, CallHelpers (user/role/id). Parse input, call a service, respond.
-├── service/                                   # business rules + transaction boundaries: DefinitionService (CRUD,
-│                                              #   reference guard, dashboard access, import/export), RecordService,
-│                                              #   IngestService (ingest + mapping test), SourceStatusService (in memory),
-│                                              #   AuthService, UserService, Validation, Secrets (PBKDF2, tokens)
-├── service/mapping/                           # Mapper (payload → records), Expr (calculated measure → SQL)
-├── repository/                                # Exposed DSL per aggregate, run inside the caller's transaction:
-│                                              #   Definition, DashboardShare, SourceCredential, Record, User, Token
-├── db/                                        # Db (Hikari + Flyway migrate + Exposed connect, tx), Tables (Exposed objects)
-├── model/, model/dto/                         # domain types; request/response bodies
-├── exception/                                 # ApiException (+ helpers), MappingException
-└── di/                                        # Ktor DI registration, Frameworks
+├── Application.kt
+├── controller/
+│
+│
+├── service/
+│
+│
+│
+├── service/mapping/
+├── repository/
+│
+├── db/
+├── model/, model/dto/
+├── exception/
+└── di/
 src/test/kotlin/com/anjo/statisticservice/
-├── testutils/PostgresContainerSetup.kt        # shared Testcontainers Postgres, migrated once through Db
-├── service/mapping/MapperTest.kt, ExprTest.kt # unit
-├── service/RecordServiceTest.kt               # integration (buckets, aggs, dedup, dims)
-└── controller/*Test.kt                        # HTTP: ingest, auth, access matrix (SC-008), definitions, import/export, OpenAPI
+├── testutils/PostgresContainerSetup.kt
+├── service/mapping/MapperTest.kt, ExprTest.kt
+├── service/RecordServiceTest.kt
+└── controller/*Test.kt
 
 DELETED in S0: plugin/**, settings.gradle.kts plugin includes,
 plugin/PluginRegistry.kt, routing/PluginStatsRouting.kt,
@@ -143,19 +143,19 @@ model/RedisConfig.kt, their tests, testutils/RedisContainerSetup.kt,
 
 ```text
 composeApp/src/commonMain/kotlin/com/anjo/statisticsui/
-├── api/Models.kt                    # NEW generic mirror of definition format + query req/resp
-├── api/PlatformApi.kt               # NEW single Ktor client wrapper (bearer token, all /api/v2 calls)
-├── auth/Session.kt                  # NEW token holder + expect TokenStore (actual: webMain localStorage, jvmMain Preferences)
-├── presentation/login/LoginScreen.kt            # NEW
-├── presentation/home/HomeScreen.kt              # MODIFIED tiles = dashboards (favourites first), not hardcoded domains
-├── presentation/dashboard/DashboardScreen.kt    # NEW variable bar, grid, auto-refresh
-├── presentation/dashboard/Widgets.kt            # NEW line/area/bar (charty), stat, gauge, table, missing-definition state
-├── presentation/dashboard/DashboardEditor.kt    # NEW widget/variable/layout forms
-├── presentation/admin/SourcesScreen.kt          # NEW list + status + editor + mapping test
-├── presentation/admin/DatasetEditor.kt          # NEW
-├── presentation/admin/UsersScreen.kt            # NEW invite, role
-├── presentation/account/AccountScreen.kt        # MODIFIED prefs (tz, units, theme, home dashboard)
-└── navigation/*                                 # MODIFIED routes carry ids
+├── api/Models.kt
+├── api/PlatformApi.kt
+├── auth/Session.kt
+├── presentation/login/LoginScreen.kt
+├── presentation/home/HomeScreen.kt
+├── presentation/dashboard/DashboardScreen.kt
+├── presentation/dashboard/Widgets.kt
+├── presentation/dashboard/DashboardEditor.kt
+├── presentation/admin/SourcesScreen.kt
+├── presentation/admin/DatasetEditor.kt
+├── presentation/admin/UsersScreen.kt
+├── presentation/account/AccountScreen.kt
+└── navigation/*
 
 DELETED: model/dto/*, service/rest/{EpidemicClient,TemperatureClient,ApiUrls}.kt,
 presentation/configurationchart/**, presentation/details/**, .docs/*_UI_API_Contract.md

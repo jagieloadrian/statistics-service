@@ -74,11 +74,9 @@ push to it then answers 409.
   `Options.builder().inboxPrefix("_INBOX_collector")`).
 
 ```bash
-# Kafka (key and header: parse.key / parse.headers, tab separated)
 printf 'Authorization:Bearer %s\t%s\t%s\n' "$SOURCE_TOKEN" "$SOURCE_ID" "$PAYLOAD" |
   kafka-console-producer.sh --bootstrap-server "$KAFKA" --topic stats.ingest \
     --reader-property parse.key=true --reader-property parse.headers=true
 
-# NATS JetStream
 nats pub "stats.ingest.$SOURCE_ID" "$PAYLOAD" -H "Authorization:Bearer $SOURCE_TOKEN" -s "$NATS_URL"
 ```

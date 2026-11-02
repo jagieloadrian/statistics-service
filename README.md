@@ -9,7 +9,7 @@ specific is configuration (JSON definitions), not code. Frontend: the
 ## Run locally
 
 ```bash
-docker compose -f .devops/postgres-compose/compose.yaml up -d   # PostgreSQL 16, db/user/password "stats"
+docker compose -f .devops/postgres-compose/compose.yaml up -d
 ./gradlew runLocal
 ```
 
@@ -70,7 +70,7 @@ TOKEN=$(curl -s $API/auth/login -H 'Content-Type: application/json' \
 for f in definitions/*.json; do
   curl -s -X POST $API/import -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d @$f; echo
 done
-curl -s -X POST $API/sources/temperature/credential -H "Authorization: Bearer $TOKEN"   # source token for the device
+curl -s -X POST $API/sources/temperature/credential -H "Authorization: Bearer $TOKEN"
 ```
 
 Devices and collector apps: [.docs/Device_Ingest.md](.docs/Device_Ingest.md),
@@ -114,10 +114,10 @@ for collectors: [.docs/Collector_Apps.md](.docs/Collector_Apps.md).
 Locally (with Postgres already up as above), pick one broker:
 
 ```bash
-docker compose -f .devops/kafka-compose/compose.yaml up -d   # apache/kafka 4.4.0, KRaft, localhost:9092
+docker compose -f .devops/kafka-compose/compose.yaml up -d
 BROKER=kafka KAFKA_BOOTSTRAP_SERVERS=localhost:9092 ./gradlew runLocal
 
-docker compose -f .devops/nats-compose/compose.yaml up -d    # nats 2.15.2 with JetStream, localhost:4222
+docker compose -f .devops/nats-compose/compose.yaml up -d
 BROKER=jetstream NATS_URL=nats://localhost:4222 ./gradlew runLocal
 ```
 
@@ -130,16 +130,14 @@ curl -s $API/sources/temperature -H "Authorization: Bearer $TOKEN" | jq '.channe
 SOURCE_TOKEN=$(curl -s -X POST $API/sources/temperature/credential -H "Authorization: Bearer $TOKEN" | jq -r .token)
 PAYLOAD="{\"deviceId\":\"pico-1\",\"timestamp\":\"$(date -u +%FT%TZ)\",\"temperature\":21.5,\"humidity\":40}"
 
-# Kafka: key = source id, header Authorization (tab-separated: headers, key, value)
 printf 'Authorization:Bearer %s\ttemperature\t%s\n' "$SOURCE_TOKEN" "$PAYLOAD" |
   docker compose -f .devops/kafka-compose/compose.yaml exec -T kafka /opt/kafka/bin/kafka-console-producer.sh \
     --bootstrap-server localhost:9092 --topic stats.ingest --reader-property parse.key=true --reader-property parse.headers=true
 
-# NATS: subject stats.ingest.<source id>, header Authorization
 docker run --rm --network host natsio/nats-box:0.20.1 \
   nats pub -s nats://localhost:4222 stats.ingest.temperature "$PAYLOAD" -H "Authorization:Bearer $SOURCE_TOKEN"
 
-curl -s $API/sources/temperature/status -H "Authorization: Bearer $TOKEN"   # accepted.hour = 1
+curl -s $API/sources/temperature/status -H "Authorization: Bearer $TOKEN"
 ```
 
 Stop with `docker compose -f .devops/<kafka|nats>-compose/compose.yaml down` (broker data is not kept).
