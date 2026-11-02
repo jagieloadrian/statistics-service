@@ -19,6 +19,8 @@ TOKEN=$(curl -s $API/auth/login -H 'Content-Type: application/json' \
 AUTH="Authorization: Bearer $TOKEN"
 ```
 
+The login and the `AUTH` header apply from S5 on; before S5 omit the header.
+
 ## §0 S0 — old stack gone
 
 `./gradlew build` green in both repos; `grep -rniE 'epidemic|temperature' src composeApp/src`

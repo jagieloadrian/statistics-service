@@ -8,6 +8,8 @@ specific is configuration (JSON definitions), not code. Frontend: the
 
 ## Run locally
 
+The compose file starts PostgreSQL 16 with database, user and password `stats`:
+
 ```bash
 docker compose -f .devops/postgres-compose/compose.yaml up -d
 ./gradlew runLocal
@@ -73,7 +75,7 @@ done
 curl -s -X POST $API/sources/temperature/credential -H "Authorization: Bearer $TOKEN"
 ```
 
-Devices and collector apps: [.docs/Device_Ingest.md](.docs/Device_Ingest.md),
+The last call prints the source token the device sends. Devices and collector apps: [.docs/Device_Ingest.md](.docs/Device_Ingest.md),
 [.docs/Collector_Apps.md](.docs/Collector_Apps.md).
 
 ## Pub/sub ingestion (Kafka / NATS JetStream)
@@ -111,32 +113,54 @@ for collectors: [.docs/Collector_Apps.md](.docs/Collector_Apps.md).
 - A `pubsub` source needs a mapping with an `identity` in every rule (400
   otherwise), so redelivered messages are not stored twice.
 
-Locally (with Postgres already up as above), pick one broker:
+Locally (with Postgres already up as above), pick one broker. Kafka: the
+compose file runs apache/kafka 4.4.0 in KRaft mode on `localhost:9092`:
 
 ```bash
 docker compose -f .devops/kafka-compose/compose.yaml up -d
 BROKER=kafka KAFKA_BOOTSTRAP_SERVERS=localhost:9092 ./gradlew runLocal
+```
 
+NATS: the compose file runs nats 2.15.2 with JetStream on `localhost:4222`:
+
+```bash
 docker compose -f .devops/nats-compose/compose.yaml up -d
 BROKER=jetstream NATS_URL=nats://localhost:4222 ./gradlew runLocal
 ```
 
 With the example definitions loaded (`API`, `TOKEN` as above), switch
-`temperature` to pub/sub and send one reading:
+`temperature` to pub/sub and build one reading:
 
 ```bash
 curl -s $API/sources/temperature -H "Authorization: Bearer $TOKEN" | jq '.channel.type = "pubsub"' |
   curl -s -X PUT $API/sources/temperature -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d @-
 SOURCE_TOKEN=$(curl -s -X POST $API/sources/temperature/credential -H "Authorization: Bearer $TOKEN" | jq -r .token)
 PAYLOAD="{\"deviceId\":\"pico-1\",\"timestamp\":\"$(date -u +%FT%TZ)\",\"temperature\":21.5,\"humidity\":40}"
+```
 
+Then send it with the command matching `BROKER`.
+
+Kafka: the record key is the source id and the `Authorization` header carries
+the source token (the console producer reads headers, key and value separated
+by tabs):
+
+```bash
 printf 'Authorization:Bearer %s\ttemperature\t%s\n' "$SOURCE_TOKEN" "$PAYLOAD" |
   docker compose -f .devops/kafka-compose/compose.yaml exec -T kafka /opt/kafka/bin/kafka-console-producer.sh \
     --bootstrap-server localhost:9092 --topic stats.ingest --reader-property parse.key=true --reader-property parse.headers=true
+```
 
+NATS: the subject is `stats.ingest.<source id>` and the `Authorization` header
+carries the source token:
+
+```bash
 docker run --rm --network host natsio/nats-box:0.20.1 \
   nats pub -s nats://localhost:4222 stats.ingest.temperature "$PAYLOAD" -H "Authorization:Bearer $SOURCE_TOKEN"
+```
 
+Check the source status; it should show `accepted.hour = 1`:
+
+```bash
 curl -s $API/sources/temperature/status -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -144,8 +168,9 @@ Stop with `docker compose -f .devops/<kafka|nats>-compose/compose.yaml down` (br
 
 ## Kubernetes (homelab platform)
 
-Deployed per the homelab platform contract ("Homelab Platform Contract —
-wymagania dla aplikacji"). [.devops/helm/](.devops/helm/) (Flux HelmRelease of
+Deployed per the homelab platform contract, requirements for applications:
+[homelab-infra docs/apps.md](https://github.com/jagieloadrian/homelab-infra/blob/main/docs/apps.md).
+[.devops/helm/](.devops/helm/) (Flux HelmRelease of
 the shared homelab-infra chart `charts/app`, namespace `apps`) is read directly
 by Flux from `main` of this repo (registered in homelab-infra
 `clusters/home/apps/statistics-service.yaml`); CI rewrites the `image:` tag in
@@ -188,7 +213,12 @@ and a Secret synced from Vault:
 - Deploy: a push to `main` builds the image and CI commits the new tag to
   `.devops/helm/release.yaml`; Flux (homelab-infra
   `clusters/home/apps/statistics-service.yaml`) reads that directory and rolls
-  it out.
+  it out. `main` is protected, so the CI step "Deploy (bump image tag)" can
+  push only when GitHub Actions is on the bypass list of the branch protection
+  rule or ruleset; otherwise bump the tag with a PR.
+- `install.remediation.retries: -1` in `release.yaml`: Flux keeps retrying the
+  first install (e.g. until the Vault secrets exist), no manual
+  `flux reconcile --force`; a failed upgrade is retried 3 times.
 
 - OIDC redirect URI for the web UI: `http://statistics.home.arpa/`. The
   gateway serves plain HTTP, so the provider must accept an `http` redirect
