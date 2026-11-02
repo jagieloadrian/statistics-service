@@ -39,7 +39,10 @@ class AuthTest :
         ) = """{"email":"$email","password":"$password"}"""
 
         test("pbkdf2 hash and verify") {
+            // when
             val h = Passwords.hash("correct horse")
+
+            // then
             h shouldStartWith "pbkdf2\$600000\$"
             Passwords.verify("correct horse", h) shouldBe true
             Passwords.verify("wrong horse", h) shouldBe false
@@ -49,11 +52,16 @@ class AuthTest :
 
         test("login answers one generic 401 and the 6th attempt in a minute is 429") {
             testApp {
+                // when
                 val wrongPassword = anonymous.postJson("/api/v2/auth/login", creds(ADMIN_EMAIL, "not-the-password"))
                 val unknownEmail = anonymous.postJson("/api/v2/auth/login", creds("nobody@test.local", "not-the-password"))
+
+                // then
                 wrongPassword.status shouldBe HttpStatusCode.Unauthorized
                 unknownEmail.status shouldBe HttpStatusCode.Unauthorized
                 wrongPassword.json() shouldBe unknownEmail.json()
+
+                // when and then
                 anonymous
                     .postJson("/api/v2/auth/login", creds(ADMIN_EMAIL, ADMIN_PASSWORD))
                     .json()
@@ -63,7 +71,11 @@ class AuthTest :
                     .getValue("role")
                     .jsonPrimitive.content shouldBe "admin"
                 anonymous.postJson("/api/v2/auth/login", creds(ADMIN_EMAIL, "x")).status shouldBe HttpStatusCode.Unauthorized
+
+                // when
                 val limited = anonymous.postJson("/api/v2/auth/login", creds(ADMIN_EMAIL, ADMIN_PASSWORD))
+
+                // then
                 limited.status shouldBe HttpStatusCode.TooManyRequests
                 limited.headers[HttpHeaders.RetryAfter].shouldNotBeNull()
                 limited
@@ -83,12 +95,18 @@ class AuthTest :
                         setBody(creds(ADMIN_EMAIL, "not-the-password"))
                     }.status
             testApp(mapOf("ktor.deployment.trustProxy" to "true")) {
+                // given
                 repeat(5) { attempt("10.0.0.9, 203.0.113.1") shouldBe HttpStatusCode.Unauthorized }
+
+                // when and then
                 attempt("10.0.0.8, 203.0.113.1") shouldBe HttpStatusCode.TooManyRequests
                 attempt("10.0.0.9, 203.0.113.2") shouldBe HttpStatusCode.Unauthorized
             }
             testApp {
+                // given
                 (1..4).map { attempt("203.0.113.$it") } shouldBe List(4) { HttpStatusCode.Unauthorized }
+
+                // when and then
                 attempt("203.0.113.5") shouldBe HttpStatusCode.TooManyRequests
             }
         }
@@ -115,15 +133,25 @@ class AuthTest :
 
         test("logout revokes the token and idle tokens expire after 7 days") {
             testApp {
+                // given
                 val viewer = userClient("v@test.local", VIEWER)
+
+                // when
                 viewer.post("/api/v2/auth/logout").status shouldBe HttpStatusCode.NoContent
+
+                // then
                 viewer.get("/api/v2/me").status shouldBe HttpStatusCode.Unauthorized
 
+                // given
                 val editor = userClient("e@test.local", EDITOR)
                 editor.get("/api/v2/me").status shouldBe HttpStatusCode.OK
+
+                // when
                 Pg.sql(
                     "UPDATE auth_tokens SET last_seen = now() - interval '8 days' WHERE user_id = (SELECT id FROM users WHERE email = 'e@test.local')",
                 )
+
+                // then
                 editor.get("/api/v2/me").status shouldBe HttpStatusCode.Unauthorized
                 client.get("/api/v2/me").status shouldBe HttpStatusCode.OK
             }
@@ -131,13 +159,20 @@ class AuthTest :
 
         test("password change keeps the current session and signs out the others") {
             testApp {
+                // given
                 val a = userClient("e@test.local", EDITOR, "first-password")
                 val b = login("e@test.local", "first-password")
+
+                // when and then
                 a.putJson("/api/v2/me/password", """{"current":"wrong-password","new":"second-password"}""").status shouldBe
                     HttpStatusCode.BadRequest
                 a.putJson("/api/v2/me/password", """{"current":"first-password","new":"short"}""").status shouldBe HttpStatusCode.BadRequest
+
+                // when
                 a.putJson("/api/v2/me/password", """{"current":"first-password","new":"second-password"}""").status shouldBe
                     HttpStatusCode.NoContent
+
+                // then
                 a.get("/api/v2/me").status shouldBe HttpStatusCode.OK
                 b.get("/api/v2/me").status shouldBe HttpStatusCode.Unauthorized
             }
@@ -145,6 +180,7 @@ class AuthTest :
 
         test("users are validated and prefs saved") {
             testApp {
+                // when and then
                 client.postJson("/api/v2/users", """{"email":"x@test.local","role":"viewer","password":"short"}""").status shouldBe
                     HttpStatusCode.BadRequest
                 client.postJson("/api/v2/users", """{"email":"x@test.local","role":"boss","password":"long-enough-1"}""").status shouldBe
@@ -154,9 +190,12 @@ class AuthTest :
                 client.postJson("/api/v2/users", """{"email":"x@test.local","role":"viewer","password":"long-enough-1"}""").status shouldBe
                     HttpStatusCode.Conflict
 
+                // given
                 val prefs =
                     """{"timeZone":"Europe/Warsaw","units":"imperial","theme":"dark","accent":"pink",""" +
                         """"homeDashboard":"temperature","favourites":["temperature"]}"""
+
+                // when and then
                 client
                     .putJson("/api/v2/me/prefs", prefs)
                     .json()
@@ -168,6 +207,7 @@ class AuthTest :
 
         test("last admin cannot be demoted or deleted") {
             testApp {
+                // given
                 val me =
                     client
                         .get("/api/v2/me")
@@ -175,10 +215,15 @@ class AuthTest :
                         .jsonObject
                         .getValue("id")
                         .jsonPrimitive.content
+
+                // when and then
                 client.putJson("/api/v2/users/$me", """{"role":"editor"}""").status shouldBe HttpStatusCode.Conflict
                 client.delete("/api/v2/users/$me").status shouldBe HttpStatusCode.Conflict
 
+                // given
                 client.postJson("/api/v2/users", """{"email":"a2@test.local","role":"admin","password":"long-enough-1"}""")
+
+                // when and then
                 client.putJson("/api/v2/users/$me", """{"role":"editor"}""").status shouldBe HttpStatusCode.OK
                 client.get("/api/v2/users").status shouldBe HttpStatusCode.OK
                 client.postJson("/api/v2/users", """{"email":"z@test.local","role":"viewer","password":"long-enough-1"}""").status shouldBe
@@ -188,9 +233,12 @@ class AuthTest :
 
         test("bootstrap admin only while there are no users") {
             testApp {
+                // when
                 Pg.db().use { db ->
                     AuthService(db).bootstrapAdmin("second@test.local", "long-enough-1") shouldBe false
                 }
+
+                // then
                 client
                     .get("/api/v2/users")
                     .json()

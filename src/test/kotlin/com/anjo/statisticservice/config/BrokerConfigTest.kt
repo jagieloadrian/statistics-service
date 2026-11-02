@@ -38,8 +38,11 @@ class BrokerConfigTest :
         }
 
         test("kafka SASL needs a known mechanism and credentials") {
+            // given
             val kafka = arrayOf(TYPE to "kafka", BOOTSTRAP to "kafka:9092")
             val sasl = arrayOf(*kafka, "ktor.broker.kafka.securityProtocol" to "SASL_SSL")
+
+            // when and then
             problems(*sasl) shouldContain "KAFKA_USER and KAFKA_PASSWORD are required with SASL"
             problems(*sasl, "ktor.broker.kafka.saslMechanism" to "GSSAPI") shouldContain "KAFKA_SASL_MECHANISM must be one of"
             problems(*kafka, "ktor.broker.kafka.user" to "stats") shouldContain "need KAFKA_SECURITY_PROTOCOL=SASL_PLAINTEXT or SASL_SSL"
@@ -61,7 +64,10 @@ class BrokerConfigTest :
         }
 
         test("jetstream rejects wildcards, bad limits and mixed credentials") {
+            // given
             val nats = arrayOf(TYPE to "jetstream", NATS_URL to "nats://nats:4222")
+
+            // when and then
             problems(*nats, "ktor.broker.jetstream.subjectPrefix" to "stats.>") shouldContain "NATS_SUBJECT_PREFIX"
             problems(*nats, "ktor.broker.jetstream.maxAge" to "soon") shouldContain "NATS_STREAM_MAX_AGE"
             problems(*nats, "ktor.broker.jetstream.maxBytes" to "-1") shouldContain "NATS_STREAM_MAX_BYTES"

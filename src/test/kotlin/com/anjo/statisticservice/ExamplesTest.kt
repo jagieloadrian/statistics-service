@@ -112,6 +112,7 @@ class ExamplesTest :
 
         test("temperature bundle") {
             testApp {
+                // given
                 val b = bundle("temperature")
                 val token = client.load(b).getValue("temperature")
                 val now = Instant.fromEpochSeconds(Clock.System.now().epochSeconds)
@@ -139,7 +140,10 @@ class ExamplesTest :
                     token,
                 )
 
+                // when
                 val w = client.widgets(b.dashboards.single(), mapOf("device" to "RPI_Pico_2w_1", "bucket" to "raw"), now - 1.hours, now)
+
+                // then
                 w.getValue("devices").associate { (dims, rows) -> dims.getValue("device").jsonPrimitive.content to rows } shouldBe
                     mapOf(
                         "RPI_Pico_2w_1" to listOf(listOf(t[0].toString(), t[2].toString(), "14.0")),
@@ -157,6 +161,7 @@ class ExamplesTest :
 
         test("epidemic bundle") {
             testApp {
+                // given
                 val b = bundle("epidemic")
                 val token = client.load(b).getValue("epidemic")
                 val sample = payload("epidemic")
@@ -172,6 +177,7 @@ class ExamplesTest :
                         """{"accepted":4,"duplicates":0}"""
                 }
 
+                // when
                 val w =
                     client.widgets(
                         b.dashboards.single(),
@@ -179,6 +185,8 @@ class ExamplesTest :
                         Instant.parse("2026-01-05T00:00:00Z"),
                         Instant.parse("2026-01-06T00:00:00Z"),
                     )
+
+                // then
                 val (runDims, runRows) = w.getValue("runs").single()
                 runDims.toString() shouldBe """{"run":"5","device":"RPI_Pico_2w_1"}"""
                 runRows shouldBe listOf(listOf("2026-01-05T15:30:00Z", "2026-01-05T15:32:00Z", "263.0", "3.0", "30.0"))

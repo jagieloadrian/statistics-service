@@ -27,6 +27,7 @@ class ImportExportTest :
 
         test("export then import into an empty DB reproduces the documents without credentials") {
             testApp {
+                // given
                 client.importFile("temperature") shouldBe """{"created":3,"updated":0,"errors":[]}"""
                 client.importFile("epidemic") shouldBe """{"created":3,"updated":0,"errors":[]}"""
                 val token =
@@ -38,12 +39,19 @@ class ImportExportTest :
                         .jsonObject
                         .getValue("token")
                         .jsonPrimitive.content
+
+                // when
                 val exported = client.get("/api/v2/export").bodyAsText()
+
+                // then
                 exported shouldNotContain token
                 exported shouldNotContain "token"
 
+                // when
                 Pg.truncate("records", "definitions", "source_credentials")
                 client.postJson("/api/v2/import", exported).json().toString() shouldBe """{"created":6,"updated":0,"errors":[]}"""
+
+                // then
                 client.get("/api/v2/export").bodyAsText() shouldBe exported
                 client.postJson("/api/v2/import", exported).json().toString() shouldBe """{"created":0,"updated":6,"errors":[]}"""
             }
@@ -51,10 +59,15 @@ class ImportExportTest :
 
         test("invalid bundle imports nothing") {
             testApp {
+                // given
                 val bundle = """{"version":1,
                 "datasets":[{"id":"ok","measures":[{"name":"v"}]}],
                 "sources":[{"id":"bad","dataset":"missing"}]}"""
+
+                // when
                 val r = client.postJson("/api/v2/import", bundle)
+
+                // then
                 r.status shouldBe HttpStatusCode.BadRequest
                 r
                     .json()
@@ -72,9 +85,14 @@ class ImportExportTest :
 
         test("removing a referenced measure or deleting a used dataset needs force") {
             testApp {
+                // given
                 client.importFile("temperature")
                 val withoutHumidity = """{"id":"temperature","measures":[{"name":"temperature"}],"dimensions":[{"name":"device"}]}"""
+
+                // when
                 val r = client.putJson("/api/v2/datasets/temperature", withoutHumidity)
+
+                // then
                 r.status shouldBe HttpStatusCode.Conflict
                 r
                     .json()
@@ -85,6 +103,7 @@ class ImportExportTest :
                     listOf("temperature/climate", "source temperature")
                 client.putJson("/api/v2/datasets/temperature?force=true", withoutHumidity).status shouldBe HttpStatusCode.OK
 
+                // given
                 val token =
                     client
                         .postJson(
@@ -99,13 +118,18 @@ class ImportExportTest :
                     """{"deviceId":"d","timestamp":"2099-01-01T00:00:00Z","temperature":1}""",
                     token,
                 )
+
+                // when and then
                 client.delete("/api/v2/datasets/temperature").status shouldBe HttpStatusCode.Conflict
                 client.delete("/api/v2/datasets/temperature?force=true").status shouldBe HttpStatusCode.OK
 
+                // given
                 client.putJson("/api/v2/datasets/temperature", withoutHumidity)
                 val query =
                     """{"dataset":"temperature","measures":[{"field":"temperature"}],"bucket":"raw",""" +
                         """"from":"2098-01-01T00:00:00Z","to":"2100-01-01T00:00:00Z"}"""
+
+                // when and then
                 client
                     .postJson("/api/v2/query", query)
                     .json()

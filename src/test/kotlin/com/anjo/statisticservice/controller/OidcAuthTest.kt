@@ -85,17 +85,26 @@ class OidcAuthTest :
 
         test("config lists the enabled sign-in methods") {
             testApp {
+                // when
                 val config = anonymous.get("/api/v2/auth/config").json().jsonObject
+
+                // then
                 config.str("local") shouldBe "true"
                 (config["oidc"] ?: JsonNull) shouldBe JsonNull
             }
             oidcApp {
+                // when
                 val config = anonymous.get("/api/v2/auth/config").json().jsonObject
+
+                // then
                 config.str("local") shouldBe "true"
                 config.getValue("oidc").jsonObject.str("name") shouldBe "Fake"
             }
             oidcApp(LOCAL_OFF) {
+                // when
                 val config = anonymous.get("/api/v2/auth/config").json().jsonObject
+
+                // then
                 config.str("local") shouldBe "false"
                 config.getValue("oidc").jsonObject.str("name") shouldBe "Fake"
             }
@@ -103,7 +112,10 @@ class OidcAuthTest :
 
         test("start returns the provider URL with state and an S256 challenge of the verifier") {
             oidcApp { idp ->
+                // when
                 val start = anonymous.postJson("/api/v2/auth/oidc/start", """{"redirectUri":"$REDIRECT"}""").json().jsonObject
+
+                // then
                 val url = Url(start.str("authorizationUrl"))
                 "${url.protocol.name}://${url.host}:${url.port}${url.encodedPath}" shouldBe "${idp.issuer}/authorize"
                 val p = url.parameters
@@ -120,7 +132,10 @@ class OidcAuthTest :
 
         test("first sign-in creates a viewer without password, the next one finds the same account") {
             oidcApp { idp ->
+                // when
                 val first = oidcSignIn().json().jsonObject
+
+                // then
                 val user = first.getValue("user").jsonObject
                 user.str("email") shouldBe "alice@test.local"
                 user.str("name") shouldBe "Alice"
@@ -135,6 +150,7 @@ class OidcAuthTest :
                         "client_id" to idp.clientId,
                     )
 
+                // when and then
                 val alice = withToken(first.str("token"))
                 alice
                     .get("/api/v2/me")
@@ -149,6 +165,7 @@ class OidcAuthTest :
                     .str("id") shouldBe user.str("id")
                 userCount() shouldBe 2
 
+                // when and then
                 alice.post("/api/v2/auth/logout").status shouldBe HttpStatusCode.NoContent
                 alice.get("/api/v2/me").status shouldBe HttpStatusCode.Unauthorized
             }
@@ -163,7 +180,10 @@ class OidcAuthTest :
 
         test("an unreachable provider is 503") {
             oidcApp { idp ->
+                // given
                 idp.stop()
+
+                // when and then
                 anonymous.postJson("/api/v2/auth/oidc/start", """{"redirectUri":"$REDIRECT"}""").status shouldBe
                     HttpStatusCode.ServiceUnavailable
                 oidcSignIn().status shouldBe HttpStatusCode.ServiceUnavailable
@@ -172,6 +192,7 @@ class OidcAuthTest :
         }
 
         test("broken ID tokens, refused codes and missing emails are 401 and create no user") {
+            // given
             val cases: Map<String, FakeOidcProvider.() -> Unit> =
                 mapOf(
                     "signed with another key" to { signWithOtherKey = true },
@@ -189,6 +210,8 @@ class OidcAuthTest :
                         userinfoClaims = mapOf("sub" to "alice-sub")
                     },
                 )
+
+            // when and then
             for ((case, breakIt) in cases) {
                 oidcApp { idp ->
                     idp.breakIt()
@@ -214,17 +237,23 @@ class OidcAuthTest :
 
         test("a local account is linked by verified email and keeps id, role and password") {
             oidcApp { idp ->
+                // given
                 val id =
                     client
                         .postJson("/api/v2/users", """{"email":"Alice@test.local","role":"editor","password":"alice-password"}""")
                         .json()
                         .jsonObject
                         .str("id")
+
+                // when and then
                 idp.claims = user("alice-sub", "alice@test.local", verified = false)
                 oidcSignIn().status shouldBe HttpStatusCode.Unauthorized
 
+                // when
                 idp.claims = user("alice-sub", "alice@test.local")
                 val linked = oidcSignIn().user()
+
+                // then
                 linked.str("id") shouldBe id
                 linked.str("role") shouldBe "editor"
                 linked.str("hasPassword") shouldBe "true"
@@ -234,8 +263,11 @@ class OidcAuthTest :
 
         test("an account linked to another identity is not relinked") {
             oidcApp { idp ->
+                // given
                 oidcSignIn().status shouldBe HttpStatusCode.OK
                 idp.claims = user("other-sub", "alice@test.local")
+
+                // when and then
                 oidcSignIn("code-2").status shouldBe HttpStatusCode.Unauthorized
                 userCount() shouldBe 2
             }
@@ -243,18 +275,24 @@ class OidcAuthTest :
 
         test("roles are managed in the app and survive the next sign-in") {
             oidcApp {
+                // given
                 val id = oidcSignIn().user().str("id")
                 client.putJson("/api/v2/users/$id", """{"role":"editor"}""").status shouldBe HttpStatusCode.OK
+
+                // when and then
                 oidcSignIn("code-2").user().str("role") shouldBe "editor"
             }
         }
 
         test("the only admin cannot be demoted or deleted when it signs in through the provider") {
             oidcApp(PROVIDER_ADMIN) { idp ->
+                // given
                 idp.claims = user("boss-sub", "boss@test.local")
                 val answer = oidcSignIn().json().jsonObject
                 val id = answer.getValue("user").jsonObject.str("id")
                 val boss = withToken(answer.str("token"))
+
+                // when and then
                 boss.putJson("/api/v2/users/$id", """{"role":"editor"}""").status shouldBe HttpStatusCode.Conflict
                 boss.delete("/api/v2/users/$id").status shouldBe HttpStatusCode.Conflict
             }
@@ -262,11 +300,18 @@ class OidcAuthTest :
 
         test("deleting a provider user ends their session; the next sign-in is a new viewer") {
             oidcApp {
+                // given
                 val answer = oidcSignIn().json().jsonObject
                 val id = answer.getValue("user").jsonObject.str("id")
+
+                // when and then
                 client.delete("/api/v2/users/$id").status shouldBe HttpStatusCode.NoContent
                 withToken(answer.str("token")).get("/api/v2/me").status shouldBe HttpStatusCode.Unauthorized
+
+                // when
                 val again = oidcSignIn("code-2").user()
+
+                // then
                 again.str("id") shouldNotBe id
                 again.str("role") shouldBe "viewer"
             }
@@ -291,7 +336,10 @@ class OidcAuthTest :
 
         test("a provider-only user has no password to change") {
             oidcApp {
+                // given
                 val alice = withToken(oidcSignIn().json().jsonObject.str("token"))
+
+                // when and then
                 alice.putJson("/api/v2/me/password", """{"current":"whatever-1","new":"long-enough-1"}""").status shouldBe
                     HttpStatusCode.Forbidden
             }
@@ -303,10 +351,13 @@ class OidcAuthTest :
 
         test("devices keep their source tokens when only the provider signs users in") {
             oidcApp(PROVIDER_ADMIN + LOCAL_OFF) { idp ->
+                // given
                 idp.claims = user("boss-sub", "boss@test.local")
                 val session = oidcSignIn().json().jsonObject.str("token")
                 val source = withToken(session).climateSource()
                 val payload = """{"deviceId":"pico-1","timestamp":"2099-01-01T00:00:00Z","temperature":21.5}"""
+
+                // when and then
                 anonymous.postJson("/api/v2/ingest/climate", payload, source).status shouldBe HttpStatusCode.OK
                 anonymous.postJson("/api/v2/ingest/climate", payload, session).status shouldBe HttpStatusCode.Unauthorized
             }
@@ -314,27 +365,37 @@ class OidcAuthTest :
 
         test("provider calls carry the trace id of the incoming request") {
             oidcApp { idp ->
+                // given
                 val traceId = "4bf92f3577b34da6a3ce929d0e0e4736"
+
+                // when
                 anonymous
                     .post("/api/v2/auth/oidc/start") {
                         contentType(ContentType.Application.Json)
                         header("traceparent", "00-$traceId-00f067aa0ba902b7-01")
                         setBody("""{"redirectUri":"$REDIRECT"}""")
                     }.status shouldBe HttpStatusCode.OK
+
+                // then
                 idp.lastTraceparent.shouldNotBeNull() shouldStartWith "00-$traceId-"
             }
         }
 
         test("email and name come from userinfo when the ID token has none") {
             oidcApp { idp ->
+                // given
                 idp.claims = mapOf("sub" to "bob-sub")
                 idp.userinfoClaims = user("bob-sub", "bob@test.local", name = "Bob")
+
+                // when
                 val user =
                     oidcSignIn()
                         .json()
                         .jsonObject
                         .getValue("user")
                         .jsonObject
+
+                // then
                 user.str("email") shouldBe "bob@test.local"
                 user.str("name") shouldBe "Bob"
             }

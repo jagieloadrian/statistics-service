@@ -23,7 +23,10 @@ class UserServiceTest :
         suspend fun failure(block: suspend () -> Unit) = shouldThrow<ApiException> { block() }
 
         test("emails are stored normalized and are unique regardless of case") {
+            // when
             val ann = users.createUser("  Ann@Example.COM ", "Ann", EDITOR, "password-123")
+
+            // then
             ann.email shouldBe "ann@example.com"
             failure { users.createUser("ANN@example.com", "Other", VIEWER, "password-123") }.message shouldBe "email: already in use"
             users.setPrefs(ann.id, Prefs(theme = "dark")).prefs.theme shouldBe "dark"
@@ -31,7 +34,10 @@ class UserServiceTest :
         }
 
         test("updates keep what is not given and unknown users are not found") {
+            // given
             val ann = users.createUser("ann@example.com", "Ann", EDITOR, "password-123")
+
+            // when and then
             users.updateUser(ann.id, null, null).let {
                 it.name shouldBe "Ann"
                 it.role shouldBe EDITOR
@@ -48,7 +54,10 @@ class UserServiceTest :
         }
 
         test("the last admin can be renamed but not demoted or deleted") {
+            // given
             val root = users.createUser("root@example.com", "Root", ADMIN, "password-123")
+
+            // when and then
             users.updateUser(root.id, "Boss", null).name shouldBe "Boss"
             users.updateUser(root.id, null, ADMIN).role shouldBe ADMIN
             failure { users.updateUser(root.id, null, EDITOR) }.message shouldBe "The last admin cannot be demoted or deleted"

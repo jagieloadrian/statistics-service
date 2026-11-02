@@ -33,7 +33,10 @@ class ApplicationTest :
 
         test("liveness answers without touching dependencies") {
             testApp {
+                // when
                 val response = anonymous.get("/health/live")
+
+                // then
                 response.status shouldBe HttpStatusCode.OK
                 response
                     .json()
@@ -50,17 +53,27 @@ class ApplicationTest :
         }
 
         test("an unreachable database is reported as not ready") {
+            // given
             val db = Pg.db()
             db.isReachable() shouldBe true
             db.tx { (connection.connection as Connection).networkTimeout } shouldBe 60_000
+
+            // when
             db.close()
+
+            // then
             db.isReachable() shouldBe false
         }
 
         test("prometheus metrics are exposed outside the api") {
             testApp {
+                // given
                 anonymous.get("/health/live")
+
+                // when
                 val response = anonymous.get("/metrics")
+
+                // then
                 response.status shouldBe HttpStatusCode.OK
                 response.bodyAsText() shouldContain "ktor_http_server_requests_seconds_count"
             }
@@ -68,6 +81,7 @@ class ApplicationTest :
 
         test("stopping waits for in-flight calls to finish") {
             testApplication {
+                // given
                 lateinit var app: Application
                 application {
                     app = this
@@ -83,8 +97,12 @@ class ApplicationTest :
                 coroutineScope {
                     val response = async { client.get("/slow") }
                     delay(100.milliseconds)
+
+                    // when
                     val waited =
                         measureTime { withContext(Dispatchers.IO) { app.monitor.raise(ApplicationStopPreparing, app.environment) } }
+
+                    // then
                     waited shouldBeGreaterThan 250.milliseconds
                     response.await().bodyAsText() shouldBe "done"
                 }

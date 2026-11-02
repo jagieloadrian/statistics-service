@@ -8,7 +8,10 @@ import io.kotest.matchers.shouldNotBe
 class PasswordsTest :
     FunSpec({
         test("a hash verifies only its own password and is salted") {
+            // when
             val hash = Passwords.hash("correct horse")
+
+            // then
             Passwords.verify("correct horse", hash) shouldBe true
             Passwords.verify("wrong horse", hash) shouldBe false
             Passwords.hash("correct horse") shouldNotBe hash
@@ -20,7 +23,10 @@ class PasswordsTest :
         }
 
         test("hashes of another scheme or shape are refused") {
+            // given
             val (_, iterations, salt, key) = Passwords.hash("pw").split('$')
+
+            // when and then
             listOf("garbage", "bcrypt\$$iterations\$$salt\$$key", "pbkdf2\$$iterations\$$salt").forEach { stored ->
                 withClue(stored) { Passwords.verify("pw", stored) shouldBe false }
             }

@@ -34,7 +34,10 @@ class OidcTest :
         suspend fun failure(block: suspend () -> Unit) = shouldThrow<ApiException> { block() }
 
         test("a public client names itself in the form, a confidential one authenticates instead") {
+            // given
             val public = oidc()
+
+            // when and then
             public.name shouldBe "Fake"
             public.issuer shouldBe idp.issuer
             public.redeem() shouldBe OidcClaims("alice-sub", "alice@test.local", true, "Alice")
@@ -45,18 +48,32 @@ class OidcTest :
         }
 
         test("an ID token without a subject is invalid") {
+            // given
             idp.claims = mapOf("email" to "alice@test.local")
+
+            // when and then
             failure { oidc().redeem() }.message shouldBe "Invalid ID token"
         }
 
         test("userinfo fills in email and name only for the same subject") {
+            // given
             idp.claims = FakeOidcProvider.user("alice-sub", null)
             idp.userinfoClaims = mapOf("sub" to "alice-sub", "email" to "alice@test.local", "name" to "Alice U")
+
+            // when and then
             oidc().redeem() shouldBe OidcClaims("alice-sub", "alice@test.local", false, "Alice U")
+
+            // given
             idp.claims = FakeOidcProvider.user("alice-sub", null, name = "Alice")
             idp.userinfoClaims = FakeOidcProvider.user("alice-sub", "alice@test.local", name = "Other")
+
+            // when and then
             oidc().redeem() shouldBe OidcClaims("alice-sub", "alice@test.local", true, "Alice")
+
+            // given
             idp.userinfoClaims = FakeOidcProvider.user("mallory-sub", "mallory@test.local")
+
+            // when and then
             failure { oidc().redeem() }.message shouldBe "Provider answered for another user"
         }
 

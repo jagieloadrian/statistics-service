@@ -19,7 +19,10 @@ class AppConfigLoaderTest :
             shouldThrow<IllegalStateException> { MapApplicationConfig(*settings).toAppConfig() }.message.orEmpty()
 
         test("database settings alone give local sign-in without OIDC, CORS or proxy trust") {
+            // when
             val config = load()
+
+            // then
             config.db shouldBe DbConfig("jdbc:postgresql://db/stats", "stats", "")
             config.localSignIn shouldBe true
             config.oidc shouldBe null
@@ -29,6 +32,7 @@ class AppConfigLoaderTest :
         }
 
         test("every setting is read, the provider name defaults to SSO and CORS hosts are trimmed") {
+            // when
             val config =
                 load(
                     "ktor.auth.local" to "false",
@@ -41,6 +45,8 @@ class AppConfigLoaderTest :
                     "ktor.cors.hosts" to " ui.example.com, ,localhost:3000 ",
                     "ktor.deployment.trustProxy" to "true",
                 )
+
+            // then
             config.localSignIn shouldBe false
             config.adminEmail shouldBe "root@example.com"
             config.adminPassword shouldBe "secret-password"
@@ -53,6 +59,7 @@ class AppConfigLoaderTest :
         }
 
         test("all problems are reported together") {
+            // when
             val message =
                 problems(
                     "ktor.db.url" to "jdbc:mysql://db/stats",
@@ -61,6 +68,8 @@ class AppConfigLoaderTest :
                     "ktor.auth.oidc.issuer" to "https://id.example.com",
                     "ktor.deployment.trustProxy" to "1",
                 )
+
+            // then
             message shouldContain "DB_URL must be a jdbc:postgresql:// URL"
             message shouldContain "DB_USER is required"
             message shouldContain "AUTH_LOCAL must be true or false"

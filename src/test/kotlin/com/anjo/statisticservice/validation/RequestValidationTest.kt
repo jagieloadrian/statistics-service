@@ -40,7 +40,10 @@ class RequestValidationTest :
 
         test("a query without measures, with an unknown bucket and reversed range is rejected") {
             testApp {
+                // given
                 val query = """{"dataset":"climate","bucket":"2w","from":"2026-10-02T00:00:00Z","to":"2026-10-01T00:00:00Z"}"""
+
+                // when and then
                 client.postJson("/api/v2/query", query).shouldBeBadRequestWith(
                     "measures: at least one is required",
                     "bucket: auto | raw | none | 1m | 5m | 10m | 30m | 1h | 6h | 1d",
@@ -80,9 +83,14 @@ class RequestValidationTest :
 
         test("malformed path parameters and bodies answer 400") {
             testApp {
+                // when and then
                 client.delete("/api/v2/users/abc").status shouldBe HttpStatusCode.BadRequest
                 client.postJson("/api/v2/users", """{"email":""").status shouldBe HttpStatusCode.BadRequest
+
+                // when
                 val leak = anonymous.postJson("/api/v2/auth/login", """{"email":"a@b.c","password":"hunter2-secret-pass"""")
+
+                // then
                 leak.status shouldBe HttpStatusCode.BadRequest
                 leak.bodyAsText() shouldNotContain "hunter2-secret-pass"
             }

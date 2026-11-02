@@ -23,7 +23,10 @@ class DefinitionRoutesTest :
 
         test("put, get, list and delete dataset and source") {
             testApp {
+                // given
                 client.climateSource()
+
+                // when and then
                 client
                     .get("/api/v2/datasets")
                     .json()
@@ -42,6 +45,7 @@ class DefinitionRoutesTest :
                     .jsonPrimitive.content shouldBe "climate"
                 client.get("/api/v2/sources/climate").bodyAsText() shouldNotContain "token"
 
+                // when and then
                 client.delete("/api/v2/sources/climate").status shouldBe HttpStatusCode.OK
                 client.get("/api/v2/sources/climate").status shouldBe HttpStatusCode.NotFound
                 client.delete("/api/v2/datasets/climate").status shouldBe HttpStatusCode.OK
@@ -63,7 +67,10 @@ class DefinitionRoutesTest :
 
         test("mapping-test returns records and errors and stores nothing") {
             testApp {
+                // given
                 client.climateSource()
+
+                // when
                 val ok =
                     client
                         .postJson(
@@ -71,6 +78,8 @@ class DefinitionRoutesTest :
                             """{"payload":{"deviceId":"pico-1","timestamp":"2026-10-27T10:00:00Z","temperature":21}}""",
                         ).json()
                         .jsonObject
+
+                // then
                 ok
                     .getValue("records")
                     .jsonArray
@@ -79,6 +88,7 @@ class DefinitionRoutesTest :
                     .toString() shouldBe """{"device":"pico-1"}"""
                 ok.getValue("errors").jsonArray.size shouldBe 0
 
+                // when
                 val bad =
                     client
                         .postJson(
@@ -86,9 +96,12 @@ class DefinitionRoutesTest :
                             """{"payload":{"deviceId":"pico-1","timestamp":"2026-10-27T10:00:00Z"}}""",
                         ).json()
                         .jsonObject
+
+                // then
                 bad.getValue("errors").jsonArray.map { it.jsonPrimitive.content } shouldBe
                     listOf("vals.temperature: missing at path 'temperature'")
 
+                // then
                 val query =
                     """{"dataset":"climate","measures":[{"field":"temperature"}],"bucket":"raw",""" +
                         """"from":"2026-10-27T00:00:00Z","to":"2026-10-28T00:00:00Z"}"""
@@ -103,7 +116,10 @@ class DefinitionRoutesTest :
 
         test("credential rotation returns a new token each time") {
             testApp {
+                // given
                 val first = client.climateSource()
+
+                // when
                 val second =
                     client
                         .postJson("/api/v2/sources/climate/credential", "")
@@ -111,6 +127,8 @@ class DefinitionRoutesTest :
                         .jsonObject
                         .getValue("token")
                         .jsonPrimitive.content
+
+                // then
                 second shouldNotBe first
                 client.postJson("/api/v2/sources/nope/credential", "").status shouldBe HttpStatusCode.NotFound
             }
