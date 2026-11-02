@@ -17,7 +17,17 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     steps:
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        if: github.ref == 'refs/heads/main' && vars.DEPLOY_APP_CLIENT_ID != ''
+        with:
+          client-id: ${{ vars.DEPLOY_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DEPLOY_APP_PRIVATE_KEY }}
+          permission-contents: write
+
       - uses: actions/checkout@v7
+        with:
+          token: ${{ steps.app-token.outputs.token || github.token }}
 
       - uses: actions/setup-java@v6
         with:
@@ -60,5 +70,5 @@ jobs:
           sed -i -E "s#(image: ${{ env.IMAGE }}):[^[:space:]]+#\1:${{ steps.tag.outputs.tag }}#" .devops/helm/release.yaml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -am "chore(deploy): ${{ steps.tag.outputs.tag }}"
+          git commit -am "chore(deploy): ${{ steps.tag.outputs.tag }} [skip ci]"
           git pull --rebase && git push
