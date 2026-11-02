@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - release.yaml
+# Sekrety jako values Helma (secretEnv: ...) dla valuesFrom w release.yaml.
+# secrets.sops.yaml jest zaszyfrowany SOPS (age), Flux odszyfrowuje przy budowaniu.
+secretGenerator:
+  - name: statistics-service-values
+    files: [values.yaml=secrets.sops.yaml]
+    options:
+      disableNameSuffixHash: true # nazwa stała, bo czyta ją HelmRelease
+      labels:
+        reconcile.fluxcd.io/watch: Enabled # zmiana sekretu od razu odpala upgrade HelmRelease
