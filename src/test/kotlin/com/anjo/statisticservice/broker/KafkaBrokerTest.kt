@@ -8,6 +8,7 @@ class KafkaBrokerTest :
     FunSpec({
         test("SASL settings build a consumer, quotes and backslashes in the password included") {
             listOf("PLAIN", "SCRAM-SHA-512").forEach { mechanism ->
+                // given
                 val config =
                     KafkaConfig(
                         bootstrapServers = "localhost:1",
@@ -18,6 +19,8 @@ class KafkaBrokerTest :
                         user = "statistics-service",
                         password = """pa"ss\\word""",
                     )
+
+                // when and then
                 shouldNotThrowAny { KafkaBroker(config).close() }
             }
         }

@@ -1,4 +1,3 @@
-# Dev users. Passwords: admin / admin-dev-password, alice / alice-dev-password
 users:
   admin:
     displayname: Admin

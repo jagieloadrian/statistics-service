@@ -14,11 +14,12 @@ Shapes: [contracts/api-v2.md](./contracts/api-v2.md),
 docker compose -f .devops/postgres-compose/compose.yaml up -d
 ADMIN_EMAIL=admin@local ADMIN_PASSWORD='change-me-now' ./gradlew run
 API=http://localhost:8080/api/v2
-# from S5 on (before S5 omit the header):
 TOKEN=$(curl -s $API/auth/login -H 'Content-Type: application/json' \
   -d '{"email":"admin@local","password":"change-me-now"}' | jq -r .token)
 AUTH="Authorization: Bearer $TOKEN"
 ```
+
+The login and the `AUTH` header apply from S5 on; before S5 omit the header.
 
 ## §0 S0 — old stack gone
 

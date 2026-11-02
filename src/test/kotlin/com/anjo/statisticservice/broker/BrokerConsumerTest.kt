@@ -46,12 +46,17 @@ class BrokerConsumerTest :
         afterSpec { db.close() }
 
         test("closing gives up after its timeout while a message is still being handled") {
+            // given
             val broker = HangingBroker()
             val timeout = 300.milliseconds
             val consumer = BrokerConsumer("hanging", { broker }, ingest, status, SimpleMeterRegistry(), timeout)
             consumer.start()
             broker.polling.await(5, TimeUnit.SECONDS) shouldBe true
+
+            // when
             val took = measureTime { consumer.close() }
+
+            // then
             took shouldBeGreaterThanOrEqualTo timeout
             took shouldBeLessThan 2.seconds
             broker.released.countDown()

@@ -48,8 +48,13 @@ class IngestRoutesTest :
 
         test("stores a payload and counts a resend as duplicate") {
             testApp {
+                // given
                 val token = client.climateSource()
+
+                // when
                 val first = client.postJson("/api/v2/ingest/climate", payload, token)
+
+                // then
                 first.status shouldBe HttpStatusCode.OK
                 first.json().toString() shouldBe """{"accepted":1,"duplicates":0}"""
                 client.postJson("/api/v2/ingest/climate", payload, token).json().toString() shouldBe """{"accepted":0,"duplicates":1}"""
@@ -58,11 +63,13 @@ class IngestRoutesTest :
 
         test("dimension values page by limit and offset and ignore unreadable numbers") {
             testApp {
+                // given
                 val token = client.climateSource()
                 listOf("pico-1", "pico-2").forEach {
                     client.postJson("/api/v2/ingest/climate", payload.replace("pico-1", it), token).status shouldBe HttpStatusCode.OK
                 }
 
+                // when and then
                 suspend fun values(query: String) =
                     client
                         .get("/api/v2/datasets/climate/dimensions/device/values$query")
@@ -82,10 +89,17 @@ class IngestRoutesTest :
 
         test("missing or rotated token gives 401, unknown source 404") {
             testApp {
+                // given
                 val old = client.climateSource()
+
+                // when and then
                 client.postJson("/api/v2/ingest/climate", payload).status shouldBe HttpStatusCode.Unauthorized
                 anonymous.postJson("/api/v2/ingest/climate", payload).status shouldBe HttpStatusCode.Unauthorized
+
+                // when
                 client.postJson("/api/v2/sources/climate/credential", "")
+
+                // then
                 client.postJson("/api/v2/ingest/climate", payload, old).status shouldBe HttpStatusCode.Unauthorized
                 client.postJson("/api/v2/ingest/nope", payload, old).status shouldBe HttpStatusCode.NotFound
             }
@@ -93,8 +107,13 @@ class IngestRoutesTest :
 
         test("constraint failure gives 400 with reasons and shows in status") {
             testApp {
+                // given
                 val token = client.climateSource()
+
+                // when
                 val r = client.postJson("/api/v2/ingest/climate", """{"deviceId":"pico-1","timestamp":"2099-01-01T00:00:00Z"}""", token)
+
+                // then
                 r.status shouldBe HttpStatusCode.BadRequest
                 r
                     .json()
@@ -104,6 +123,7 @@ class IngestRoutesTest :
                     .map { it.jsonPrimitive.content } shouldContain
                     "vals.temperature: missing at path 'temperature'"
 
+                // then
                 val status = client.get("/api/v2/sources/climate/status").json().jsonObject
                 status
                     .getValue("rejected")
@@ -124,16 +144,24 @@ class IngestRoutesTest :
 
         test("a pubsub source refuses HTTP push with 409") {
             testApp {
+                // given
                 val token = client.climateSource(PUBSUB_CLIMATE_SOURCE)
+
+                // when and then
                 client.postJson("/api/v2/ingest/climate", payload, token).status shouldBe HttpStatusCode.Conflict
             }
         }
 
         test("paused source gives 503 with Retry-After") {
             testApp {
+                // given
                 val token = client.climateSource()
                 client.putJson("/api/v2/sources/climate", CLIMATE_SOURCE.replaceFirst("{", """{"paused":true,"""))
+
+                // when
                 val r = client.postJson("/api/v2/ingest/climate", payload, token)
+
+                // then
                 r.status shouldBe HttpStatusCode.ServiceUnavailable
                 r.headers[HttpHeaders.RetryAfter] shouldNotBe null
             }
@@ -141,11 +169,16 @@ class IngestRoutesTest :
 
         test("over the rate limit gives 429") {
             testApp {
+                // given
                 val token = client.climateSource()
+
+                // when
                 val statuses =
                     coroutineScope {
                         (1..80).map { async { client.postJson("/api/v2/ingest/climate", payload, token) } }.awaitAll()
                     }
+
+                // then
                 val limited = statuses.filter { it.status == HttpStatusCode.TooManyRequests }
                 (limited.size >= 30) shouldBe true
                 limited.first().headers[HttpHeaders.RetryAfter] shouldNotBe null

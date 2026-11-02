@@ -45,11 +45,11 @@ def push(records):
             with urllib.request.urlopen(req, timeout=10) as r:
                 return json.load(r)
         except urllib.error.HTTPError as e:
-            if e.code in (429, 503):  # rate limited / source paused: wait and retry the same records
+            if e.code in (429, 503):
                 time.sleep(int(e.headers.get("Retry-After", "5")))
-            elif e.code in (401, 404):  # wrong token or source id: retrying cannot help
+            elif e.code in (401, 404):
                 raise SystemExit(f"{e.code}: {e.read().decode()}")
-            else:  # 400: the platform rejected the records, nothing was stored
+            else:
                 return {"rejected": json.loads(e.read() or b"{}").get("details")}
 
 
@@ -59,7 +59,6 @@ def main():
             with urllib.request.urlopen(SOURCE_URL, timeout=10) as r:
                 print(push(to_records(json.load(r))), flush=True)
         except (urllib.error.URLError, OSError, ValueError) as e:
-            # ponytail: a failed poll or push is skipped, not buffered; add a local queue if gaps matter
             print(f"skipped: {e}", flush=True)
         time.sleep(INTERVAL)
 

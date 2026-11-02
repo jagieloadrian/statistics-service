@@ -45,7 +45,10 @@ class IngestServiceTest :
         ) = ingest.ingest(sourceId, token?.let { "Bearer $it" }, PUSH_CHANNEL) { payload }
 
         test("a source token is required and must match") {
+            // given
             val token = defs.rotateCredential("pico")
+
+            // when and then
             listOf(null, "", token + "x").forEach { candidate ->
                 failure { push("pico", candidate, """{"t":1}""") }.status shouldBe HttpStatusCode.Unauthorized
             }
@@ -55,27 +58,42 @@ class IngestServiceTest :
         }
 
         test("paused sources and sources whose dataset is gone refuse payloads") {
+            // given
             val token = defs.rotateCredential("pico")
             defs.putSource(source.copy(paused = true))
+
+            // when and then
             failure { push("pico", token, "{}") }.status shouldBe HttpStatusCode.ServiceUnavailable
+
+            // when
             defs.putSource(source)
             defs.deleteDataset("climate", force = true)
+
+            // then
             failure { push("pico", token, "{}") }.message shouldBe "Dataset 'climate' no longer exists"
             failure { ingest.mappingTest("pico", MappingTestRequest(JsonPrimitive(1))) }.message shouldBe "Unknown dataset 'climate'"
         }
 
         test("malformed JSON and unmappable payloads are rejected and remembered") {
+            // given
             val token = defs.rotateCredential("pico")
+
+            // when and then
             failure { push("pico", token, "{not json") }.details.single() shouldStartWith "malformed JSON: "
             failure { push("pico", token, """{"t":"warm"}""") }.details shouldBe
                 listOf("vals.temp: expected a number, got 'warm'")
+
+            // then
             val view = status.view(source)
             view.rejected shouldBe Counts(2, 2)
             view.rejections.map { it.excerpt } shouldBe listOf("""{"t":"warm"}""", "{not json")
         }
 
         test("a mapping test uses the stored mapping unless one is given and reports errors instead of throwing") {
+            // given
             val payload = Json.parseToJsonElement("""{"t":3,"x":"oops"}""")
+
+            // when and then
             ingest.mappingTest("pico", MappingTestRequest(payload)).let {
                 it.errors shouldBe emptyList()
                 it.records.single().vals shouldBe mapOf("temp" to JsonPrimitive(3.0))

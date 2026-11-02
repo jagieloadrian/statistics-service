@@ -87,7 +87,10 @@ class DefinitionServiceTest :
         }
 
         test("removing a referenced name needs force, other changes save directly") {
+            // given
             seed(principal("admin@x.io", ADMIN))
+
+            // when and then
             failure { defs.putDataset(climate.copy(measures = listOf(Measure("hum"), Measure("gen"))), force = false) }.details shouldBe
                 listOf("home/t", "home/g")
             failure { defs.putDataset(climate.copy(measures = listOf(Measure("temp"), Measure("hum"))), force = false) }.details shouldBe
@@ -106,7 +109,10 @@ class DefinitionServiceTest :
         }
 
         test("a dataset in use is deleted only with force, unknown definitions are not found") {
+            // given
             seed(principal("admin@x.io", ADMIN))
+
+            // when and then
             failure { defs.deleteDataset("climate", force = false) }.details shouldBe
                 listOf("home/t", "home/g", "home/\$dev", "source pico")
             failure { defs.deleteDataset("missing", force = false) }.status shouldBe HttpStatusCode.NotFound
@@ -120,7 +126,10 @@ class DefinitionServiceTest :
         }
 
         test("a source without a credential accepts no token, a rotated one only its own") {
+            // given
             seed(principal("admin@x.io", ADMIN))
+
+            // when and then
             defs.verifyCredential("pico", "anything") shouldBe false
             val token = defs.rotateCredential("pico")
             defs.verifyCredential("pico", token) shouldBe true
@@ -129,12 +138,15 @@ class DefinitionServiceTest :
         }
 
         test("only the owning editor or an admin changes, shares or deletes a dashboard") {
+            // given
             val admin = principal("admin@x.io", ADMIN)
             val owner = principal("owner@x.io", EDITOR)
             val stranger = principal("stranger@x.io", EDITOR)
             val viewer = principal("viewer@x.io", VIEWER)
             seed(admin)
             val mine = Dashboard(id = "mine", visibility = "users", widgets = listOf(widget("t", "climate", QueryMeasure("temp"))))
+
+            // when and then
             defs.putDashboard(owner, mine)
             defs.putDashboard(owner, mine.copy(title = "Mine"))
             failure { defs.putDashboard(stranger, mine) }.message shouldBe "Only the owner or an admin can change 'mine'"
@@ -142,6 +154,7 @@ class DefinitionServiceTest :
             failure { defs.putDashboard(owner, Dashboard(id = "home")) }.status shouldBe HttpStatusCode.Forbidden
             defs.putDashboard(admin, mine.copy(title = "By admin"))
 
+            // when and then
             failure { defs.dashboardDocument(viewer, "mine") }.status shouldBe HttpStatusCode.Forbidden
             defs.shares(owner, "mine") shouldBe emptyList()
             defs.setShares(owner, "mine", listOf(viewer.id))
@@ -151,14 +164,18 @@ class DefinitionServiceTest :
             failure { defs.shares(stranger, "mine") }.message shouldBe "Not allowed for your role"
             failure { defs.setShares(owner, "nowhere", emptyList()) }.status shouldBe HttpStatusCode.NotFound
 
+            // when and then
             failure { defs.deleteDashboard(stranger, "mine") }.message shouldBe "Only the owner or an admin can delete 'mine'"
             defs.deleteDashboard(owner, "mine")
             failure { defs.deleteDashboard(admin, "mine") }.message shouldBe "Unknown dashboard 'mine'"
         }
 
         test("dashboards may only chart datasets that exist") {
+            // given
             val admin = principal("admin@x.io", ADMIN)
             seed(admin)
+
+            // when
             val e =
                 failure {
                     defs.putDashboard(
@@ -166,20 +183,29 @@ class DefinitionServiceTest :
                         Dashboard(id = "lost", widgets = listOf(widget("a", "nowhere"), widget("b", "nowhere"), widget("c", "climate"))),
                     )
                 }
+
+            // then
             e.message shouldBe "Unknown dataset(s) in widgets"
             e.details shouldBe listOf("nowhere")
         }
 
         test("viewers reach only datasets used by dashboards they can see") {
+            // given
             val admin = principal("admin@x.io", ADMIN)
             val viewer = principal("viewer@x.io", VIEWER)
             defs.putDataset(climate, force = false)
             defs.putDataset(other, force = false)
+
+            // when and then
             failure { defs.accessibleDataset(viewer, "climate") }.status shouldBe HttpStatusCode.Forbidden
+
+            // when
             defs.putDashboard(
                 admin,
                 Dashboard(id = "pub", visibility = "all", widgets = listOf(widget("t", "climate", QueryMeasure("temp")))),
             )
+
+            // then
             defs.accessibleDataset(viewer, "climate") shouldBe climate
             defs.queryableDataset(viewer, "climate") shouldBe climate
             failure { defs.datasetDocument(viewer, "other") }.status shouldBe HttpStatusCode.Forbidden
@@ -193,7 +219,10 @@ class DefinitionServiceTest :
         }
 
         test("an import with another bundle version changes nothing; imported dashboards have no owner") {
+            // given
             val editor = principal("editor@x.io", EDITOR)
+
+            // when and then
             defs.import(Bundle(version = 2, datasets = listOf(climate))) shouldBe ImportResult(0, 0, listOf("version: must be 1"))
             defs.datasets() shouldBe emptyList()
             defs.import(Bundle(datasets = listOf(climate), dashboards = listOf(Dashboard(id = "shared", visibility = "all")))) shouldBe

@@ -81,12 +81,17 @@ class BrokerIngestTest :
         ).forEach { broker ->
             context(broker.name) {
                 test("stores a message once even when it is delivered twice") {
+                    // given
                     val channel = broker.newChannel()
                     testApp(channel.config) {
                         val token = client.climateSource(PUBSUB_CLIMATE_SOURCE)
                         eventually(TIMEOUT) { channel.ready() shouldBe true }
+
+                        // when
                         repeat(2) { channel.publish("climate", "Bearer $token", PAYLOAD) }
                         eventually(TIMEOUT) { channel.settled() shouldBe true }
+
+                        // then
                         client.storedRows() shouldBe 1
                         client
                             .status("climate")
@@ -98,6 +103,7 @@ class BrokerIngestTest :
                 }
 
                 test("acks messages it cannot accept and records why") {
+                    // given
                     val channel = broker.newChannel()
                     testApp(channel.config) {
                         val token = client.climateSource(PUBSUB_CLIMATE_SOURCE)
@@ -111,12 +117,16 @@ class BrokerIngestTest :
                                 .getValue("token")
                                 .jsonPrimitive.content
                         eventually(TIMEOUT) { channel.ready() shouldBe true }
+
+                        // when
                         channel.publish("climate", "Bearer wrong", PAYLOAD)
                         channel.publish("climate", null, PAYLOAD)
                         channel.publish("climate", "Bearer $token", "{")
                         channel.publish("climate-push", "Bearer $pushToken", PAYLOAD)
                         channel.publish("nope", "Bearer $token", PAYLOAD)
                         eventually(TIMEOUT) { channel.settled() shouldBe true }
+
+                        // then
                         client.storedRows() shouldBe 0
                         val reasons = client.status("climate").rejectionReasons()
                         reasons.count { it == "Missing or invalid source token" } shouldBe 2
@@ -129,15 +139,20 @@ class BrokerIngestTest :
                 }
 
                 test("keeps a message until the database can store it") {
+                    // given
                     val channel = broker.newChannel()
                     testApp(channel.config) {
                         val token = client.climateSource(PUBSUB_CLIMATE_SOURCE)
                         eventually(TIMEOUT) { channel.ready() shouldBe true }
+
+                        // when
                         whileRecordsCannotBeWritten {
                             channel.publish("climate", "Bearer $token", PAYLOAD)
                             delay(DATABASE_OUTAGE)
                         }
                         eventually(TIMEOUT) { channel.settled() shouldBe true }
+
+                        // then
                         client.storedRows() shouldBe 1
                         anonymous.get("/metrics").bodyAsText() shouldNotContain
                             """statistics_broker_messages_total{broker="${broker.name}",outcome="retried"} 0.0"""

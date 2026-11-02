@@ -24,9 +24,15 @@ class TracingTest :
         }
 
         test("the outgoing traceparent carries the trace id from the MDC") {
+            // given
             MDC.remove(TRACE_ID_MDC_KEY)
+
+            // when and then
             currentTraceparent() shouldBe null
+
+            // when
             MDC.putCloseable(TRACE_ID_MDC_KEY, id).use {
+                // then
                 currentTraceparent().orEmpty() shouldMatch Regex("^00-$id-[0-9a-f]{16}-01$")
                 traceIdOf(currentTraceparent()) shouldBe id
             }

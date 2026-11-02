@@ -52,6 +52,7 @@ class AccessControlTest :
 
         test("roles and dashboard visibility") {
             testApp {
+                // given
                 client.postJson("/api/v2/import", File("definitions/temperature.json").readText()) expect OK
                 client.putJson("/api/v2/datasets/secret", """{"id":"secret","measures":[{"name":"temperature"}]}""") expect OK
                 val editor = userClient("editor@test.local", EDITOR)
@@ -70,10 +71,12 @@ class AccessControlTest :
                         .getValue("id")
                         .jsonPrimitive.content
 
+                // when and then
                 anonymous.get("/api/v2/dashboards") expect Unauthorized
                 anonymous.postJson("/api/v2/query", query("temperature")) expect Unauthorized
                 anonymous.get("/api/v2/export") expect Unauthorized
 
+                // when and then
                 editor.putJson("/api/v2/dashboards/ed-private", dashboard("ed-private", "private", "secret")) expect OK
                 editor.putJson("/api/v2/dashboards/ed-shared", dashboard("ed-shared", "users", "temperature")) expect OK
                 editor.putJson("/api/v2/dashboards/ed-shared/shares", """{"userIds":[$viewerId]}""") expect OK
@@ -94,6 +97,7 @@ class AccessControlTest :
                     .getValue("sources")
                     .jsonArray.size shouldBe 0
 
+                // when and then
                 viewer.ids("/api/v2/dashboards") shouldBe listOf("ed-shared", "temperature")
                 viewer.get("/api/v2/dashboards/ed-private") expect Forbidden
                 viewer.get("/api/v2/dashboards/ed-shared") expect OK
@@ -116,6 +120,7 @@ class AccessControlTest :
                 viewer.postJson("/api/v2/sources/temperature/credential", "") expect Forbidden
                 viewer.postJson("/api/v2/import", "{}") expect Forbidden
 
+                // when and then
                 client.ids("/api/v2/dashboards") shouldBe listOf("ed-private", "ed-shared", "temperature")
                 client.putJson("/api/v2/dashboards/ed-private", dashboard("ed-private", "private", "secret")) expect OK
                 client.get("/api/v2/sources/temperature/status") expect OK

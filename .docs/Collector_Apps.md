@@ -73,12 +73,16 @@ push to it then answers 409.
   (`nats --inbox-prefix _INBOX_collector pub --jetstream …`, jnats
   `Options.builder().inboxPrefix("_INBOX_collector")`).
 
+Kafka (header and key through `parse.headers` / `parse.key`, tab separated):
+
 ```bash
-# Kafka (key and header: parse.key / parse.headers, tab separated)
 printf 'Authorization:Bearer %s\t%s\t%s\n' "$SOURCE_TOKEN" "$SOURCE_ID" "$PAYLOAD" |
   kafka-console-producer.sh --bootstrap-server "$KAFKA" --topic stats.ingest \
     --reader-property parse.key=true --reader-property parse.headers=true
+```
 
-# NATS JetStream
+NATS JetStream:
+
+```bash
 nats pub "stats.ingest.$SOURCE_ID" "$PAYLOAD" -H "Authorization:Bearer $SOURCE_TOKEN" -s "$NATS_URL"
 ```

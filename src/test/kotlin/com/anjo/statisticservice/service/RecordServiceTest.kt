@@ -75,8 +75,13 @@ class RecordServiceTest :
         }
 
         test("raw query is ordered by ts") {
+            // given
             seed()
+
+            // when
             val r = q("raw", QueryMeasure("temp"))
+
+            // then
             r.bucket shouldBe "raw"
             r.series.single().columns shouldBe listOf("ts", "temp")
             r.cells() shouldBe
@@ -90,9 +95,14 @@ class RecordServiceTest :
         }
 
         test("buckets apply every aggregation") {
+            // given
             seed()
             val aggs = listOf("count", "sum", "avg", "min", "max", "first", "last").map { QueryMeasure("temp", it) }.toTypedArray()
+
+            // when
             val minute = q("1m", *aggs)
+
+            // then
             minute.series.single().columns shouldBe
                 listOf("ts", "temp_count", "temp_sum", "temp_avg", "temp_min", "temp_max", "temp_first", "temp_last")
             minute.cells() shouldBe
@@ -106,7 +116,10 @@ class RecordServiceTest :
         }
 
         test("groupBy and filter make one series per allowed value, none gives one row") {
+            // given
             store.insert(listOf(rec(0, "a", 1.0), rec(1, "a", 3.0), rec(2, "b", 10.0), rec(3, "c", 99.0)))
+
+            // when
             val r =
                 q(
                     "none",
@@ -114,18 +127,24 @@ class RecordServiceTest :
                     groupBy = listOf("device"),
                     filter = mapOf("device" to listOf("a", "b")),
                 )
+
+            // then
             r.series.map { it.dims } shouldBe listOf(mapOf("device" to "a"), mapOf("device" to "b"))
             r.series.first().columns shouldBe listOf("t")
             r.cells() shouldBe listOf(listOf(listOf("2.0")), listOf(listOf("10.0")))
         }
 
         test("auto picks the smallest bucket within maxPoints and echoes it") {
+            // given
             seed()
+
+            // when and then
             q("auto", QueryMeasure("temp")).bucket shouldBe "1m"
             q("auto", QueryMeasure("temp"), maxPoints = 10).bucket shouldBe "30m"
         }
 
         test("raw over 10 000 rows is truncated") {
+            // given
             db.tx {
                 exec(
                     """INSERT INTO records (org_id, dataset_id, ts, dims, vals, ident, ts_estimated)
@@ -133,7 +152,11 @@ class RecordServiceTest :
                    FROM generate_series(1, 10001) i""",
                 )
             }
+
+            // when
             val r = q("raw", QueryMeasure("temp"))
+
+            // then
             r.truncated shouldBe true
             r.series
                 .single()
@@ -147,8 +170,13 @@ class RecordServiceTest :
         }
 
         test("dimension values with first and last seen, search and paging") {
+            // given
             store.insert(listOf(rec(0, "alpha", 1.0), rec(300, "alpha", 1.0), rec(600, "beta", 1.0)))
+
+            // when
             val all = store.dimensionValues(ds, "device", null, 50, 0)
+
+            // then
             all.map { it.value } shouldBe listOf("beta", "alpha")
             all[1] shouldBe DimensionValue("alpha", "2026-10-27T10:00:00Z", "2026-10-27T10:05:00Z", 2)
             store.dimensionValues(ds, "device", "LPH", 50, 0).map { it.value } shouldBe listOf("alpha")
@@ -156,13 +184,19 @@ class RecordServiceTest :
         }
 
         test("retention purge deletes only records older than retentionDays") {
+            // given
             val real = Clock.System.now()
             store.insert(listOf(rec(0, "a", 1.0, ts = real - 2.days), rec(0, "a", 2.0, ts = real)))
+
+            // when
             store.purgeRetention(listOf(ds, ds.copy(id = "other", retentionDays = null)))
+
+            // then
             db.tx { Records.selectAll().count() } shouldBe 1L
         }
 
         test("at_max and at_min pick by another measure, ts takes min and max") {
+            // given
             store.insert(
                 listOf(1.0 to 10.0, 2.0 to 30.0, 3.0 to 20.0).mapIndexed { i, (gen, temp) ->
                     Record(
@@ -178,6 +212,8 @@ class RecordServiceTest :
                     )
                 },
             )
+
+            // when and then
             q(
                 "none",
                 QueryMeasure("gen", "at_max", by = "temp", alias = "peakGen"),
@@ -190,6 +226,7 @@ class RecordServiceTest :
         }
 
         test("text and boolean default to last and ts to max, records without the grouped dimension form an empty group") {
+            // given
             val mixed = ds.copy(measures = ds.measures + Measure("note", MeasureType.TEXT) + Measure("on", MeasureType.BOOLEAN))
 
             fun mixedRec(
@@ -206,12 +243,16 @@ class RecordServiceTest :
                 ),
             )
             val measures = listOf(QueryMeasure("note"), QueryMeasure("on"), QueryMeasure("ts"))
+
+            // when
             val grouped =
                 store.query(
                     Query("t", measures, groupBy = listOf("device"), from = base.toString(), to = now.toString(), bucket = "none"),
                     mixed,
                     now,
                 )
+
+            // then
             grouped.series.map { it.dims } shouldBe listOf(mapOf("device" to "a"), mapOf("device" to ""))
             grouped.series.first().columns shouldBe listOf("note", "on", "ts")
             grouped.cells() shouldBe
@@ -241,7 +282,10 @@ class RecordServiceTest :
         }
 
         test("dimension values ignore a blank search and refuse unknown dimensions") {
+            // given
             store.insert(listOf(rec(0, "alpha", 1.0)))
+
+            // when and then
             store.dimensionValues(ds, "device", " ", 50, 0).map { it.value } shouldBe listOf("alpha")
             shouldThrow<ApiException> { store.dimensionValues(ds, "room", null, 50, 0) }.message shouldBe "Unknown dimension 'room'"
         }
@@ -257,6 +301,7 @@ class RecordServiceTest :
         }
 
         test("calculated measure works raw and bucketed, division by zero is null") {
+            // given
             store.insert(
                 listOf(10.0 to 2.0, 9.0 to 0.0).mapIndexed { i, (temp, gen) ->
                     Record(
@@ -272,7 +317,11 @@ class RecordServiceTest :
                     )
                 },
             )
+
+            // when
             val raw = q("raw", QueryMeasure("ratio"))
+
+            // then
             raw.series
                 .single()
                 .rows

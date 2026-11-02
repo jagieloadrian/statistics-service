@@ -65,10 +65,13 @@ class MapperTest :
         ) = shouldThrow<MappingException> { map(json, src) }.reasons
 
         test("flat payload gives one cast record and ignores extra fields") {
+            // when
             val r =
                 map(
                     """{"deviceId":"pico-1","timestamp":"2026-10-27T09:30:00Z","temperature":"21.5","humidity":0.4,"heating":"true","note":"ok","extra":1}""",
                 ).single()
+
+            // then
             r.ts shouldBe Instant.parse("2026-10-27T09:30:00Z")
             r.tsEstimated shouldBe false
             r.dims shouldBe mapOf("device" to "pico-1")
@@ -83,21 +86,29 @@ class MapperTest :
         }
 
         test("local date-time is read as UTC and missing timestamp uses arrival time") {
+            // when and then
             map("""{"deviceId":"a","timestamp":"2026-10-27T09:00:00","temperature":1}""").single().ts shouldBe
                 Instant.parse("2026-10-27T09:00:00Z")
+
+            // when
             val r =
                 map(
                     """{"deviceId":"a","temperature":1}""",
                     source.copy(mapping = listOf(source.mapping[0].copy(identity = emptyList()))),
                 ).single()
+
+            // then
             r.ts shouldBe now
             r.tsEstimated shouldBe true
             r.ident shouldBe null
         }
 
         test("epoch formats") {
+            // given
             val ms = source.copy(mapping = listOf(source.mapping[0].copy(timestamp = TimestampSpec("timestamp", "epoch_ms"))))
             val s = source.copy(mapping = listOf(source.mapping[0].copy(timestamp = TimestampSpec("timestamp", "epoch_s"))))
+
+            // when and then
             map("""{"deviceId":"a","timestamp":1793091600000,"temperature":1}""", ms).single().ts shouldBe
                 Instant.fromEpochSeconds(1793091600)
             map("""{"deviceId":"a","timestamp":1793091600,"temperature":1}""", s).single().ts shouldBe Instant.fromEpochSeconds(1793091600)
@@ -122,6 +133,7 @@ class MapperTest :
         }
 
         test("each iterates object entries with key and item paths plus const dims") {
+            // given
             val epiDs =
                 Dataset(id = "epi", measures = listOf(Measure("infected")), dimensions = listOf(Dimension("run"), Dimension("type")))
             val epi =
@@ -144,6 +156,8 @@ class MapperTest :
                             ),
                         ),
                 )
+
+            // when
             val recs =
                 Mapper.map(
                     epi,
@@ -153,18 +167,25 @@ class MapperTest :
                     ),
                     now,
                 )
+
+            // then
             recs.map { it.dims["type"] to it.vals["infected"] } shouldBe
                 listOf("total" to JsonPrimitive(5.0), "0" to JsonPrimitive(2.0), "1" to JsonPrimitive(3.0))
             recs.map { it.dims["run"] }.distinct() shouldBe listOf("r1")
         }
 
         test("native format accepts records and rejects undeclared keys") {
+            // given
             val native = source.copy(mapping = emptyList())
+
+            // when
             val recs =
                 map(
                     """[{"ts":"2026-10-27T09:00:00Z","dims":{"device":"x"},"vals":{"temperature":20}},{"dims":{"device":"y"},"vals":{"temperature":21}}]""",
                     native,
                 )
+
+            // then
             recs.size shouldBe 2
             recs[0].ts shouldBe Instant.parse("2026-10-27T09:00:00Z")
             recs[1].tsEstimated shouldBe true
@@ -174,6 +195,7 @@ class MapperTest :
         }
 
         test("each walks arrays by index and reports a path that is not a collection") {
+            // given
             val list =
                 source.copy(
                     mapping =
@@ -186,6 +208,8 @@ class MapperTest :
                             ),
                         ),
                 )
+
+            // when and then
             map("""{"readings":[{"id":"a","t":1},{"id":"b","t":2}]}""", list).map {
                 Triple(it.dims["device"], it.vals["temperature"], it.ident)
             } shouldBe
@@ -195,6 +219,7 @@ class MapperTest :
         }
 
         test("paths walk into arrays by index and stop at anything else") {
+            // given
             val nested =
                 source.copy(
                     mapping =
@@ -210,13 +235,18 @@ class MapperTest :
                             ),
                         ),
                 )
+
+            // when
             val r = map("""{"devices":[{"id":"a","t":1},{"id":"b"}]}""", nested).single()
+
+            // then
             r.dims shouldBe mapOf("device" to "b")
             r.vals shouldBe mapOf("note" to JsonPrimitive("fixed"))
             reasons("""{"devices":[{"id":"a"}]}""", nested) shouldBe listOf("dims.device: missing at path 'devices.1.id'")
         }
 
         test("key and item paths outside each, nested or null values and missing identity are reasons") {
+            // given
             val loose =
                 source.copy(
                     mapping =
@@ -228,6 +258,8 @@ class MapperTest :
                             ),
                         ),
                 )
+
+            // when and then
             reasons("""{"note":{"text":"hi"}}""", loose) shouldContainExactlyInAnyOrder
                 listOf(
                     "dims.device: missing at path '@key'",
@@ -235,18 +267,29 @@ class MapperTest :
                     "vals.note: expected a value at path 'note'",
                     "identity: missing at path 'serial'",
                 )
+
+            // given
             val dims = source.copy(mapping = listOf(Rule(dims = mapOf("device" to FieldSpec(path = "d")))))
+
+            // when and then
             reasons("""{"d":null}""", dims) shouldBe listOf("dims.device: missing at path 'd'")
             reasons("""{"d":[1]}""", dims) shouldBe listOf("dims.device: expected a value at path 'd'")
+
+            // given
             val blankOk = source.copy(mapping = listOf(Rule(dims = mapOf("device" to FieldSpec(path = "d", notBlank = false)))))
+
+            // when and then
             map("""{"d":" "}""", blankOk).single().dims shouldBe mapOf("device" to " ")
         }
 
         test("timestamps that are null or not values fall back to arrival time, unreadable ones are reasons") {
+            // given
             val iso =
                 source.copy(
                     mapping = listOf(Rule(timestamp = TimestampSpec("at"), vals = mapOf("temperature" to FieldSpec(path = "t")))),
                 )
+
+            // when and then
             listOf("""{"at":null,"t":1}""", """{"at":{"s":1},"t":1}""").forEach { json ->
                 val r = map(json, iso).single()
                 r.ts shouldBe now
@@ -262,6 +305,7 @@ class MapperTest :
         }
 
         test("optional values may be null, text must not be blank unless allowed") {
+            // given
             val text =
                 source.copy(
                     mapping =
@@ -276,19 +320,32 @@ class MapperTest :
                             ),
                         ),
                 )
+
+            // when and then
             map("""{"t":null,"n":"x","h":false}""", text).single().vals shouldBe
                 mapOf("note" to JsonPrimitive("x"), "heating" to JsonPrimitive(false))
             reasons("""{"n":" "}""", text) shouldBe listOf("vals.note: must not be blank")
+
+            // given
             val blankOk = text.copy(mapping = listOf(Rule(vals = mapOf("note" to FieldSpec(path = "n", notBlank = false)))))
+
+            // when and then
             map("""{"n":" "}""", blankOk).single().vals shouldBe mapOf("note" to JsonPrimitive(" "))
         }
 
         test("native format reports the body shape, items, timestamps and values it cannot use") {
+            // given
             val native = source.copy(mapping = emptyList())
+
+            // when and then
             reasons("42", native) shouldBe listOf("body: expected a record object or an array of records")
             reasons("""[1,{"ts":"soon","vals":{"temperature":"warm"}}]""", native) shouldContainExactlyInAnyOrder
                 listOf("[0]: expected an object", "[1].ts: cannot parse 'soon'", "vals.temperature: expected a number, got 'warm'")
+
+            // when
             val r = map("""{"ts":null,"dims":{"device":{"nested":true}},"vals":5}""", native).single()
+
+            // then
             r.tsEstimated shouldBe true
             r.dims shouldBe mapOf("device" to "")
             r.vals shouldBe emptyMap()
@@ -296,9 +353,14 @@ class MapperTest :
         }
 
         test("epidemic sample payload gives total plus one record per byType entry") {
+            // given
             val bundle = Json.decodeFromString(Bundle.serializer(), java.io.File("definitions/epidemic.json").readText())
             val payload = Json.parseToJsonElement(checkNotNull(javaClass.getResource("/payloads/epidemic.json")).readText())
+
+            // when
             val recs = Mapper.map(bundle.sources.single(), bundle.datasets.single(), payload, now)
+
+            // then
             recs.map { it.dims["type"] } shouldBe listOf("total", "0", "1", "2")
             recs.map { it.ident } shouldBe
                 listOf("RPI_Pico_2w_1|5|32", "RPI_Pico_2w_1|5|32|0", "RPI_Pico_2w_1|5|32|1", "RPI_Pico_2w_1|5|32|2")

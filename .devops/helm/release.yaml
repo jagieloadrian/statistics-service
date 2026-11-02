@@ -1,11 +1,15 @@
-# Wdrożenie: wspólny chart homelab-infra/charts/app (opis values: charts/app/values.yaml).
-# Flux czyta .devops/helm/ z main; tag obrazu podbija CI (build.yml, krok Deploy).
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
   name: statistics-service
 spec:
   interval: 10m
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: 3
   chart:
     spec:
       chart: ./charts/app
@@ -15,9 +19,8 @@ spec:
         name: flux-system
         namespace: flux-system
   values:
-    # Secret statistics-service-secrets from Vault secret/apps/statistics-service (homelab-infra docs/vault.md)
     secrets: true
-    image: ghcr.io/jagieloadrian/statistics-service:main-20261028120000-abc1234
+    image: ghcr.io/jagieloadrian/statistics-service:main-20261102155410-445214a
     resources:
       requests:
         cpu: 100m
@@ -27,8 +30,6 @@ spec:
     route:
       hostname: statistics.home.arpa
       pathPrefix: /api/
-    # Jawna konfiguracja -> ConfigMap statistics-service-config. Sekrety: Vault (secrets wyżej).
-    # Opis zmiennych: homelab-infra docs/setup.md.
     env:
       DB_URL: jdbc:postgresql://postgres.apps.svc.cluster.local:5432/statistics?currentSchema=statistics
       DB_USER: statistics

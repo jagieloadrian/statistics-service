@@ -15,6 +15,7 @@ class OpenApiTest :
 
         test("every api v2 operation has a summary") {
             testApp {
+                // when
                 val paths =
                     anonymous
                         .get("/api/v2/swagger/documentation.yaml")
@@ -23,6 +24,8 @@ class OpenApiTest :
                         .getValue("paths")
                         .jsonObject
                         .filterKeys { it.startsWith("/api/v2/") }
+
+                // then
                 paths.size shouldBeGreaterThan 20
                 paths
                     .flatMap { (path, ops) ->

@@ -81,6 +81,7 @@ class DefinitionValidationTest :
         }
 
         test("a valid source has no violations, every broken rule is listed otherwise") {
+            // given
             val source =
                 Source(
                     id = "pico",
@@ -95,6 +96,8 @@ class DefinitionValidationTest :
                             Rule(vals = mapOf("on" to FieldSpec(path = "on"))),
                         ),
                 )
+
+            // when and then
             sourceViolations(source).shouldBeEmpty()
             sourceViolations(
                 source.copy(
@@ -126,8 +129,11 @@ class DefinitionValidationTest :
         }
 
         test("a pubsub source needs identity in every mapping rule") {
+            // given
             val rule = Rule(identity = listOf("id", "ts"), vals = mapOf("temp" to FieldSpec(path = "t")))
             val pubsub = Source(id = "pico", dataset = "climate", channel = Channel(PUBSUB_CHANNEL), mapping = listOf(rule))
+
+            // when and then
             sourceViolations(pubsub).shouldBeEmpty()
             sourceViolations(pubsub.copy(mapping = emptyList())) shouldBe
                 listOf("mapping: pubsub sources need rules with identity")
@@ -137,7 +143,10 @@ class DefinitionValidationTest :
         }
 
         test("a source may only map names its dataset declares") {
+            // when and then
             shouldNotThrowAny { validateSource(Source(id = "pico", dataset = "climate"), ds) }
+
+            // when
             val e =
                 shouldThrow<ApiException> {
                     validateSource(
@@ -156,6 +165,8 @@ class DefinitionValidationTest :
                         ds,
                     )
                 }
+
+            // then
             e.message shouldBe "Invalid source"
             e.details shouldContainExactlyInAnyOrder
                 listOf(
@@ -166,6 +177,7 @@ class DefinitionValidationTest :
         }
 
         test("dashboards check visibility, refresh, variables and widget layout") {
+            // given
             val dashboard =
                 Dashboard(
                     id = "home",
@@ -174,6 +186,8 @@ class DefinitionValidationTest :
                     variables = listOf(Variable("range", "timeRange"), Variable("device", "dimension")),
                     widgets = listOf(widget("a"), widget("b").copy(w = 12, h = 1)),
                 )
+
+            // when and then
             dashboardViolations(dashboard).shouldBeEmpty()
             dashboardViolations(dashboard.copy(refreshSeconds = null)).shouldBeEmpty()
             dashboardViolations(
