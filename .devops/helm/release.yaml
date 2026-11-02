@@ -4,6 +4,12 @@ metadata:
   name: statistics-service
 spec:
   interval: 10m
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: 3
   chart:
     spec:
       chart: ./charts/app
@@ -14,7 +20,7 @@ spec:
         namespace: flux-system
   values:
     secrets: true
-    image: ghcr.io/jagieloadrian/statistics-service:main-20261028120000-abc1234
+    image: ghcr.io/jagieloadrian/statistics-service:main-20261102155410-445214a
     resources:
       requests:
         cpu: 100m
