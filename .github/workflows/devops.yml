@@ -1,0 +1,50 @@
+name: devops
+
+on:
+  pull_request:
+    paths: ['.devops/helm/**', '.github/workflows/devops.yml']
+  push:
+    branches: [main]
+    paths: ['.devops/helm/**', '.github/workflows/devops.yml']
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash  # -eo pipefail: błąd helm template nie ginie w potoku
+
+env:
+  KUBECONFORM_VERSION: v0.8.0
+  CRD_SCHEMAS: https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json
+  SECRET_KEYS: DB_PASSWORD ADMIN_PASSWORD OIDC_CLIENT_SECRET NATS_PASSWORD NATS_TOKEN KAFKA_PASSWORD
+  RELEASE: .devops/helm/release.yaml
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Checkout chart (homelab-infra)
+        uses: actions/checkout@v7
+        with:
+          repository: jagieloadrian/homelab-infra
+          path: homelab-infra
+          sparse-checkout: charts
+
+      - name: values.env
+        run: |
+          yq -e '.spec.values.env.DB_URL | test("^jdbc:postgresql://")' "$RELEASE" >/dev/null || { echo "::error file=$RELEASE::DB_URL musi zaczynać się od jdbc:postgresql://"; exit 1; }
+          for k in $SECRET_KEYS; do
+            if [ "$(K=$k yq '.spec.values.env | has(strenv(K))' "$RELEASE")" = true ]; then echo "::error file=$RELEASE::$k jest sekretem, ma być w Vault secret/apps/statistics-service"; exit 1; fi
+          done
+
+      - name: Install kubeconform
+        run: curl -sSL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" | sudo tar xz -C /usr/local/bin kubeconform
+
+      - name: Kubernetes manifests
+        run: |
+          kc() { kubeconform -strict -summary -schema-location default -schema-location "$CRD_SCHEMAS" "$@"; }
+          kc .devops/helm
+          yq '.spec.values' "$RELEASE" | helm template "$(yq .metadata.name "$RELEASE")" homelab-infra/charts/app -f - | kc -

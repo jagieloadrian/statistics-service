@@ -10,8 +10,9 @@ import io.ktor.server.routing.routingRoot
 fun Routing.swaggerEndpoint() {
     swaggerUI("$API_V2/swagger") {
         info = OpenApiInfo("StatisticsService", "1.0")
-        source = OpenApiDocSource.Routing(ContentType.Application.Json) {
-            routingRoot.descendants()
-        }
+        source =
+            OpenApiDocSource.Routing(ContentType.Application.Json) {
+                routingRoot.descendants()
+            }
     }
 }

@@ -1,8 +1,9 @@
-
 plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.serialization)
-    alias(libs.plugins.ktor)
+    application
+    alias(libs.plugins.jib)
+    alias(libs.plugins.ktlint)
     jacoco
 }
 
@@ -10,11 +11,24 @@ group = "com.anjo"
 version = "0.0.1"
 
 kotlin {
-    compilerOptions { optIn.add("kotlin.time.ExperimentalTime") }
+    jvmToolchain(21)
+    compilerOptions {
+        allWarningsAsErrors = true
+        optIn.add("io.ktor.utils.io.ExperimentalKtorApi")
+    }
 }
 
 application {
-    mainClass = "io.ktor.server.netty.EngineMain"
+    mainClass = "com.anjo.statisticservice.ApplicationKt"
+}
+
+tasks.register<JavaExec>("runLocal") {
+    group = "application"
+    description = "Runs the service with the local profile: .devops/application-local.yaml over application.yaml"
+    mainClass = application.mainClass
+    classpath = sourceSets.main.get().runtimeClasspath
+    args("-config=application.yaml", "-config=${file(".devops/application-local.yaml")}")
+    environment("LOG_FORMAT", "plain")
 }
 
 dependencies {
@@ -22,23 +36,24 @@ dependencies {
     implementation(libs.ktor.server.netty)
     implementation(libs.ktor.server.config.yaml)
     implementation(libs.ktor.server.di)
-    implementation(libs.ktor.server.host.common)
     implementation(libs.ktor.server.default.headers)
     implementation(libs.ktor.server.content.negotiation)
     implementation(libs.ktor.serialization.kotlinx.json)
-    implementation(libs.ktor.server.request.validation)
     implementation(libs.ktor.server.status.pages)
     implementation(libs.ktor.server.cors)
     implementation(libs.ktor.server.auth)
     implementation(libs.ktor.server.rate.limit)
     implementation(libs.ktor.server.swagger)
     implementation(libs.ktor.server.routing.openapi)
-    implementation(libs.ktor.server.metrics)
     implementation(libs.ktor.server.call.logging)
     implementation(libs.ktor.server.call.id)
-    implementation(libs.khealth)
-    implementation(libs.logback.classic)
+    implementation(libs.ktor.server.forwarded.header)
+    implementation(libs.ktor.server.request.validation)
+    implementation(libs.ktor.server.metrics.micrometer)
+    implementation(libs.micrometer.registry.prometheus)
     implementation(libs.kotlin.logging)
+    implementation(libs.logback.classic)
+    runtimeOnly(libs.logstash.logback.encoder)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.datetime)
     implementation(libs.postgresql)
@@ -46,17 +61,56 @@ dependencies {
     implementation(libs.exposed.core)
     implementation(libs.exposed.jdbc)
     implementation(libs.exposed.json)
-    implementation(libs.exposed.java.time)
+    implementation(libs.exposed.kotlin.datetime)
     implementation(libs.flyway.core)
     runtimeOnly(libs.flyway.postgresql)
     implementation(libs.java.jwt)
     implementation(libs.jwks.rsa)
+    implementation(libs.kafka.clients)
+    implementation(libs.jnats)
 
     testImplementation(libs.ktor.server.test.host)
     testRuntimeOnly(libs.junit.platform.launcher)
     testImplementation(libs.kotest.runner)
     testImplementation(libs.kotest.assertions)
     testImplementation(libs.testcontainers.postgresql)
+    testImplementation(libs.testcontainers.kafka)
+}
+
+jib {
+    from {
+        image = "eclipse-temurin:21-jre"
+        platforms {
+            platform {
+                architecture = "amd64"
+                os = "linux"
+            }
+            platform {
+                architecture = "arm64"
+                os = "linux"
+            }
+        }
+    }
+    to {
+        image = "ghcr.io/jagieloadrian/statistics-service"
+    }
+    container {
+        ports = listOf("8080")
+        user = "10001:10001"
+        jvmFlags =
+            listOf(
+                "-XX:MaxRAMPercentage=60",
+                "-XX:+UseSerialGC",
+                "-XX:+ExitOnOutOfMemoryError",
+            )
+        creationTime.set("USE_CURRENT_TIMESTAMP")
+    }
+}
+
+ktlint {
+    version =
+        libs.versions.ktlint.engine
+            .get()
 }
 
 jacoco {
@@ -68,6 +122,25 @@ tasks.jacocoTestReport {
         xml.required.set(true)
         html.required.set(true)
     }
+}
+
+tasks.jacocoTestCoverageVerification {
+    dependsOn(tasks.test)
+    violationRules {
+        rule {
+            listOf("INSTRUCTION", "LINE", "BRANCH").forEach {
+                limit {
+                    counter = it
+                    value = "COVEREDRATIO"
+                    minimum = "0.88".toBigDecimal()
+                }
+            }
+        }
+    }
+}
+
+tasks.check {
+    dependsOn(tasks.jacocoTestCoverageVerification)
 }
 
 tasks.withType<Test> {

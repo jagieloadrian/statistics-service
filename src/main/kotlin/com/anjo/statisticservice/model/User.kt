@@ -1,6 +1,7 @@
 package com.anjo.statisticservice.model
 
 import kotlinx.serialization.Serializable
+import kotlin.time.Instant
 
 const val ADMIN = "admin"
 const val EDITOR = "editor"
@@ -12,6 +13,7 @@ data class Prefs(
     val timeZone: String? = null,
     val units: String = "metric",
     val theme: String = "system",
+    val accent: String = "teal",
     val homeDashboard: String? = null,
     val favourites: List<String> = emptyList(),
 )
@@ -26,4 +28,24 @@ data class User(
     val hasPassword: Boolean = true,
 )
 
-data class UserPrincipal(val id: Long, val role: String, val token: String)
+data class UserPrincipal(
+    val id: Long,
+    val role: String,
+    val token: String,
+)
+
+data class Credentials(
+    val userId: Long,
+    val passwordHash: String?,
+)
+
+data class EmailAccount(
+    val userId: Long,
+    val linkedToProvider: Boolean,
+)
+
+data class TokenOwner(
+    val userId: Long,
+    val role: String,
+    val lastSeen: Instant,
+)

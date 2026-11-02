@@ -1,12 +1,12 @@
 # Project Status
 
-Updated 2026-10-27. Features: [spec 004 universal stats platform](specs/004-universal-stats-platform/spec.md)
+Updated 2026-11-02. Features: [spec 004 universal stats platform](specs/004-universal-stats-platform/spec.md)
 (tasks: [tasks.md](specs/004-universal-stats-platform/tasks.md)), [spec 005 OIDC sign-in](specs/005-oidc-login/spec.md)
 (tasks: [tasks.md](specs/005-oidc-login/tasks.md)).
 
 ## Completed
 
-Backend (this repo, branch `feature-2/update-ktor-plugin`):
+Backend (this repo, spec 004 built on branch `feature-2/update-ktor-plugin`):
 
 | Slice | Commit | Content |
 |-------|--------|---------|
@@ -45,6 +45,44 @@ OIDC sign-in (spec 005, branch `005-oidc-login` in both repos):
 Backend `./gradlew build` green, 65 tests (18 new in `OidcAuthTest`, offline against an in-test
 provider). Frontend `jvmTest` 20 green (callback parser, loopback receiver); js/wasm compile; `jvmJar` builds.
 
+Cleanup (branch `feature-6/cleaning-and-refactoring`, 85f6fbe..a836372): unused Ktor modules and KHealth
+dropped (plain `/health` and `/ready` routes, no jitpack repo), dead code removed; still 65 tests green.
+Kubernetes + Istio (a3a212e..48489ec): `.devops/k8s` manifests (constitution 2.3.0), `TRUST_PROXY` for the
+client IP behind the gateway; 66 tests green. Not tried on a live cluster yet.
+
+Enterprise cleanup + homelab platform contract (same branch, 077f46d..HEAD, constitution 2.4.0): request
+validation at the boundary (Ktor RequestValidation, 400 `ApiError`), no `!!`, no comments, kotlin.time;
+`/health/live` + `/health/ready` (503 without DB), Prometheus `/metrics`, JSON logs with `traceId`
+(`LOG_FORMAT=plain`), SIGTERM drain + exit 0, OIDC timeouts + `traceparent`, fail-fast config; ktlint +
+warnings-as-errors gate, Java 21; Jib multi-arch image, contract CI tags, Renovate; manifests per contract
+(HTTPRoute `/api/`, AuthorizationPolicy, ConfigMap, Flux ImagePolicy), in-repo Postgres/Istio Gateway
+removed. 74 tests green; image, probes, drain and manifests verified locally (README "Definition of Ready").
+
+UI refactor along the "Czytelny Interfejs" guide (M3, Laws of UX, Baymard), frontend branch
+`feature-6/cleaning-and-refactoring`, 984a4db..HEAD: one tonal palette, labelled controls, window size classes
+(navigation bar under 840dp, admin list *or* detail under 600dp), validation when a field is left, Undo snackbar
+for deleting users and sources, list editors that wrap on narrow windows, 18 accent colours. Backend: `accent`
+in prefs (validated against the 18 ids). Frontend `jvmTest` green (incl. contrast check of every accent), js/wasm
+compile; checked in headless Chrome against a mock backend at 390 and 1280 px, light and dark.
+
+Pub/sub ingestion (branch `feature-7/pubsub-ingestion` in both repos, constitution 2.5.0): `BROKER=none|kafka|jetstream`
+picks one broker; sources opt in with channel `pubsub` (HTTP push to them → 409). One consumer thread per app
+(`BrokerConsumer`) shares token check, mapping (`IngestService`), rejection recording, metrics and back-off;
+`KafkaBroker` / `JetStreamBroker` only poll and commit/ack. Kafka: topic + key = source id; JetStream: subject
+`<prefix>.<sourceId>`, stream created/updated by the app, durable pull consumer. `/auth/config` gains `pubsub`
+for the source editor's address hint. Local `.devops/kafka-compose`, `.devops/nats-compose`. Verified by hand with
+both composes (late broker start, DB outage, NATS restart). Rebased on feature-6 (jacoco 88% gate). Follow-ups:
+SIGTERM budget 8 s drain + 2 s Netty + 3 s consumer (DI closes the consumer before the pool; measured 12.1 s with a
+blocked query and a blocked broker message), pgjdbc connect 2 s / socket 60 s, pubsub sources need `identity` in
+every rule (backend + UI). Then a DRY/conventions pass in both repos (errors, users, definitions, mapping, config,
+broker, OIDC, test setup; UI roles/kinds, PlatformApi, no comments, visibility). 151 tests green, coverage
+instruction 95.5 %, line 97.2 %, branch 92.9 %; UI jvmTest 45 green.
+
+Helm (2026-11-02, constitution 2.6.0): `.devops/k8s` replaced by `.devops/helm/` — Flux HelmRelease of the
+shared homelab-infra chart `charts/app`, config inline in `values.env`, secrets in Vault
+`secret/apps/statistics-service` (ExternalSecret, `secrets: true`); CI bumps the tag in `release.yaml`, `devops.yml`
+validates with `helm template` + kubeconform.
+
 ## Decisions
 
 - Old v1 API dropped entirely; RPi devices get the new URL + source token (`.docs/Device_Ingest.md`).
@@ -53,21 +91,38 @@ provider). Frontend `jvmTest` 20 green (callback parser, loopback receiver); js/
 - No in-process plugins: custom logic lives in collector apps over the ingest API.
 - Contract additions during US4: editors read datasets and `/users` (widget builder, share picker);
   `GET /dashboards/{id}/shares`; viewers query only datasets of dashboards they can see.
-- Ingest rate limit is a fixed 50 requests/s per source (`ponytail:` note); batches give more records/s.
+- Ingest rate limit is a fixed 50 requests/s per source; batches give more records/s.
 - Raw queries are capped at 10 000 rows per query, not per series.
 - Schema via Flyway (`db/migration/V1__init.sql`, `baselineOnMigrate`: databases from the old
   startup schema are marked V1). SQL through Exposed DSL; analytic measures stay checked SQL text.
 - Services own transactions (`db.tx`), repositories run inside them; models only in `model/`.
-- KHealth no longer wraps its routes in `hide()`: in Ktor 3.6 that hid the whole routing root
-  from OpenAPI.
+- Health probes are plain routes per the homelab contract (`/health/live`, `/health/ready` with a DB
+  check), no KHealth; its `hide()` wrap hid the whole routing root from OpenAPI in Ktor 3.6.
+- No comments in code; deliberate simplifications go into commit messages and this file.
+- detekt skipped: 1.23.x is built against Kotlin 2.0, 2.x is still alpha; ktlint is the style gate.
+- Import (`Bundle`) and mapping tests keep collecting errors in their result instead of RequestValidation:
+  import reports per-item errors by contract, mapping needs the stored dataset.
 - OIDC: the backend redeems the code and answers the existing opaque session token, so every route,
   expiry and logout stay as they were; IdP tokens are discarded, no refresh tokens, no RP logout.
   PKCE verifier + state are made by the backend and kept by the client (no crypto in KMP).
-  ID token: RS256 via JWKS (`ponytail:` ES256 when needed), issuer/audience/expiry checked, no nonce.
+  ID token: RS256 via JWKS (ES256 when needed), issuer/audience/expiry checked, no nonce.
   Email from userinfo when the token lacks it. Email/name are not synced after creation.
 - `GET /auth/config` omits `oidc` when no provider is set (API-wide `explicitNulls = false`).
+- Accent colours are Material 2 "500" seeds; the UI builds the M3 scheme in CIELAB (tone = L*), so contrast
+  holds for every hue. Theme and accent preview app-wide while picked; Save sends all prefs in one PUT, and
+  leaving Account without Save drops the edits.
+- Deleting users and sources is deferred behind a 10 s Undo snackbar (no server support needed); dataset
+  delete keeps its confirm click because it drops records and can answer 409.
 - Desktop loopback uses an ephemeral port; Authelia (its oauth2-provider) accepts any port for a
   registered `http://127.0.0.1/callback` (RFC 8252 §7.3).
+- Pub/sub: broker is app config, not part of the source (the per-source `kafka` channel draft is replaced by
+  `pubsub`). At least once; ack/commit after the DB commit. `ApiException` and SQL data errors (22xxx/23xxx) are
+  final → acked + recorded in source status; other SQL errors retry with 1→30 s back-off. Paused pubsub sources
+  drop (ack) messages. No per-source rate limit on the broker path. Readiness ignores the broker.
+  Pubsub sources must have identity in every mapping rule (native records are push-only).
+- Shutdown order: HTTP drain (StopPreparing), Netty, then DI closes dependencies in reverse declaration order,
+  so the broker consumer (declared after `Db`) stops before the pool. socketTimeout 60 s also bounds Flyway
+  migrations and dataset deletes; raise it if one ever needs longer.
 
 ## Measured
 
@@ -78,16 +133,21 @@ Details: research.md D4. Not a release gate.
 
 ## Next steps
 
+First, homelab rollout: real Postgres host in `.devops/helm/release.yaml` (`values.env`), secrets in Vault
+`secret/apps/statistics-service` (`vault kv put`, homelab-infra docs/vault.md), register the OIDC client
+(`http://statistics.home.arpa/`). Prometheus scraping needs an AuthorizationPolicy rule for the scraper.
+
 0. OIDC manual checks (spec 005 quickstart §1–§6, T034): `/etc/hosts` entry `127.0.0.1 auth.example.com`,
    generate Authelia secrets (`.devops/authelia-compose/README.md`), then web sign-in as admin/alice,
    role change, cancel at Authelia, `AUTH_LOCAL=false`, provider down, and the desktop browser flow.
 1. Manual UI run of quickstart §4/§5 in the desktop app against a live backend (T078). The sign-in,
    prefs, users and shares screens have not been exercised end to end yet.
 2. Follow-up spec for query speed (SC-004): hourly pre-aggregation or TimescaleDB continuous aggregates.
-3. Desktop app crashes Xorg (RENDER segfault, Intel+NVIDIA PRIME on X11): uncommitted
-   `-Dsun.java2d.xrender=false` in Statistics-UI `composeApp/build.gradle.kts` waits for a manual test.
+3. Desktop app crashed Xorg on close (RENDER segfault, Intel+NVIDIA PRIME on X11): `sun.java2d.xrender=false`
+   is now set in `main()`, so it also applies under jvmRun/hot reload; still needs a manual close test.
    Kotest on js/wasm needs the `io.kotest` plugin + KSP (tests compile, not discovered yet).
 4. Reprogram the RPi devices (quickstart §7): new URL `/api/v2/ingest/{temperature|epidemic}` + header.
-5. US5 channels (pull, Kafka, gRPC) only when a real producer exists.
+5. US5 channels: pub/sub done; pull and gRPC only when a real producer exists. Homelab: `BROKER=jetstream` +
+   `NATS_PASSWORD` in Vault once the NATS rollout in homelab-infra is live.
 6. Small UI gaps noted by `ponytail:` comments: the dashboard JSON has no owner, so the Edit button
    shows for editors on other people's dashboards (the server answers 403).

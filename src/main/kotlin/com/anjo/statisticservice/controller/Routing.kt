@@ -1,5 +1,6 @@
 package com.anjo.statisticservice.controller
 
+import com.anjo.statisticservice.db.Db
 import com.anjo.statisticservice.service.AuthService
 import com.anjo.statisticservice.service.DefinitionService
 import com.anjo.statisticservice.service.IngestService
@@ -20,35 +21,38 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 const val API_V2 = "/api/v2"
+private const val USER_AUTH = "user"
+private const val INGEST_REQUESTS_PER_SECOND = 50
+private const val LOGIN_ATTEMPTS_PER_MINUTE = 5
 
 fun Application.configureRouting() {
+    val db: Db by dependencies
     val auth: AuthService by dependencies
     val users: UserService by dependencies
     val definitions: DefinitionService by dependencies
     val records: RecordService by dependencies
     val ingest: IngestService by dependencies
     val status: SourceStatusService by dependencies
-    validatorExceptionHandler()
     install(RateLimit) {
         register(INGEST) {
-            // ponytail: fixed 50/s per source; Source.rateLimitPerSecond needs a suspend lookup the provider can't do
-            rateLimiter(limit = 50, refillPeriod = 1.seconds)
-            requestKey { call -> call.parameters["sourceId"] ?: "" }
+            rateLimiter(limit = INGEST_REQUESTS_PER_SECOND, refillPeriod = 1.seconds)
+            requestKey { call -> call.parameters["sourceId"].orEmpty() }
         }
         register(LOGIN) {
-            rateLimiter(limit = 5, refillPeriod = 1.minutes)
+            rateLimiter(limit = LOGIN_ATTEMPTS_PER_MINUTE, refillPeriod = 1.minutes)
             requestKey { call -> call.request.origin.remoteHost }
         }
     }
     install(Authentication) {
-        bearer("user") { authenticate { auth.principal(it.token) } }
+        bearer(USER_AUTH) { authenticate { auth.principal(it.token) } }
     }
     routing {
+        healthRoutes(db)
         swaggerEndpoint()
         ingestRoutes(ingest)
         route(API_V2) {
             signInRoutes(auth)
-            authenticate("user") {
+            authenticate(USER_AUTH) {
                 accountRoutes(auth, users)
                 userRoutes(users)
                 datasetRoutes(definitions, records)

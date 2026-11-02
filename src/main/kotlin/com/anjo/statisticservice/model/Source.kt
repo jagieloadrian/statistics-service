@@ -4,12 +4,21 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonPrimitive
 
-// ponytail: push only; pull/kafka/grpc settings land with their channel
-@Serializable
-data class Channel(val type: String = "push")
+const val PUSH_CHANNEL = "push"
+const val PUBSUB_CHANNEL = "pubsub"
+val CHANNEL_TYPES = setOf(PUSH_CHANNEL, PUBSUB_CHANNEL)
 
 @Serializable
-data class TimestampSpec(val path: String, val format: String = "iso", val maxAgeHours: Int? = null)
+data class Channel(
+    val type: String = PUSH_CHANNEL,
+)
+
+@Serializable
+data class TimestampSpec(
+    val path: String,
+    val format: String = "iso",
+    val maxAgeHours: Int? = null,
+)
 
 @Serializable
 data class FieldSpec(
@@ -34,7 +43,7 @@ data class Rule(
 
 @Serializable
 data class Source(
-    val version: Int = 1,
+    val version: Int = DEFINITION_VERSION,
     val kind: String = "source",
     val id: String,
     val label: String? = null,

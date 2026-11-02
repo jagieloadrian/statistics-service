@@ -1,0 +1,6 @@
+services:
+  nats:
+    image: nats:2.15.2
+    command: ["-js"]
+    ports:
+      - "4222:4222"

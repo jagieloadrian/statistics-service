@@ -1,13 +1,64 @@
 <!--
 Sync Impact Report
-Version change: 2.2.0 → 2.2.1 (PATCH, 2026-10-27) — Development Workflow no longer
+Version change: 2.5.0 → 2.6.0 (MINOR, 2026-11-02) — deploy moves from plain
+  kustomize manifests in `.devops/k8s/` to a Flux HelmRelease in `.devops/helm/`
+  using the shared homelab-infra chart `charts/app`: values inline in
+  `release.yaml`, secrets in Vault `secret/apps/statistics-service`
+  (ExternalSecret from the chart, `secrets: true`). CI commits the image tag to `release.yaml`; no Flux
+  image automation (`.devops/flux/` dropped earlier). Same rendered contract
+  (HTTPRoute, AuthorizationPolicy, ConfigMap, Secret), so not MAJOR.
+Modified principles:
+  - IV. Local-First, Minimal-Ops Simplicity — shared platform chart instead of
+    plain manifests; still no own charts or operators.
+Modified sections: Technology & Architecture Constraints (deploy).
+Templates: plan/spec/tasks templates ✅ no deployment references, no change needed.
+Previous: 2.4.0 → 2.5.0 (MINOR, 2026-10-30) — pub/sub ingestion is built:
+  its producer exists (spec 004 US5). One broker, Kafka or NATS JetStream, is
+  chosen by app configuration (`BROKER`); sources opt in with channel type
+  `pubsub`, so switching the broker never touches definitions. Messages carry
+  the same payload and mapping model as HTTP push plus the source credential
+  (`Authorization: Bearer`); a message is acked/committed only after its records
+  are durably stored. Readiness never depends on the broker. Expanded guidance,
+  no principle removed or redefined, so not MAJOR.
+Modified principles:
+  - I. Configuration Over Code — channel list names pub/sub (Kafka or NATS JetStream).
+  - IV. Local-First, Minimal-Ops Simplicity — pub/sub moved from "build on demand"
+    to built; pull and gRPC still wait for a producer.
+Modified sections: Technology & Architecture Constraints (ingestion, operations).
+Templates: plan/spec/tasks templates ✅ no channel references, no change needed.
+Previous: 2.3.0 → 2.4.0 (MINOR, 2026-10-28) — the homelab platform contract
+  (homelab repo, "Homelab Platform Contract — wymagania dla aplikacji") is the
+  deployment target: Jib multi-arch image pushed by CI, kustomize manifests with
+  HTTPRoute on home-gateway + AuthorizationPolicy, Flux image automation, secrets
+  SOPS-encrypted in the homelab repo. Replaces the v2.3.0 Istio Gateway /
+  VirtualService wording. New code-quality constraints: no comments in code, no
+  `!!`, request validation at the HTTP boundary, ktlint and warnings-as-errors
+  gate in `./gradlew check`, health/metrics/JSON-log/graceful-shutdown contract.
+  Agent tooling: the ponytail `ponytail:` comment marker no longer applies.
+  Expanded guidance, no principle removed, so not MAJOR.
+Modified principles:
+  - IV. Local-First, Minimal-Ops Simplicity — homelab k8s platform is the deploy
+    target; local dev stays Docker Compose (Postgres) + `./gradlew run`.
+Modified sections: Technology & Architecture Constraints (deploy, CI, code
+  quality, operations), Development Workflow (agent tooling).
+Templates: plan/spec/tasks templates ✅ no deployment or comment rules, no change needed.
+Previous: 2.2.1 → 2.3.0 (MINOR, 2026-10-28) — principle IV and Technology
+  constraints: Kubernetes + Istio manifests (plain kustomize, `.devops/k8s/`) are in
+  scope as an optional deployment target; Docker Compose stays the local dev/deploy
+  path; no Helm or operators. Multi-host orchestration beyond these manifests stays
+  deferred. Expanded guidance, nothing removed or redefined, so not MAJOR.
+Modified principles:
+  - IV. Local-First, Minimal-Ops Simplicity — deferred list no longer names k8s;
+    optional k8s/Istio target added with its limits.
+Templates: plan/spec/tasks templates ✅ no k8s references, no change needed.
+Previous: 2.2.0 → 2.2.1 (PATCH, 2026-10-27) — Development Workflow no longer
   names deleted files (user-roadmap.md, agent-os/, .copilot/).
 Previous: 2.1.0 → 2.2.0 (MINOR, 2026-10-27) — principle IV: OpenID Connect
   sign-in moved from deferred to in scope (spec 005), alongside local accounts.
   Materially expanded guidance; no principle removed or redefined and deployments
   without an IdP keep working, so not MAJOR.
 Previous: 2.0.0 → 2.1.0 (MINOR — legacy device-ingestion clause removed)
-Modified principles:
+Modified principles (2.2.0):
   - IV. Local-First, Minimal-Ops Simplicity — OIDC sign-in in scope (generic, optional,
     IdP authenticates only); deferred list now names IdP-managed roles / provisioning
     instead of single sign-on. Other deferrals unchanged.
@@ -33,8 +84,8 @@ domain-specific types, routes, screens or URLs in the backend or the frontend
 (spec 004 FR-018, SC-002). Adding a new data source MUST NOT require code
 changes, rebuilds or redeploys of either side. Logic that declarative mapping
 cannot express MUST live in a separate collector app (any language) that
-feeds the platform over a supported channel (HTTP push, HTTP pull, Kafka,
-gRPC) with a source credential. The platform MUST NOT load plugins or
+feeds the platform over a supported channel (HTTP push, pub/sub over Kafka or
+NATS JetStream, later HTTP pull or gRPC) with a source credential. The platform MUST NOT load plugins or
 extensions in-process (no ServiceLoader, no jar drop-in, no per-domain Gradle
 modules).
 
@@ -75,28 +126,40 @@ without over-testing what isn't load-bearing.
 
 ### IV. Local-First, Minimal-Ops Simplicity
 
-Default to self-hosted, low-friction deployment (Docker Compose) at home-lab
-scale. In scope: platform-managed accounts, sign-in, roles admin / editor /
-viewer, dashboard sharing, user preferences, and sign-in through any OpenID
-Connect provider (generic: issuer + client id) next to local password
-accounts. Local accounts MAY be switched off by config; the app MUST work with
-no IdP configured; the IdP only authenticates — roles stay managed in the app;
-device/collector source credentials stay separate from user sign-in. v1 serves
-exactly one organization, but every owned definition and user MUST belong to
-it explicitly so multiple organizations can be added later without changing
-existing definitions, exports or contracts. Do not build provider-specific IdP
-code, IdP-managed roles or user provisioning, multi-organization, alerting,
-push-to-browser streaming, data export, k8s/multi-host orchestration or
-analytics-store migrations until a concrete, confirmed need exists. A new
-ingestion channel (pull, Kafka, gRPC) is built only when a real producer for
-it exists. Follow YAGNI: no abstraction beyond what the generic source →
-dataset → query → widget model itself needs.
+Default to self-hosted, low-friction deployment at home-lab scale. The
+deployment target is the homelab Kubernetes platform, following its platform
+contract (homelab repo): a Flux HelmRelease in `.devops/helm/` using the
+shared homelab-infra chart `charts/app` (values inline, secrets in Vault
+`secret/apps/statistics-service` via ExternalSecret), no own Helm charts or
+operators; the platform owns Postgres, the gateway and Vault.
+Local development stays Docker Compose for dependencies plus `./gradlew run`;
+the app MUST keep running outside the cluster. In scope: platform-managed accounts, sign-in,
+roles admin / editor / viewer, dashboard sharing, user preferences, and
+sign-in through any OpenID Connect provider (generic: issuer + client id) next
+to local password accounts. Local accounts MAY be switched off by config; the
+app MUST work with no IdP configured; the IdP only authenticates — roles stay
+managed in the app; device/collector source credentials stay separate from
+user sign-in. v1 serves exactly one organization, but every owned definition
+and user MUST belong to it explicitly so multiple organizations can be added
+later without changing existing definitions, exports or contracts. Do not
+build provider-specific IdP code, IdP-managed roles or user provisioning,
+multi-organization, alerting, push-to-browser streaming, data export,
+multi-host orchestration beyond the shared platform chart (own Helm charts,
+operators, autoscaling) or analytics-store migrations until a concrete, confirmed need
+exists. Pub/sub ingestion is built because its producer exists: one broker,
+Kafka or NATS JetStream, chosen by configuration, never both at once. Any
+other new ingestion channel (pull, gRPC) is built only when a real producer
+for it exists. Follow YAGNI: no abstraction beyond what the generic
+source → dataset → query → widget model itself needs.
 
 **Rationale**: a user panel is now an explicit requirement (spec 004 US4), so
 auth leaves the backlog; OIDC sign-in (spec 005) lets users sign in through a
 lightweight IAM provider instead of app passwords, without vendor lock-in.
-Everything else stays deferred because building ahead of a trigger wastes
-effort on a single-owner, home-lab product.
+The homelab platform contract fixes image, routing, probes and secrets once
+for every app, so the service follows it instead of carrying its own Istio
+Gateway, Postgres or secret files. Everything else stays deferred
+because building ahead of a trigger wastes effort on a single-owner, home-lab
+product.
 
 ### V. Storage & API Modularity
 
@@ -128,16 +191,43 @@ minimal, and the abstraction keeps the later upgrade path open.
   (v2 because v1 was the removed plugin API). RESTful, plural nouns, nesting ≤ 3 levels,
   filtering/sorting/pagination via query params or query body, not new
   endpoints.
-- Ingestion: HTTP push is the baseline channel; HTTP pull, Kafka and gRPC use
-  the same mapping model and are added only when a producer exists. A record
-  is acknowledged only after it is durably stored.
+- Ingestion: HTTP push is the baseline channel. Pub/sub (channel `pubsub`)
+  consumes one broker chosen by config (`BROKER=none|kafka|jetstream`): Kafka
+  topic with the source id as record key, or JetStream subject
+  `<prefix>.<sourceId>` on a durable pull consumer; the message carries the push
+  payload and `Authorization: Bearer <source token>`, delivery is at least once.
+  HTTP pull and gRPC use the same mapping model and are added only when a
+  producer exists. A record is acknowledged (HTTP 200, broker ack or offset
+  commit) only after it is durably stored; messages that can never be stored
+  are acked and recorded as rejections, never redelivered forever.
 - Validation: declarative, per source mapping, always server-side; never
   trust device/client input. Every source has its own rotatable credential;
   data without a valid one is rejected.
-- Local dev/deploy: Docker Compose; no k8s until a real multi-host need.
-- Testing: JUnit + Kotest assertions, Testcontainers for storage-backed
-  integration tests.
-- CI: GitHub Actions for build and test.
+- Deploy: homelab platform contract. Jib builds a linux/amd64 + linux/arm64
+  image (eclipse-temurin:21-jre, user 10001); `.devops/helm/release.yaml` is
+  a Flux HelmRelease of the shared homelab-infra chart `charts/app`, which
+  renders ServiceAccount, Deployment, Service, HTTPRoute on `home-gateway`,
+  AuthorizationPolicy, ConfigMap and ExternalSecret for namespace `apps`; CI commits
+  the image tag to `release.yaml`, no Flux image automation. Secrets live
+  in Vault `secret/apps/statistics-service` (keys = env names), never in
+  this repo or in the image. No own Helm charts, no operators. Local dev:
+  Docker Compose for Postgres (and Kafka or
+  NATS when working on pub/sub).
+- Operations: `/health/live` (no dependencies), `/health/ready` (database,
+  503 when down; never the broker), Prometheus `/metrics` (incl. broker
+  consumer state, pending messages and outcomes), JSON logs with `traceId` (plain via
+  `LOG_FORMAT=plain`), SIGTERM drains in-flight calls and exits 0, outbound
+  calls time out (connect ≤ 2 s, request ≤ 10 s) and carry `traceparent`,
+  invalid configuration fails fast at startup.
+- Code quality: Kotlin coding conventions; no comments in code (names and
+  small functions carry intent); no `!!`; request bodies validated at the HTTP
+  boundary (Ktor RequestValidation, 400 `ApiError`); ktlint and
+  `allWarningsAsErrors` gate `./gradlew check`.
+- Testing: Kotest + Testcontainers for storage-backed integration tests.
+- CI: GitHub Actions runs `./gradlew check`; on `main` or `v*` tags it pushes
+  `ghcr.io/jagieloadrian/statistics-service` tagged
+  `main-<yyyyMMddHHmmss>-<sha7>` or the semver version, never `latest`.
+  Renovate keeps dependencies current.
 
 ## Development Workflow
 
@@ -152,7 +242,10 @@ minimal, and the abstraction keeps the later upgrade path open.
   run with the `ponytail` and `caveman` skills active (lazy/minimal-diff
   implementation, terse output), plus `i-have-adhd` when that plugin is
   installed in the working environment. If a named skill isn't installed,
-  proceed without it and say so rather than blocking the task.
+  proceed without it and say so rather than blocking the task. The ponytail
+  `ponytail:` comment marker does not apply here (no comments in code):
+  record deliberate simplifications in the commit message or
+  `PROJECT-STATUS.md` instead.
 
 ## Governance
 
@@ -166,4 +259,4 @@ clarification), and (3) propagation check against
 verify compliance with Core Principles; deviations MUST be justified in the
 plan's Complexity Tracking section or rejected.
 
-**Version**: 2.2.1 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-10-27
+**Version**: 2.6.0 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-11-02

@@ -1,0 +1,55 @@
+# Wdrożenie: wspólny chart homelab-infra/charts/app (opis values: charts/app/values.yaml).
+# Flux czyta .devops/helm/ z main; tag obrazu podbija CI (build.yml, krok Deploy).
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: statistics-service
+spec:
+  interval: 10m
+  chart:
+    spec:
+      chart: ./charts/app
+      reconcileStrategy: Revision
+      sourceRef:
+        kind: GitRepository
+        name: flux-system
+        namespace: flux-system
+  values:
+    # Secret statistics-service-secrets from Vault secret/apps/statistics-service (homelab-infra docs/vault.md)
+    secrets: true
+    image: ghcr.io/jagieloadrian/statistics-service:main-20261028120000-abc1234
+    resources:
+      requests:
+        cpu: 100m
+        memory: 384Mi
+      limits:
+        memory: 384Mi
+    route:
+      hostname: statistics.home.arpa
+      pathPrefix: /api/
+    # Jawna konfiguracja -> ConfigMap statistics-service-config. Sekrety: Vault (secrets wyżej).
+    # Opis zmiennych: homelab-infra docs/setup.md.
+    env:
+      DB_URL: jdbc:postgresql://postgres.apps.svc.cluster.local:5432/statistics?currentSchema=statistics
+      DB_USER: statistics
+      ADMIN_EMAIL: admin@home.arpa
+      AUTH_LOCAL: "true"
+      OIDC_ISSUER: ""
+      OIDC_CLIENT_ID: ""
+      OIDC_NAME: SSO
+      CORS_HOSTS: statistics.home.arpa
+      TRUST_PROXY: "true"
+      LOG_FORMAT: json
+      BROKER: none
+      KAFKA_BOOTSTRAP_SERVERS: ""
+      KAFKA_GROUP_ID: statistics-service
+      KAFKA_TOPIC: stats.ingest
+      KAFKA_SECURITY_PROTOCOL: PLAINTEXT
+      KAFKA_SASL_MECHANISM: PLAIN
+      NATS_URL: nats://nats.apps.svc.cluster.local:4222
+      NATS_STREAM: STATS_INGEST
+      NATS_SUBJECT_PREFIX: stats.ingest
+      NATS_DURABLE: statistics-service
+      NATS_STREAM_MAX_AGE: 7d
+      NATS_STREAM_MAX_BYTES: "268435456"
+      NATS_USER: statistics-service
