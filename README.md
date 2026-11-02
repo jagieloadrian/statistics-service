@@ -213,9 +213,11 @@ and a Secret synced from Vault:
 - Deploy: a push to `main` builds the image and CI commits the new tag to
   `.devops/helm/release.yaml`; Flux (homelab-infra
   `clusters/home/apps/statistics-service.yaml`) reads that directory and rolls
-  it out. `main` is protected, so the CI step "Deploy (bump image tag)" can
-  push only when GitHub Actions is on the bypass list of the branch protection
-  rule or ruleset; otherwise bump the tag with a PR.
+  it out. `main` is protected, so the CI step "Deploy (bump image tag)" pushes as a
+  GitHub App on the ruleset bypass list (variable `DEPLOY_APP_CLIENT_ID`,
+  secret `DEPLOY_APP_PRIVATE_KEY`):
+  setup in https://github.com/jagieloadrian/homelab-infra/blob/main/docs/apps.md
+  (own app, step 3). The tag commit carries `[skip ci]`.
 - `install.remediation.retries: -1` in `release.yaml`: Flux keeps retrying the
   first install (e.g. until the Vault secrets exist), no manual
   `flux reconcile --force`; a failed upgrade is retried 3 times.
