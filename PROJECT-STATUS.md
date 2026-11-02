@@ -1,6 +1,6 @@
 # Project Status
 
-Updated 2026-10-31. Features: [spec 004 universal stats platform](specs/004-universal-stats-platform/spec.md)
+Updated 2026-11-02. Features: [spec 004 universal stats platform](specs/004-universal-stats-platform/spec.md)
 (tasks: [tasks.md](specs/004-universal-stats-platform/tasks.md)), [spec 005 OIDC sign-in](specs/005-oidc-login/spec.md)
 (tasks: [tasks.md](specs/005-oidc-login/tasks.md)).
 
@@ -78,6 +78,11 @@ every rule (backend + UI). Then a DRY/conventions pass in both repos (errors, us
 broker, OIDC, test setup; UI roles/kinds, PlatformApi, no comments, visibility). 151 tests green, coverage
 instruction 95.5 %, line 97.2 %, branch 92.9 %; UI jvmTest 45 green.
 
+Helm (2026-11-02, constitution 2.6.0): `.devops/k8s` replaced by `.devops/helm/` — Flux HelmRelease of the
+shared homelab-infra chart `charts/app`, config inline in `values.env`, secrets as SOPS-encrypted Helm values
+`secrets.sops.yaml` (`secretEnv`, via `valuesFrom`); CI bumps the tag in `release.yaml`, `devops.yml`
+validates with `helm template` + kubeconform.
+
 ## Decisions
 
 - Old v1 API dropped entirely; RPi devices get the new URL + source token (`.docs/Device_Ingest.md`).
@@ -128,9 +133,8 @@ Details: research.md D4. Not a release gate.
 
 ## Next steps
 
-First, homelab rollout: real Postgres host in `.devops/k8s/configmap.yaml`, SOPS Secret
-`statistics-service-secrets`, copy manifests to homelab `apps/statistics-service/` and the image
-objects to `clusters/home/image-automation.yaml`, register the OIDC client
+First, homelab rollout: real Postgres host in `.devops/helm/release.yaml` (`values.env`), SOPS secrets
+in `.devops/helm/secrets.sops.yaml` (`secretEnv` → `statistics-service-secrets`), register the OIDC client
 (`http://statistics.home.arpa/`). Prometheus scraping needs an AuthorizationPolicy rule for the scraper.
 
 0. OIDC manual checks (spec 005 quickstart §1–§6, T034): `/etc/hosts` entry `127.0.0.1 auth.example.com`,

@@ -1,6 +1,18 @@
 <!--
 Sync Impact Report
-Version change: 2.4.0 → 2.5.0 (MINOR, 2026-10-30) — pub/sub ingestion is built:
+Version change: 2.5.0 → 2.6.0 (MINOR, 2026-11-02) — deploy moves from plain
+  kustomize manifests in `.devops/k8s/` to a Flux HelmRelease in `.devops/helm/`
+  using the shared homelab-infra chart `charts/app`: values inline in
+  `release.yaml`, secrets as a SOPS-encrypted Helm values file
+  (`secrets.sops.yaml`). CI commits the image tag to `release.yaml`; no Flux
+  image automation (`.devops/flux/` dropped earlier). Same rendered contract
+  (HTTPRoute, AuthorizationPolicy, ConfigMap, Secret), so not MAJOR.
+Modified principles:
+  - IV. Local-First, Minimal-Ops Simplicity — shared platform chart instead of
+    plain manifests; still no own charts or operators.
+Modified sections: Technology & Architecture Constraints (deploy).
+Templates: plan/spec/tasks templates ✅ no deployment references, no change needed.
+Previous: 2.4.0 → 2.5.0 (MINOR, 2026-10-30) — pub/sub ingestion is built:
   its producer exists (spec 004 US5). One broker, Kafka or NATS JetStream, is
   chosen by app configuration (`BROKER`); sources opt in with channel type
   `pubsub`, so switching the broker never touches definitions. Messages carry
@@ -116,8 +128,10 @@ without over-testing what isn't load-bearing.
 
 Default to self-hosted, low-friction deployment at home-lab scale. The
 deployment target is the homelab Kubernetes platform, following its platform
-contract (homelab repo): plain kustomize manifests in `.devops/k8s/`, no Helm
-charts or operators; the platform owns Postgres, the gateway and secrets.
+contract (homelab repo): a Flux HelmRelease in `.devops/helm/` using the
+shared homelab-infra chart `charts/app` (values inline, secrets as a
+SOPS-encrypted values file), no own Helm charts or operators; the platform
+owns Postgres, the gateway and secret decryption.
 Local development stays Docker Compose for dependencies plus `./gradlew run`;
 the app MUST keep running outside the cluster. In scope: platform-managed accounts, sign-in,
 roles admin / editor / viewer, dashboard sharing, user preferences, and
@@ -130,8 +144,8 @@ and user MUST belong to it explicitly so multiple organizations can be added
 later without changing existing definitions, exports or contracts. Do not
 build provider-specific IdP code, IdP-managed roles or user provisioning,
 multi-organization, alerting, push-to-browser streaming, data export,
-multi-host orchestration beyond the platform manifests (Helm, operators,
-autoscaling) or analytics-store migrations until a concrete, confirmed need
+multi-host orchestration beyond the shared platform chart (own Helm charts,
+operators, autoscaling) or analytics-store migrations until a concrete, confirmed need
 exists. Pub/sub ingestion is built because its producer exists: one broker,
 Kafka or NATS JetStream, chosen by configuration, never both at once. Any
 other new ingestion channel (pull, gRPC) is built only when a real producer
@@ -190,12 +204,14 @@ minimal, and the abstraction keeps the later upgrade path open.
   trust device/client input. Every source has its own rotatable credential;
   data without a valid one is rejected.
 - Deploy: homelab platform contract. Jib builds a linux/amd64 + linux/arm64
-  image (eclipse-temurin:21-jre, user 10001); `.devops/k8s/` holds
-  ServiceAccount, Deployment, Service, HTTPRoute on `home-gateway`,
-  AuthorizationPolicy and ConfigMap for namespace `apps`;
-  `.devops/flux/` holds the Flux ImageRepository/ImagePolicy. Secrets live
-  SOPS-encrypted in the homelab repo, never in this repo or the image. No
-  Helm, no operators. Local dev: Docker Compose for Postgres (and Kafka or
+  image (eclipse-temurin:21-jre, user 10001); `.devops/helm/release.yaml` is
+  a Flux HelmRelease of the shared homelab-infra chart `charts/app`, which
+  renders ServiceAccount, Deployment, Service, HTTPRoute on `home-gateway`,
+  AuthorizationPolicy, ConfigMap and Secret for namespace `apps`; CI commits
+  the image tag to `release.yaml`, no Flux image automation. Secrets live
+  SOPS-encrypted in `.devops/helm/secrets.sops.yaml`, never in plaintext in
+  this repo or in the image. No own Helm charts, no operators. Local dev:
+  Docker Compose for Postgres (and Kafka or
   NATS when working on pub/sub).
 - Operations: `/health/live` (no dependencies), `/health/ready` (database,
   503 when down; never the broker), Prometheus `/metrics` (incl. broker
@@ -243,4 +259,4 @@ clarification), and (3) propagation check against
 verify compliance with Core Principles; deviations MUST be justified in the
 plan's Complexity Tracking section or rejected.
 
-**Version**: 2.5.0 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-10-30
+**Version**: 2.6.0 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-11-02

@@ -147,10 +147,11 @@ Stop with `docker compose -f .devops/<kafka|nats>-compose/compose.yaml down` (br
 ## Kubernetes (homelab platform)
 
 Deployed per the homelab platform contract ("Homelab Platform Contract —
-wymagania dla aplikacji"). [.devops/k8s/](.devops/k8s/) (kustomize, namespace
-`apps`) is read directly by Flux from `main` of this repo (registered in
-homelab-infra `clusters/home/apps/statistics-service.yaml`); CI rewrites the
-`image:` tag there on every push to `main`.
+wymagania dla aplikacji"). [.devops/helm/](.devops/helm/) (Flux HelmRelease of
+the shared homelab-infra chart `charts/app`, namespace `apps`) is read directly
+by Flux from `main` of this repo (registered in homelab-infra
+`clusters/home/apps/statistics-service.yaml`); CI rewrites the `image:` tag in
+`release.yaml` on every push to `main`.
 
 - Image: `ghcr.io/jagieloadrian/statistics-service`, built by Jib
   (linux/amd64 + linux/arm64, eclipse-temurin:21-jre, user 10001). CI pushes
@@ -167,26 +168,28 @@ homelab-infra `clusters/home/apps/statistics-service.yaml`); CI rewrites the
 - Backup: the service is stateless; the database is backed up by the platform.
 - One replica: login rate limits and source status are kept in memory.
 
-Environment comes from two dotenv files turned into a ConfigMap and a Secret by
-kustomize generators (a change rolls the Deployment):
+Environment comes from two sets of Helm values turned into a ConfigMap and a
+Secret by the chart (a change rolls the Deployment):
 
-- [config.env](.devops/k8s/config.env), plain → ConfigMap
+- `values.env` in [release.yaml](.devops/helm/release.yaml), plain → ConfigMap
   `statistics-service-config`: `DB_URL`, `DB_USER`, `ADMIN_EMAIL`,
   `AUTH_LOCAL`, `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_NAME`, `CORS_HOSTS`,
   `TRUST_PROXY`, `LOG_FORMAT`, `BROKER` (`none`), `KAFKA_*` (no password) and
   `NATS_*` (no password/token; `NATS_URL` already points at the in-cluster NATS).
   Turning on JetStream = `BROKER=jetstream` here + `NATS_PASSWORD` in the secret.
-- `.devops/k8s/secrets.sops.env`, SOPS/age-encrypted, decrypted by Flux →
+- `secretEnv` in `.devops/helm/secrets.sops.yaml`, SOPS/age-encrypted Helm
+  values, decrypted by Flux and passed to the HelmRelease via `valuesFrom`
+  (secretGenerator in [kustomization.yaml](.devops/helm/kustomization.yaml)) →
   Secret `statistics-service-secrets`: `DB_PASSWORD`, `ADMIN_PASSWORD`,
   `OIDC_CLIENT_SECRET`, and with a broker `NATS_PASSWORD` (or `NATS_TOKEN`) or
-  `KAFKA_PASSWORD`. Create/edit only with `sops .devops/k8s/secrets.sops.env`
+  `KAFKA_PASSWORD`. Create/edit only with `sops .devops/helm/secrets.sops.yaml`
   (plaintext never touches the disk); the age key is in [.sops.yaml](.sops.yaml).
 
 - Database: role and schema `statistics` in database `statistics` on the
   Postgres running on the Wyse host, reached as
   `postgres.apps.svc.cluster.local:5432` (homelab-infra `docs/postgres.md`).
 - Deploy: a push to `main` builds the image and CI commits the new tag to
-  `.devops/k8s/`; Flux (homelab-infra
+  `.devops/helm/release.yaml`; Flux (homelab-infra
   `clusters/home/apps/statistics-service.yaml`) reads that directory and rolls
   it out.
 
@@ -226,16 +229,17 @@ kustomize generators (a change rolls the Deployment):
   against the image (read-only root filesystem, 384 Mi limit)
 - [x] Readiness 503 while Postgres is down, 200 after it returns — verified
 - [x] Fail-fast config, single JSON error line, exit 1 — verified
-- [x] `kustomize build` (v5.4.3) + `kubeconform -strict` incl. HTTPRoute,
-  AuthorizationPolicy and Flux CRDs — 8/8 valid; `istioctl validate` — valid
+- [ ] `kustomize build .devops/helm` + `helm template` (homelab-infra
+  `charts/app`) + `kubeconform -strict` incl. HTTPRoute, AuthorizationPolicy
+  and Flux CRDs (CI `devops.yml`); `istioctl validate`
 - [x] CI workflow — `actionlint` clean
 - [x] `DB_URL` points at the platform Postgres (`postgres.apps.svc.cluster.local`)
 - [ ] Role + schema `statistics` created on the Wyse Postgres
-- [ ] Secret `statistics-service-secrets` in `.devops/k8s/secrets.sops.env` (SOPS)
+- [ ] Secret `statistics-service-secrets` via `.devops/helm/secrets.sops.yaml` (SOPS)
 - [ ] OIDC client registered with redirect URI `http://statistics.home.arpa/`
 - [x] Registered in homelab-infra (`clusters/home/apps/statistics-service.yaml`)
-- [ ] Pub/sub (optional): `BROKER=jetstream` in config.env, `NATS_PASSWORD` in
-  the secret (not digits-only), NATS AuthorizationPolicy admits
+- [ ] Pub/sub (optional): `BROKER: jetstream` in `values.env` (`release.yaml`), `NATS_PASSWORD` in
+  `secretEnv` (not digits-only), NATS AuthorizationPolicy admits
   `cluster.local/ns/apps/sa/statistics-service`
 
 ## Build & test
