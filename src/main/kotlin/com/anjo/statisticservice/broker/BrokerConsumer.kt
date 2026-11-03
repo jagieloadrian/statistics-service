@@ -10,13 +10,22 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.HttpStatusCode
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.Tags
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineName
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.sql.SQLException
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
-import kotlin.concurrent.thread
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -36,51 +45,63 @@ class BrokerConsumer(
     registry: MeterRegistry,
     private val stopTimeout: Duration = STOP_TIMEOUT,
 ) : AutoCloseable {
+    private val worker =
+        CoroutineScope(Dispatchers.IO + CoroutineName("$name-consumer")).launch(start = CoroutineStart.LAZY) { consume() }
     private val stopped = CountDownLatch(1)
-    private val worker = thread(start = false, isDaemon = true, name = "$name-consumer") { consume() }
     private val consuming = AtomicInteger()
     private val pending = AtomicLong()
     private val stored = registry.counter(MESSAGES_METRIC, BROKER_TAG, name, OUTCOME_TAG, "stored")
     private val rejected = registry.counter(MESSAGES_METRIC, BROKER_TAG, name, OUTCOME_TAG, "rejected")
     private val retried = registry.counter(MESSAGES_METRIC, BROKER_TAG, name, OUTCOME_TAG, "retried")
-    private val running get() = stopped.count > 0
 
     init {
+        worker.invokeOnCompletion { stopped.countDown() }
         registry.gauge("statistics.broker.consuming", Tags.of(BROKER_TAG, name), consuming)
         registry.gauge("statistics.broker.pending.messages", Tags.of(BROKER_TAG, name), pending)
     }
 
-    fun start() = worker.start()
+    fun start() {
+        worker.start()
+    }
 
     override fun close() {
-        stopped.countDown()
-        worker.join(stopTimeout.inWholeMilliseconds)
-    }
-
-    private fun consume() {
-        var backoff = MIN_BACKOFF
-        while (running) {
-            try {
-                newBroker().use { broker ->
-                    broker.connect()
-                    while (running) {
-                        val delivery = broker.poll(::handle)
-                        track(broker)
-                        backoff = if (delivery == Delivery.RETRY) pause(backoff) else MIN_BACKOFF
-                    }
-                }
-            } catch (e: Exception) {
-                consuming.set(0)
-                logger.warn { "$name broker unavailable (${e.javaClass.simpleName}: ${e.message}), retrying in $backoff" }
-                backoff = pause(backoff)
-            }
+        worker.cancel()
+        if (!stopped.await(stopTimeout.inWholeMilliseconds, TimeUnit.MILLISECONDS)) {
+            logger.warn { "$name consumer did not stop within $stopTimeout" }
         }
-        consuming.set(0)
-        logger.info { "$name consumer stopped" }
     }
 
-    private fun pause(backoff: Duration): Duration {
-        stopped.await(backoff.inWholeMilliseconds, TimeUnit.MILLISECONDS)
+    private suspend fun consume() {
+        var backoff = MIN_BACKOFF
+        try {
+            while (active()) {
+                try {
+                    newBroker().use { broker ->
+                        broker.connect()
+                        while (active()) {
+                            val delivery = broker.poll(::handle)
+                            track(broker)
+                            backoff = if (delivery == Delivery.RETRY) pause(backoff) else MIN_BACKOFF
+                        }
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    consuming.set(0)
+                    logger.warn { "$name broker unavailable (${e.javaClass.simpleName}: ${e.message}), retrying in $backoff" }
+                    backoff = pause(backoff)
+                }
+            }
+        } finally {
+            consuming.set(0)
+            logger.info { "$name consumer stopped" }
+        }
+    }
+
+    private suspend fun active() = currentCoroutineContext().isActive
+
+    private suspend fun pause(backoff: Duration): Duration {
+        delay(backoff)
         return (backoff * 2).coerceAtMost(MAX_BACKOFF)
     }
 
@@ -92,9 +113,12 @@ class BrokerConsumer(
         pending.set(broker.pending())
     }
 
-    private fun handle(message: BrokerMessage): Delivery =
+    private suspend fun handle(message: BrokerMessage): Delivery =
+        if (active()) withContext(NonCancellable) { store(message) } else Delivery.RETRY
+
+    private suspend fun store(message: BrokerMessage): Delivery =
         try {
-            runBlocking { ingest.ingest(message.sourceId, message.authorization, PUBSUB_CHANNEL) { message.payload } }
+            ingest.ingest(message.sourceId, message.authorization, PUBSUB_CHANNEL) { message.payload }
             stored.increment()
             Delivery.DONE
         } catch (e: ApiException) {

@@ -24,13 +24,30 @@ private class HangingBroker : Broker {
 
     override fun connect() = Unit
 
-    override fun poll(handle: (BrokerMessage) -> Delivery): Delivery {
+    override suspend fun poll(handle: suspend (BrokerMessage) -> Delivery): Delivery {
         polling.countDown()
         released.await()
         return Delivery.DONE
     }
 
     override fun isConsuming() = true
+
+    override fun pending() = 0L
+
+    override fun close() = Unit
+}
+
+private class UnreachableBroker : Broker {
+    val attempted = CountDownLatch(1)
+
+    override fun connect() {
+        attempted.countDown()
+        error("broker down")
+    }
+
+    override suspend fun poll(handle: suspend (BrokerMessage) -> Delivery) = Delivery.DONE
+
+    override fun isConsuming() = false
 
     override fun pending() = 0L
 
@@ -60,5 +77,19 @@ class BrokerConsumerTest :
             took shouldBeGreaterThanOrEqualTo timeout
             took shouldBeLessThan 2.seconds
             broker.released.countDown()
+        }
+
+        test("closing interrupts the reconnect backoff at once") {
+            // given
+            val broker = UnreachableBroker()
+            val consumer = BrokerConsumer("unreachable", { broker }, ingest, status, SimpleMeterRegistry())
+            consumer.start()
+            broker.attempted.await(5, TimeUnit.SECONDS) shouldBe true
+
+            // when
+            val took = measureTime { consumer.close() }
+
+            // then
+            took shouldBeLessThan 500.milliseconds
         }
     })

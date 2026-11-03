@@ -16,11 +16,10 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationStopped
 import io.ktor.server.plugins.di.dependencies
-import kotlinx.coroutines.runBlocking
 
 private val logger = KotlinLogging.logger {}
 
-fun Application.configureDI(config: AppConfig) {
+suspend fun Application.configureDI(config: AppConfig) {
     val db = Db(config.db.url, config.db.user, config.db.password)
     monitor.subscribe(ApplicationStopped) { db.close() }
     val pubsub =
@@ -30,7 +29,7 @@ fun Application.configureDI(config: AppConfig) {
             null -> null
         }
     val auth = AuthService(db, config.localSignIn, config.adminEmail, config.oidc?.let(::Oidc), pubsub)
-    if (runBlocking { auth.bootstrapAdmin(config.adminEmail, config.adminPassword) }) logger.info { "Created admin ${config.adminEmail}" }
+    if (auth.bootstrapAdmin(config.adminEmail, config.adminPassword)) logger.info { "Created admin ${config.adminEmail}" }
     val status = SourceStatusService()
     val definitions = DefinitionService(db, status)
     val records = RecordService(db)
