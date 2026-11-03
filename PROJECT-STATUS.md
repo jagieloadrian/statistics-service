@@ -1,6 +1,6 @@
 # Project Status
 
-Updated 2026-11-02. Features: [spec 004 universal stats platform](specs/004-universal-stats-platform/spec.md)
+Updated 2026-11-03. Features: [spec 004 universal stats platform](specs/004-universal-stats-platform/spec.md)
 (tasks: [tasks.md](specs/004-universal-stats-platform/tasks.md)), [spec 005 OIDC sign-in](specs/005-oidc-login/spec.md)
 (tasks: [tasks.md](specs/005-oidc-login/tasks.md)).
 
@@ -83,6 +83,11 @@ shared homelab-infra chart `charts/app`, config inline in `values.env`, secrets 
 `secret/apps/statistics-service` (ExternalSecret, `secrets: true`); CI bumps the tag in `release.yaml`, `devops.yml`
 validates with `helm template` + kubeconform.
 
+Cleanup (2026-11-03, branch `feature-9/broker-coroutines`): the broker consumer runs as a coroutine on
+`Dispatchers.IO` instead of a raw thread, with no `runBlocking`. `module()` and `configureDI()` are suspend, so the
+admin bootstrap no longer uses `runBlocking`. Config classes and loaders are one file per section (db, oidc, kafka,
+jetstream). `Secrets.kt` is split into `Passwords.kt` and `Tokens.kt`. 152 tests green.
+
 ## Decisions
 
 - Old v1 API dropped entirely; RPi devices get the new URL + source token (`.docs/Device_Ingest.md`).
@@ -121,7 +126,8 @@ validates with `helm template` + kubeconform.
   drop (ack) messages. No per-source rate limit on the broker path. Readiness ignores the broker.
   Pubsub sources must have identity in every mapping rule (native records are push-only).
 - Shutdown order: HTTP drain (StopPreparing), Netty, then DI closes dependencies in reverse declaration order,
-  so the broker consumer (declared after `Db`) stops before the pool. socketTimeout 60 s also bounds Flyway
+  so the broker consumer (declared after `Db`) stops before the pool. Stopping cancels the consumer coroutine.
+  A message already being stored finishes (NonCancellable) and is acked. The rest of its batch goes back as RETRY. socketTimeout 60 s also bounds Flyway
   migrations and dataset deletes; raise it if one ever needs longer.
 
 ## Measured
