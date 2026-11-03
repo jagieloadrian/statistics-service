@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "datasets": [
+    {
+      "version": 1, "kind": "dataset", "id": "home-assistant", "label": "Home Assistant statistics",
+      "measures": [
+        { "name": "mean", "type": "number", "label": "Mean" },
+        { "name": "min", "type": "number", "label": "Min" },
+        { "name": "max", "type": "number", "label": "Max" },
+        { "name": "state", "type": "number", "label": "State" },
+        { "name": "sum", "type": "number", "label": "Sum" }
+      ],
+      "dimensions": [ { "name": "entity", "label": "Entity" } ]
+    }
+  ],
+  "sources": [
+    {
+      "version": 1, "kind": "source", "id": "home-assistant", "label": "Home Assistant (mon-home-ass)",
+      "channel": { "type": "pubsub" },
+      "dataset": "home-assistant",
+      "mapping": [
+        {
+          "timestamp": { "path": "ts", "format": "iso" },
+          "identity": ["dims.statistic_id", "ts"],
+          "dims": { "entity": { "path": "dims.statistic_id" } },
+          "vals": {
+            "mean": { "path": "vals.mean", "required": false },
+            "min": { "path": "vals.min", "required": false },
+            "max": { "path": "vals.max", "required": false },
+            "state": { "path": "vals.state", "required": false },
+            "sum": { "path": "vals.sum", "required": false }
+          }
+        }
+      ]
+    }
+  ],
+  "dashboards": [
+    {
+      "version": 1, "kind": "dashboard", "id": "home-assistant", "title": "Home Assistant",
+      "visibility": "all", "refreshSeconds": 300, "defaultRange": { "last": "P1D" },
+      "variables": [
+        { "name": "entity", "type": "dimension", "dataset": "home-assistant", "dimension": "entity" },
+        { "name": "range", "type": "timeRange", "default": "P1D" },
+        { "name": "bucket", "type": "bucket", "options": ["raw", "1h", "1d"], "default": "1h" }
+      ],
+      "widgets": [
+        {
+          "id": "entities", "title": "Entities", "type": "table", "w": 12, "h": 3,
+          "query": {
+            "dataset": "home-assistant", "groupBy": ["entity"], "bucket": "none",
+            "measures": [
+              { "field": "ts", "agg": "max", "as": "lastSeen" },
+              { "field": "mean", "agg": "last", "as": "mean" },
+              { "field": "state", "agg": "last", "as": "state" }
+            ]
+          }
+        },
+        {
+          "id": "trend", "title": "$entity", "type": "line", "w": 12, "h": 4,
+          "query": {
+            "dataset": "home-assistant", "filter": { "entity": ["$entity"] }, "bucket": "$bucket",
+            "measures": [
+              { "field": "mean", "agg": "avg", "as": "mean" },
+              { "field": "min", "agg": "min", "as": "min" },
+              { "field": "max", "agg": "max", "as": "max" }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

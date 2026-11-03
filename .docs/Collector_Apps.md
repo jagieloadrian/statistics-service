@@ -6,7 +6,9 @@ the collector talks to it only through the ingest API or the configured broker
 (Kafka or NATS JetStream, see the end of this page), so it can be written in
 any language, run anywhere, and crash without affecting anything else.
 
-Example: [`examples/collector.py`](../examples/collector.py) (Python stdlib only).
+Examples: [`examples/collector.py`](../examples/collector.py) (HTTP push, Python stdlib only) and
+[mon-home-ass](https://github.com/jagieloadrian/mon-home-ass#statistics-publisher) (NATS JetStream or Kafka,
+receiving side in [`definitions/home-assistant.json`](../definitions/home-assistant.json)).
 
 ## Collector or mapping?
 

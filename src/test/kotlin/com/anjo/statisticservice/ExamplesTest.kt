@@ -1,8 +1,10 @@
 package com.anjo.statisticservice
 
 import com.anjo.statisticservice.model.Bundle
+import com.anjo.statisticservice.model.Channel
 import com.anjo.statisticservice.model.Dashboard
 import com.anjo.statisticservice.model.Dataset
+import com.anjo.statisticservice.model.PUSH_CHANNEL
 import com.anjo.statisticservice.model.Query
 import com.anjo.statisticservice.model.Source
 import com.anjo.statisticservice.model.definitionJson
@@ -208,6 +210,44 @@ class ExamplesTest :
                         .single()
                 summary.dropLast(1) shouldBe listOf("30.0", "2.0", "40.0", "4.0")
                 summary.last().toDouble() shouldBe (44.0 / 263).plusOrMinus(1e-9)
+            }
+        }
+
+        test("home-assistant bundle") {
+            testApp {
+                // given
+                val b = bundle("home-assistant")
+                client.load(b)
+                val pushed = b.copy(sources = b.sources.map { it.copy(channel = Channel(PUSH_CHANNEL)) })
+                val token = client.load(pushed).getValue("home-assistant")
+                val rows =
+                    listOf(
+                        """{"ts":"2026-01-05T15:00:00Z","dims":{"statistic_id":"sensor.room"},"vals":{"mean":21.0,"min":20.5,"max":21.5}}""",
+                        """{"ts":"2026-01-05T15:05:00Z","dims":{"statistic_id":"sensor.room"},"vals":{"mean":22.0,"min":21.5,"max":22.5}}""",
+                        """{"ts":"2026-01-05T15:00:00Z","dims":{"statistic_id":"sensor.energy"},"vals":{"state":3.5,"sum":120.0}}""",
+                    )
+
+                // when
+                val first = rows.map { client.postJson("/api/v2/ingest/home-assistant", it, token).json().toString() }
+                val resent = client.postJson("/api/v2/ingest/home-assistant", rows[0], token).json().toString()
+                val w =
+                    client.widgets(
+                        b.dashboards.single(),
+                        mapOf("entity" to "sensor.room", "bucket" to "raw"),
+                        Instant.parse("2026-01-05T00:00:00Z"),
+                        Instant.parse("2026-01-06T00:00:00Z"),
+                    )
+
+                // then
+                first shouldBe List(3) { """{"accepted":1,"duplicates":0}""" }
+                resent shouldBe """{"accepted":0,"duplicates":1}"""
+                w.getValue("entities").map { (dims, _) -> dims.getValue("entity").jsonPrimitive.content }.toSet() shouldBe
+                    setOf("sensor.room", "sensor.energy")
+                w.getValue("trend").single().second shouldBe
+                    listOf(
+                        listOf("2026-01-05T15:00:00Z", "21.0", "20.5", "21.5"),
+                        listOf("2026-01-05T15:05:00Z", "22.0", "21.5", "22.5"),
+                    )
             }
         }
     })
