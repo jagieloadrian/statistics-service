@@ -20,7 +20,7 @@ spec:
         namespace: flux-system
   values:
     secrets: true
-    image: ghcr.io/jagieloadrian/statistics-service:main-20261102155410-445214a
+    image: ghcr.io/jagieloadrian/statistics-service:main-20261103203725-4b62b0b
     resources:
       requests:
         cpu: 100m
