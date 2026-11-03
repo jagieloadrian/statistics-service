@@ -239,9 +239,9 @@ and a Secret synced from Vault:
 - `values.env` in [release.yaml](.devops/helm/release.yaml), plain → ConfigMap
   `statistics-service-config`: `DB_URL`, `DB_USER`, `ADMIN_EMAIL`,
   `AUTH_LOCAL`, `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_NAME`, `CORS_HOSTS`,
-  `TRUST_PROXY`, `LOG_FORMAT`, `BROKER` (`none`), `KAFKA_*` (no password) and
-  `NATS_*` (no password/token; `NATS_URL` already points at the in-cluster NATS).
-  Turning on JetStream = `BROKER=jetstream` here + `NATS_PASSWORD` in the secret.
+  `TRUST_PROXY`, `LOG_FORMAT`, `BROKER` (`jetstream`), `KAFKA_*` (no password) and
+  `NATS_*` (no password/token; `NATS_URL` points at the in-cluster NATS).
+  `NATS_PASSWORD` comes from the secret.
 - Vault `secret/apps/statistics-service` (keys = env names, set with
   `vault kv put`, homelab-infra `docs/vault.md`) → ExternalSecret from the chart
   (`secrets: true` in `release.yaml`) → Secret `statistics-service-secrets`:
@@ -308,7 +308,7 @@ and a Secret synced from Vault:
 - [ ] Secrets in Vault `secret/apps/statistics-service` (homelab-infra `docs/vault.md`)
 - [ ] OIDC client registered with redirect URI `http://statistics.home.arpa/`
 - [x] Registered in homelab-infra (`clusters/home/apps/statistics-service.yaml`)
-- [ ] Pub/sub (optional): `BROKER: jetstream` in `values.env` (`release.yaml`), `NATS_PASSWORD` in
+- [ ] Pub/sub: `BROKER: jetstream` in `values.env` (`release.yaml`), `NATS_PASSWORD` in
   Vault (not digits-only), NATS AuthorizationPolicy admits
   `cluster.local/ns/apps/sa/statistics-service`
 
