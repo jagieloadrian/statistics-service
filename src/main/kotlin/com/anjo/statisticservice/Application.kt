@@ -36,7 +36,7 @@ fun main(args: Array<String>) {
     }
 }
 
-fun Application.module() {
+suspend fun Application.module() {
     val config = environment.config.toAppConfig()
     drainInFlightCallsOnStop()
     val registry = configureMonitoring()
