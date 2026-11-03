@@ -44,7 +44,7 @@ class JetStreamBroker(
         consumer = nats.getStreamContext(config.stream).createOrUpdateConsumer(config.consumerConfiguration())
     }
 
-    override fun poll(handle: (BrokerMessage) -> Delivery): Delivery {
+    override suspend fun poll(handle: suspend (BrokerMessage) -> Delivery): Delivery {
         val context = checkNotNull(consumer) { "JetStream consumer is not connected" }
         context.fetch(FETCH_OPTIONS).use { fetch ->
             var message = fetch.nextMessage()

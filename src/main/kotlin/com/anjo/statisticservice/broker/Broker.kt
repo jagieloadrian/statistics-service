@@ -11,7 +11,7 @@ internal val CONNECT_TIMEOUT = 2.seconds
 interface Broker : AutoCloseable {
     fun connect()
 
-    fun poll(handle: (BrokerMessage) -> Delivery): Delivery
+    suspend fun poll(handle: suspend (BrokerMessage) -> Delivery): Delivery
 
     fun isConsuming(): Boolean
 

@@ -28,7 +28,7 @@ class KafkaBroker(
 
     override fun connect() = consumer.subscribe(listOf(config.topic))
 
-    override fun poll(handle: (BrokerMessage) -> Delivery): Delivery {
+    override suspend fun poll(handle: suspend (BrokerMessage) -> Delivery): Delivery {
         val records = consumer.poll(POLL_WAIT.toJavaDuration())
         val handled = mutableMapOf<TopicPartition, OffsetAndMetadata>()
         var delivery = Delivery.DONE
