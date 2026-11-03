@@ -294,23 +294,30 @@ and a Secret synced from Vault:
 
 ### Definition of Ready
 
+Verified in this repo and its image:
+
 - [x] Multi-arch image via Jib, non-root 10001, no secrets in image — verified
   with `docker buildx imagetools inspect` and a local registry
 - [x] Probes, `/metrics`, JSON logs, SIGTERM exit 0 with drain — verified
   against the image (read-only root filesystem, 384 Mi limit)
 - [x] Readiness 503 while Postgres is down, 200 after it returns — verified
 - [x] Fail-fast config, single JSON error line, exit 1 — verified
-- [ ] `helm template` (homelab-infra `charts/app`) + `kubeconform -strict` incl. HTTPRoute, AuthorizationPolicy
-  and Flux CRDs (CI `devops.yml`); `istioctl validate`
+- [x] `helm template` (homelab-infra `charts/app`) + `kubeconform -strict` incl. HTTPRoute, AuthorizationPolicy
+  and Flux CRDs (CI `devops.yml`); `istioctl validate` (1.30) — verified
 - [x] CI workflow — `actionlint` clean
 - [x] `DB_URL` points at the platform Postgres (`postgres.apps.svc.cluster.local`)
-- [ ] Role + schema `statistics` created on the Wyse Postgres
-- [ ] Secrets in Vault `secret/apps/statistics-service` (homelab-infra `docs/vault.md`)
-- [ ] OIDC client registered with redirect URI `http://statistics.home.arpa/`
 - [x] Registered in homelab-infra (`clusters/home/apps/statistics-service.yaml`)
-- [ ] Pub/sub: `BROKER: jetstream` in `values.env` (`release.yaml`), `NATS_PASSWORD` in
-  Vault (not digits-only), NATS AuthorizationPolicy admits
-  `cluster.local/ns/apps/sa/statistics-service`
+- [x] Pub/sub: `BROKER: jetstream` in `values.env` (`release.yaml`); NATS AuthorizationPolicy in homelab-infra
+  admits `cluster.local/ns/apps/sa/statistics-service`
+
+On deploy, done by hand on the homelab (homelab-infra
+[`docs/setup.md`](https://github.com/jagieloadrian/homelab-infra/blob/main/docs/setup.md)):
+
+| What | Where |
+| --- | --- |
+| Role + schema `statistics` on the Wyse Postgres | step 2 |
+| Secrets in Vault `secret/apps/statistics-service`, incl. `NATS_PASSWORD` (not digits-only) | step 7 |
+| OIDC client with redirect URI `http://statistics.home.arpa/` (only with SSO) | step 1, `OIDC_*` rows |
 
 ## Build & test
 
