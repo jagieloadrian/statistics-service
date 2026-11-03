@@ -72,3 +72,11 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git commit -am "chore(deploy): ${{ steps.tag.outputs.tag }} [skip ci]"
           git pull --rebase && git push
+
+      - name: Clean up old images (keep 20)
+        if: github.ref == 'refs/heads/main'
+        uses: dataaxiom/ghcr-cleanup-action@v1
+        with:
+          keep-n-tagged: 20
+          delete-untagged: true
+          dry-run: true
