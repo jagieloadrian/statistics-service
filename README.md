@@ -6,6 +6,48 @@ turn it into records of a dataset, dashboards query them. Everything domain
 specific is configuration (JSON definitions), not code. Frontend: the
 `Statistics-UI` repo.
 
+## How data gets in
+
+The service never fetches data. Devices and collectors send it, either over HTTP
+or through a broker, and every payload goes the same way into Postgres:
+
+```mermaid
+flowchart LR
+    Device[device or collector] -->|"POST /api/v2/ingest/{sourceId}"| Ingest
+    Collector["collector, e.g. mon-home-ass"] -->|"stats.ingest.{sourceId} or Kafka key {sourceId}"| Broker{{"NATS JetStream or Kafka (BROKER)"}}
+    Broker -->|"one consumer thread, batches of 100"| Ingest
+    subgraph service[statistics-service]
+        Ingest[ingest] --> Records[(Postgres: records)]
+        Records --> Query[query API]
+    end
+    UI[Statistics-UI dashboards] -->|"POST /api/v2/query"| Query
+```
+
+What happens to one payload (`IngestService`):
+
+1. **Source**: looked up by id; unknown id → 404.
+2. **Token**: `Authorization: Bearer <source token>` must match the source credential → else 401.
+3. **Channel**: a `push` source takes HTTP only, a `pubsub` source the broker only → else 409. A paused source → 503.
+4. **Mapping**: the source mapping turns the payload into records of its dataset (timestamp, `dims`, `vals`).
+   Any invalid field → 400 with one reason per problem and nothing stored; the reasons also land in
+   `GET /api/v2/sources/{sourceId}/status`.
+5. **Duplicates**: records with the same `identity` as stored ones are counted as duplicates and skipped.
+6. **Store**: the records go into the `records` table. Dashboards read them through the query API, which
+   aggregates in Postgres (`date_bin` buckets, `GROUP BY`); there is no cache in between.
+
+Over a broker there is no HTTP answer: a message is acked only after step 6. Rejected messages (steps 1 to 4)
+are acked and counted, and all but an unknown source show up in the source status. Database errors are retried
+with back-off.
+
+| To read | Where |
+| --- | --- |
+| Push from a device (payload, responses) | [.docs/Device_Ingest.md](.docs/Device_Ingest.md) |
+| Writing a collector, publishing to a broker | [.docs/Collector_Apps.md](.docs/Collector_Apps.md) |
+| Broker settings (`BROKER`, `KAFKA_*`, `NATS_*`) | [Pub/sub ingestion](#pubsub-ingestion-kafka--nats-jetstream) below |
+| Definition format (datasets, sources, mappings, dashboards) | [contracts/definition-format.md](specs/004-universal-stats-platform/contracts/definition-format.md) |
+| Full API | [contracts/api-v2.md](specs/004-universal-stats-platform/contracts/api-v2.md) |
+| Example definitions | [definitions/](definitions/): `temperature` (push), `epidemic` (push, `each`), `home-assistant` (pubsub, fed by mon-home-ass) |
+
 ## Run locally
 
 The compose file starts PostgreSQL 16 with database, user and password `stats`:
