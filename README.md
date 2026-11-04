@@ -316,7 +316,7 @@ On deploy, done by hand on the homelab (homelab-infra
 | What | Where |
 | --- | --- |
 | Role + schema `statistics` on the Wyse Postgres | step 2 |
-| Secrets in Vault `secret/apps/statistics-service`, incl. `NATS_PASSWORD` (not digits-only) | step 7 |
+| Secrets in Vault `secret/apps/statistics-service`, incl. `NATS_PASSWORD` (not digits-only) | step 4 (`scripts/install.sh` asks for them) |
 | OIDC client with redirect URI `http://statistics.home.arpa/` (only with SSO) | step 1, `OIDC_*` rows |
 
 ## Build & test
