@@ -254,6 +254,9 @@ and a Secret synced from Vault:
   `.devops/helm/release.yaml`; Flux reads that directory and rolls it out. `main` is protected, so the CI step "Deploy (bump image tag)" pushes as a
   GitHub App on the ruleset bypass list (variable `DEPLOY_APP_CLIENT_ID`,
   secret `DEPLOY_APP_PRIVATE_KEY`). The tag commit carries `[skip ci]`.
+- homelab-infra is private, so `devops.yml` fetches `charts/app` with a token of the same GitHub App, limited to
+  homelab-infra and Contents: read. The app must be installed on homelab-infra too (GitHub → Settings → GitHub Apps →
+  the app → Configure → Repository access → add `homelab-infra`); without it the step fails with `Not Found`.
 - `install.remediation.retries: -1` in `release.yaml`: Flux keeps retrying the
   first install (e.g. until the Vault secrets exist), no manual
   `flux reconcile --force`; a failed upgrade is retried 3 times.
