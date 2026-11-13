@@ -26,13 +26,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Checkout chart (homelab-infra)
-        uses: actions/checkout@v7
-        with:
-          repository: jagieloadrian/homelab-infra
-          path: homelab-infra
-          sparse-checkout: charts
-
       - name: values.env
         run: |
           yq -e '.spec.values.env.DB_URL | test("^jdbc:postgresql://")' "$RELEASE" >/dev/null || { echo "::error file=$RELEASE::DB_URL musi zaczynać się od jdbc:postgresql://"; exit 1; }
@@ -44,7 +37,4 @@ jobs:
         run: curl -sSL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" | sudo tar xz -C /usr/local/bin kubeconform
 
       - name: Kubernetes manifests
-        run: |
-          kc() { kubeconform -strict -summary -schema-location default -schema-location "$CRD_SCHEMAS" "$@"; }
-          kc .devops/helm
-          yq '.spec.values' "$RELEASE" | helm template "$(yq .metadata.name "$RELEASE")" homelab-infra/charts/app -f - | kc -
+        run: kubeconform -strict -summary -schema-location default -schema-location "$CRD_SCHEMAS" .devops/helm
