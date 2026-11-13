@@ -1,8 +1,10 @@
 <!--
 Sync Impact Report
-Version change: 2.5.0 → 2.6.0 (MINOR, 2026-11-02) — deploy moves from plain
+Version change: 2.6.0 → 2.6.1 (PATCH, 2026-11-13) — wording: the infra
+  repository is no longer named; the project stays independent of other repos.
+Previous: 2.5.0 → 2.6.0 (MINOR, 2026-11-02) — deploy moves from plain
   kustomize manifests in `.devops/k8s/` to a Flux HelmRelease in `.devops/helm/`
-  using the shared homelab-infra chart `charts/app`: values inline in
+  using the platform's shared chart `charts/app`: values inline in
   `release.yaml`, secrets in Vault `secret/apps/statistics-service`
   (ExternalSecret from the chart, `secrets: true`). CI commits the image tag to `release.yaml`; no Flux
   image automation (`.devops/flux/` dropped earlier). Same rendered contract
@@ -128,8 +130,8 @@ without over-testing what isn't load-bearing.
 
 Default to self-hosted, low-friction deployment at home-lab scale. The
 deployment target is the homelab Kubernetes platform, following its platform
-contract (homelab repo): a Flux HelmRelease in `.devops/helm/` using the
-shared homelab-infra chart `charts/app` (values inline, secrets in Vault
+contract: a Flux HelmRelease in `.devops/helm/` using the platform's
+shared chart `charts/app` (values inline, secrets in Vault
 `secret/apps/statistics-service` via ExternalSecret), no own Helm charts or
 operators; the platform owns Postgres, the gateway and Vault.
 Local development stays Docker Compose for dependencies plus `./gradlew run`;
@@ -205,7 +207,7 @@ minimal, and the abstraction keeps the later upgrade path open.
   data without a valid one is rejected.
 - Deploy: homelab platform contract. Jib builds a linux/amd64 + linux/arm64
   image (eclipse-temurin:21-jre, user 10001); `.devops/helm/release.yaml` is
-  a Flux HelmRelease of the shared homelab-infra chart `charts/app`, which
+  a Flux HelmRelease of the platform's shared chart `charts/app`, which
   renders ServiceAccount, Deployment, Service, HTTPRoute on `home-gateway`,
   AuthorizationPolicy, ConfigMap and ExternalSecret for namespace `apps`; CI commits
   the image tag to `release.yaml`, no Flux image automation. Secrets live
@@ -259,4 +261,4 @@ clarification), and (3) propagation check against
 verify compliance with Core Principles; deviations MUST be justified in the
 plan's Complexity Tracking section or rejected.
 
-**Version**: 2.6.0 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-11-02
+**Version**: 2.6.1 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-11-13
