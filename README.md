@@ -210,12 +210,10 @@ Stop with `docker compose -f .devops/<kafka|nats>-compose/compose.yaml down` (br
 
 ## Kubernetes (homelab platform)
 
-Deployed per the homelab platform contract, requirements for applications:
-[homelab-infra docs/apps.md](https://github.com/jagieloadrian/homelab-infra/blob/main/docs/apps.md).
+Deployed per the homelab platform contract (kept with the cluster, outside this repo).
 [.devops/helm/](.devops/helm/) (Flux HelmRelease of
-the shared homelab-infra chart `charts/app`, namespace `apps`) is read directly
-by Flux from `main` of this repo (registered in homelab-infra
-`clusters/home/apps/statistics-service.yaml`); CI rewrites the `image:` tag in
+the platform's shared chart `charts/app`, namespace `apps`) is read directly
+by Flux from `main` of this repo (registered on the cluster side); CI rewrites the `image:` tag in
 `release.yaml` on every push to `main`.
 
 - Image: `ghcr.io/jagieloadrian/statistics-service`, built by Jib
@@ -243,7 +241,7 @@ and a Secret synced from Vault:
   `NATS_*` (no password/token; `NATS_URL` points at the in-cluster NATS).
   `NATS_PASSWORD` comes from the secret.
 - Vault `secret/apps/statistics-service` (keys = env names, set with
-  `vault kv put`, homelab-infra `docs/vault.md`) → ExternalSecret from the chart
+  `vault kv put`) → ExternalSecret from the chart
   (`secrets: true` in `release.yaml`) → Secret `statistics-service-secrets`:
   `DB_PASSWORD`, `ADMIN_PASSWORD`, `OIDC_CLIENT_SECRET`, and with a broker
   `NATS_PASSWORD` (or `NATS_TOKEN`) or `KAFKA_PASSWORD`. Nothing secret in git,
@@ -251,15 +249,11 @@ and a Secret synced from Vault:
 
 - Database: role and schema `statistics` in database `statistics` on the
   Postgres running on the Wyse host, reached as
-  `postgres.apps.svc.cluster.local:5432` (homelab-infra `docs/postgres.md`).
+  `postgres.apps.svc.cluster.local:5432`.
 - Deploy: a push to `main` builds the image and CI commits the new tag to
-  `.devops/helm/release.yaml`; Flux (homelab-infra
-  `clusters/home/apps/statistics-service.yaml`) reads that directory and rolls
-  it out. `main` is protected, so the CI step "Deploy (bump image tag)" pushes as a
+  `.devops/helm/release.yaml`; Flux reads that directory and rolls it out. `main` is protected, so the CI step "Deploy (bump image tag)" pushes as a
   GitHub App on the ruleset bypass list (variable `DEPLOY_APP_CLIENT_ID`,
-  secret `DEPLOY_APP_PRIVATE_KEY`):
-  setup in https://github.com/jagieloadrian/homelab-infra/blob/main/docs/apps.md
-  (own app, step 3). The tag commit carries `[skip ci]`.
+  secret `DEPLOY_APP_PRIVATE_KEY`). The tag commit carries `[skip ci]`.
 - `install.remediation.retries: -1` in `release.yaml`: Flux keeps retrying the
   first install (e.g. until the Vault secrets exist), no manual
   `flux reconcile --force`; a failed upgrade is retried 3 times.
@@ -302,16 +296,15 @@ Verified in this repo and its image:
   against the image (read-only root filesystem, 384 Mi limit)
 - [x] Readiness 503 while Postgres is down, 200 after it returns — verified
 - [x] Fail-fast config, single JSON error line, exit 1 — verified
-- [x] `helm template` (homelab-infra `charts/app`) + `kubeconform -strict` incl. HTTPRoute, AuthorizationPolicy
-  and Flux CRDs (CI `devops.yml`); `istioctl validate` (1.30) — verified
+- [x] `kubeconform -strict` of `.devops/helm` incl. Flux CRDs (CI `devops.yml`); chart output (`helm template`
+  + kubeconform incl. HTTPRoute, AuthorizationPolicy) and `istioctl validate` (1.30) — verified by hand
 - [x] CI workflow — `actionlint` clean
 - [x] `DB_URL` points at the platform Postgres (`postgres.apps.svc.cluster.local`)
-- [x] Registered in homelab-infra (`clusters/home/apps/statistics-service.yaml`)
-- [x] Pub/sub: `BROKER: jetstream` in `values.env` (`release.yaml`); NATS AuthorizationPolicy in homelab-infra
+- [x] Registered in the cluster's Flux
+- [x] Pub/sub: `BROKER: jetstream` in `values.env` (`release.yaml`); the platform's NATS AuthorizationPolicy
   admits `cluster.local/ns/apps/sa/statistics-service`
 
-On deploy, done by hand on the homelab (homelab-infra
-[`docs/setup.md`](https://github.com/jagieloadrian/homelab-infra/blob/main/docs/setup.md)):
+On deploy, done by hand on the homelab (steps of the platform setup guide):
 
 | What | Where |
 | --- | --- |

@@ -1,6 +1,6 @@
 # Project Status
 
-Updated 2026-11-03. Features: [spec 004 universal stats platform](specs/004-universal-stats-platform/spec.md)
+Updated 2026-11-13. Features: [spec 004 universal stats platform](specs/004-universal-stats-platform/spec.md)
 (tasks: [tasks.md](specs/004-universal-stats-platform/tasks.md)), [spec 005 OIDC sign-in](specs/005-oidc-login/spec.md)
 (tasks: [tasks.md](specs/005-oidc-login/tasks.md)).
 
@@ -79,7 +79,7 @@ broker, OIDC, test setup; UI roles/kinds, PlatformApi, no comments, visibility).
 instruction 95.5 %, line 97.2 %, branch 92.9 %; UI jvmTest 45 green.
 
 Helm (2026-11-02, constitution 2.6.0): `.devops/k8s` replaced by `.devops/helm/` — Flux HelmRelease of the
-shared homelab-infra chart `charts/app`, config inline in `values.env`, secrets in Vault
+platform's shared chart `charts/app`, config inline in `values.env`, secrets in Vault
 `secret/apps/statistics-service` (ExternalSecret, `secrets: true`); CI bumps the tag in `release.yaml`, `devops.yml`
 validates with `helm template` + kubeconform.
 
@@ -87,6 +87,9 @@ Cleanup (2026-11-03, branch `feature-9/broker-coroutines`): the broker consumer 
 `Dispatchers.IO` instead of a raw thread, with no `runBlocking`. `module()` and `configureDI()` are suspend, so the
 admin bootstrap no longer uses `runBlocking`. Config classes and loaders are one file per section (db, oidc, kafka,
 jetstream). `Secrets.kt` is split into `Passwords.kt` and `Tokens.kt`. 152 tests green.
+
+CI (2026-11-13, branch `feature-15/devops-own-manifests`): `devops.yml` no longer checks out the chart's private
+repository (it failed with `Not Found`); it validates `values.env` and `.devops/helm` with kubeconform only.
 
 ## Decisions
 
@@ -130,6 +133,9 @@ jetstream). `Secrets.kt` is split into `Passwords.kt` and `Tokens.kt`. 152 tests
   A message already being stored finishes (NonCancellable) and is acked. The rest of its batch goes back as RETRY. socketTimeout 60 s also bounds Flyway
   migrations and dataset deletes; raise it if one ever needs longer.
 
+- CI references no other repository until the repos share an organization (owner's rule, 2026-11-13). The chart
+  output is no longer rendered in CI; check it by hand when `release.yaml` changes.
+
 ## Measured
 
 - SC-004 **missed**: 8 parallel 30-day queries on 5 M records, p95 12 s (target 2 s); single query 2.3 s.
@@ -140,7 +146,7 @@ Details: research.md D4. Not a release gate.
 ## Next steps
 
 First, homelab rollout: real Postgres host in `.devops/helm/release.yaml` (`values.env`), secrets in Vault
-`secret/apps/statistics-service` (`vault kv put`, homelab-infra docs/vault.md), register the OIDC client
+`secret/apps/statistics-service` (`vault kv put`), register the OIDC client
 (`http://statistics.home.arpa/`). Prometheus scraping needs an AuthorizationPolicy rule for the scraper.
 
 0. OIDC manual checks (spec 005 quickstart §1–§6, T034): `/etc/hosts` entry `127.0.0.1 auth.example.com`,
@@ -154,6 +160,6 @@ First, homelab rollout: real Postgres host in `.devops/helm/release.yaml` (`valu
    Kotest on js/wasm needs the `io.kotest` plugin + KSP (tests compile, not discovered yet).
 4. Reprogram the RPi devices (quickstart §7): new URL `/api/v2/ingest/{temperature|epidemic}` + header.
 5. US5 channels: pub/sub done; pull and gRPC only when a real producer exists. Homelab: `BROKER=jetstream` +
-   `NATS_PASSWORD` in Vault once the NATS rollout in homelab-infra is live.
+   `NATS_PASSWORD` in Vault once the platform's NATS rollout is live.
 6. Small UI gaps noted by `ponytail:` comments: the dashboard JSON has no owner, so the Edit button
    shows for editors on other people's dashboards (the server answers 403).
