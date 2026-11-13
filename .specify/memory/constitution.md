@@ -29,10 +29,10 @@ Modified principles:
 Modified sections: Technology & Architecture Constraints (ingestion, operations).
 Templates: plan/spec/tasks templates ✅ no channel references, no change needed.
 Previous: 2.3.0 → 2.4.0 (MINOR, 2026-10-28) — the homelab platform contract
-  (homelab repo, "Homelab Platform Contract — wymagania dla aplikacji") is the
+  ("Homelab Platform Contract — wymagania dla aplikacji") is the
   deployment target: Jib multi-arch image pushed by CI, kustomize manifests with
   HTTPRoute on home-gateway + AuthorizationPolicy, Flux image automation, secrets
-  SOPS-encrypted in the homelab repo. Replaces the v2.3.0 Istio Gateway /
+  SOPS-encrypted on the platform side. Replaces the v2.3.0 Istio Gateway /
   VirtualService wording. New code-quality constraints: no comments in code, no
   `!!`, request validation at the HTTP boundary, ktlint and warnings-as-errors
   gate in `./gradlew check`, health/metrics/JSON-log/graceful-shutdown contract.
