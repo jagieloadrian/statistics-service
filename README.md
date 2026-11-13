@@ -302,8 +302,8 @@ Verified in this repo and its image:
   against the image (read-only root filesystem, 384 Mi limit)
 - [x] Readiness 503 while Postgres is down, 200 after it returns — verified
 - [x] Fail-fast config, single JSON error line, exit 1 — verified
-- [x] `helm template` (homelab-infra `charts/app`) + `kubeconform -strict` incl. HTTPRoute, AuthorizationPolicy
-  and Flux CRDs (CI `devops.yml`); `istioctl validate` (1.30) — verified
+- [x] `kubeconform -strict` of `.devops/helm` incl. Flux CRDs (CI `devops.yml`); chart output (`helm template`
+  + kubeconform incl. HTTPRoute, AuthorizationPolicy) and `istioctl validate` (1.30) — verified by hand
 - [x] CI workflow — `actionlint` clean
 - [x] `DB_URL` points at the platform Postgres (`postgres.apps.svc.cluster.local`)
 - [x] Registered in homelab-infra (`clusters/home/apps/statistics-service.yaml`)

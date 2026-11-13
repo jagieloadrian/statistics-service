@@ -1,6 +1,6 @@
 # Project Status
 
-Updated 2026-11-03. Features: [spec 004 universal stats platform](specs/004-universal-stats-platform/spec.md)
+Updated 2026-11-13. Features: [spec 004 universal stats platform](specs/004-universal-stats-platform/spec.md)
 (tasks: [tasks.md](specs/004-universal-stats-platform/tasks.md)), [spec 005 OIDC sign-in](specs/005-oidc-login/spec.md)
 (tasks: [tasks.md](specs/005-oidc-login/tasks.md)).
 
@@ -88,6 +88,9 @@ Cleanup (2026-11-03, branch `feature-9/broker-coroutines`): the broker consumer 
 admin bootstrap no longer uses `runBlocking`. Config classes and loaders are one file per section (db, oidc, kafka,
 jetstream). `Secrets.kt` is split into `Passwords.kt` and `Tokens.kt`. 152 tests green.
 
+CI (2026-11-13, branch `feature-15/devops-own-manifests`): `devops.yml` no longer checks out the chart's private
+repository (it failed with `Not Found`); it validates `values.env` and `.devops/helm` with kubeconform only.
+
 ## Decisions
 
 - Old v1 API dropped entirely; RPi devices get the new URL + source token (`.docs/Device_Ingest.md`).
@@ -129,6 +132,9 @@ jetstream). `Secrets.kt` is split into `Passwords.kt` and `Tokens.kt`. 152 tests
   so the broker consumer (declared after `Db`) stops before the pool. Stopping cancels the consumer coroutine.
   A message already being stored finishes (NonCancellable) and is acked. The rest of its batch goes back as RETRY. socketTimeout 60 s also bounds Flyway
   migrations and dataset deletes; raise it if one ever needs longer.
+
+- CI references no other repository until the repos share an organization (owner's rule, 2026-11-13). The chart
+  output is no longer rendered in CI; check it by hand when `release.yaml` changes.
 
 ## Measured
 
